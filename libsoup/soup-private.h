@@ -46,6 +46,7 @@ extern gpointer        soup_auth_fn_user_data;
 
 typedef struct {
 	gchar      *host;
+	guint       port;
 	GSList     *connections;        /* CONTAINS: SoupConnection */
 	GHashTable *contexts;           /* KEY: uri->path, VALUE: SoupContext */
 	GHashTable *valid_auths;        /* KEY: uri->path, VALUE: SoupAuth */

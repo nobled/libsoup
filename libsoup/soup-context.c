@@ -31,7 +31,7 @@
 #include "soup-socket.h"
 #include "soup-ssl.h"
 
-GHashTable *soup_hosts;  /* KEY: hostname, VALUE: SoupHost */
+GHashTable *soup_hosts;  /* KEY, VALUE: SoupHost */
 
 static gint connection_count = 0;
 
@@ -128,6 +128,24 @@ soup_context_uri_equal (gconstpointer v1, gconstpointer v2)
 	return TRUE;
 }
 
+static guint
+soup_context_host_hash (gconstpointer key)
+{
+	const SoupHost *host = key;
+
+	return soup_str_case_hash (host->host) + host->port;
+}
+
+static gboolean
+soup_context_host_equal (gconstpointer v1, gconstpointer v2)
+{
+	const SoupHost *one = v1;
+	const SoupHost *two = v2;
+
+	return (one->port == two->port) &&
+		!g_strcasecmp (one->host, two->host);
+}
+
 /**
  * soup_context_from_uri:
  * @suri: a %SoupUri.
@@ -142,29 +160,32 @@ SoupContext *
 soup_context_from_uri (SoupUri *suri)
 {
 	SoupHost *serv = NULL;
-	SoupContext *ret = NULL;
+	SoupContext *ret;
 
 	g_return_val_if_fail (suri != NULL, NULL);
 	g_return_val_if_fail (suri->protocol != 0, NULL);
 
 	if (!soup_hosts)
-		soup_hosts = g_hash_table_new (soup_str_case_hash,
-					       soup_str_case_equal);
-	else
-		serv = g_hash_table_lookup (soup_hosts, suri->host);
+		soup_hosts = g_hash_table_new (soup_context_host_hash,
+					       soup_context_host_equal);
+	else {
+		SoupHost tmp;
+
+		tmp.host = suri->host;
+		tmp.port = suri->port;
+		serv = g_hash_table_lookup (soup_hosts, &tmp);
+	}
 
 	if (!serv) {
 		serv = g_new0 (SoupHost, 1);
 		serv->host = g_strdup (suri->host);
-		g_hash_table_insert (soup_hosts, serv->host, serv);
-	}
-
-	if (!serv->contexts)
+		serv->port = suri->port;
 		serv->contexts = g_hash_table_new (soup_context_uri_hash,
 						   soup_context_uri_equal);
-	else
-		ret = g_hash_table_lookup (serv->contexts, suri);
+		g_hash_table_insert (soup_hosts, serv, serv);
+	}
 
+	ret = g_hash_table_lookup (serv->contexts, suri);
 	if (!ret) {
 		ret = g_new0 (SoupContext, 1);
 		ret->server = serv;
@@ -226,7 +247,7 @@ soup_context_unref (SoupContext *ctx)
 			/*
 			 * Remove this host from the active hosts hash
 			 */
-			g_hash_table_remove (soup_hosts, serv->host);
+			g_hash_table_remove (soup_hosts, serv);
 
 			/* 
 			 * Free all cached SoupAuths
@@ -288,9 +309,9 @@ struct SoupConnectData {
 };
 
 static void
-prune_connection_foreach (gchar               *hostname,
-			  SoupHost            *serv,
-			  SoupConnection     **last)
+prune_connection_foreach (SoupHost        *key,
+			  SoupHost        *serv,
+			  SoupConnection **last)
 {
 	GSList *conns = serv->connections;
 
@@ -410,8 +431,7 @@ try_existing_connections (SoupContext           *ctx,
 		SoupConnection *conn = conns->data;
 
 		if (conn->in_use == FALSE &&
-		    conn->keep_alive == TRUE &&
-		    conn->port == (guint) ctx->uri->port) {
+		    conn->keep_alive == TRUE) {
 			/* Set connection to in use */
 			conn->in_use = TRUE;
 

@@ -69,6 +69,8 @@ struct _SoupMessage {
 
 typedef void (*SoupCallbackFn) (SoupMessage *req, gpointer user_data);
 
+void           soup_message_construct           (SoupMessage       *msg);
+
 SoupMessage   *soup_message_new                 (SoupContext       *context,
 						 const gchar       *method);
 

@@ -27,7 +27,6 @@
 #include <libsoup/soup-auth.h>
 #include <libsoup/soup-context.h>
 #include <libsoup/soup-message.h>
-#include <libsoup/soup-server.h>
 #include <libsoup/soup-socket.h>
 #include <libsoup/soup-uri.h>
 
@@ -73,23 +72,6 @@ struct _SoupConnection {
 	guint         death_tag;
 };
 
-struct _SoupServer {
-	SoupProtocol       proto;
-	gint               port;
-
-	guint              refcnt;
-	GMainLoop         *loop;
-
-	guint              accept_tag;
-	SoupSocket        *listen_sock;
-
-	GIOChannel        *cgi_read_chan;
-	GIOChannel        *cgi_write_chan;
-
-	GHashTable        *handlers;   /* KEY: path, VALUE: SoupServerHandler */
-	SoupServerHandler *default_handler;
-};
-
 struct _SoupMessagePrivate {
 	SoupConnectId      connect_tag;
 	guint              read_tag;
@@ -105,10 +87,6 @@ struct _SoupMessagePrivate {
 	GSList            *content_handlers;
 
 	SoupHttpVersion    http_version;
-
-	SoupServer        *server;
-	SoupSocket        *server_sock;
-	SoupServerMessage *server_msg;
 };
 
 /* from soup-message.c */

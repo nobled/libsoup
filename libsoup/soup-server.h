@@ -24,7 +24,7 @@ typedef struct _SoupServerHandler SoupServerHandler;
 
 typedef struct {
 	SoupMessage       *msg;
-	gchar             *path;
+	char              *path;
 	SoupMethodId       method_id;
 	SoupServerAuth    *auth;
 	SoupServer        *server;
@@ -60,7 +60,7 @@ void               soup_server_unref         (SoupServer            *serv);
 
 SoupProtocol       soup_server_get_protocol  (SoupServer            *serv);
 
-gint               soup_server_get_port      (SoupServer            *serv);
+guint              soup_server_get_port      (SoupServer            *serv);
 
 void               soup_server_run           (SoupServer            *serv);
 
@@ -69,17 +69,17 @@ void               soup_server_run_async     (SoupServer            *serv);
 void               soup_server_quit          (SoupServer            *serv);
 
 void               soup_server_register      (SoupServer            *serv,
-					      const gchar           *path,
+					      const char            *path,
 					      SoupServerAuthContext *auth_ctx,
 					      SoupServerCallbackFn   callback,
 					      SoupServerUnregisterFn unregister,
 					      gpointer               user_data);
 
 void               soup_server_unregister    (SoupServer            *serv,
-					      const gchar           *path);
+					      const char            *path);
 
 SoupServerHandler *soup_server_get_handler   (SoupServer            *serv,
-					      const gchar           *path);
+					      const char            *path);
 
 GSList            *soup_server_list_handlers (SoupServer            *serv);
 
@@ -87,27 +87,16 @@ GSList            *soup_server_list_handlers (SoupServer            *serv);
 
 SoupAddress       *soup_server_context_get_client_address (SoupServerContext *context);
 
-gchar             *soup_server_context_get_client_host    (SoupServerContext *context);
+char              *soup_server_context_get_client_host    (SoupServerContext *context);
 
-/* 
- * Apache/soup-httpd module initializtion
- * Implement soup_server_init() in your shared library. 
- */
-extern void soup_server_init (SoupServer *server);
 
-typedef struct _SoupServerMessage SoupServerMessage;
+void               soup_server_message_start      (SoupMessage *msg);
 
-SoupServerMessage *soup_server_message_new        (SoupMessage       *src_msg);
+void               soup_server_message_add_data   (SoupMessage   *msg,
+						   SoupOwnership  owner,
+						   char          *body,
+						   gulong         length);
 
-void               soup_server_message_start      (SoupServerMessage *servmsg);
-
-void               soup_server_message_add_data   (SoupServerMessage *servmsg,
-						   SoupOwnership      owner,
-						   gchar             *body,
-						   gulong             length);
-
-void               soup_server_message_finish     (SoupServerMessage *servmsg);
-
-SoupMessage       *soup_server_message_get_source (SoupServerMessage *servmsg);
+void               soup_server_message_finish     (SoupMessage *msg);
 
 #endif /* SOUP_SERVER_H */

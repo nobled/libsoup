@@ -1,5 +1,28 @@
 2002-11-18  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-server.c (struct _SoupServer): Moved here from
+	soup-private.h
+	(SoupServerMessage): Made private and changed around a bit. This
+	is now a wrapper around SoupMessage.
+	(message_new): Create a new empty SoupServerMessage and then call
+	soup_message_construct on it.
+	(various): Update to deal with casting SoupMessage to
+	SoupServerMessage to get the server, socket, etc fields rather
+	than using msg->priv->server, server_sock, server_msg.
+	(soup_server_message_new, soup_server_message_get_source): Gone
+	(soup_server_message_start, soup_server_message_add_data,
+	soup_server_message_finish): Now take a SoupMessage.
+
+	* libsoup/soup-private.h (struct _SoupServer): Gone. Now private
+	to soup-server.c
+	(struct _SoupMessagePrivate): Remove the server, server_sock, and
+	server_msg fields.
+
+	* libsoup/soup-message.c (soup_message_construct): New.
+	(soup_message_new): Use it.
+
+2002-11-18  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-socket.c (struct _SoupSocket): Moved here from
 	soup-private.h.
 	(soup_socket_connect, soup_socket_server_new, soup_socket_new):

@@ -17,6 +17,20 @@
 #include "soup-queue.h"
 #include "soup-transfer.h"
 
+void
+soup_message_construct (SoupMessage *msg)
+{
+	msg->priv   = g_new0 (SoupMessagePrivate, 1);
+	msg->status = SOUP_STATUS_IDLE;
+
+	msg->request_headers  = g_hash_table_new (soup_str_case_hash, 
+						  soup_str_case_equal);
+	msg->response_headers = g_hash_table_new (soup_str_case_hash, 
+						  soup_str_case_equal);
+
+	msg->priv->http_version = SOUP_HTTP_1_1;
+}
+
 /**
  * soup_message_new:
  * @context: a %SoupContext for the destination endpoint.
@@ -35,19 +49,10 @@ soup_message_new (SoupContext *context, const gchar *method)
 {
 	SoupMessage *ret;
 
-	ret          = g_new0 (SoupMessage, 1);
-	ret->priv    = g_new0 (SoupMessagePrivate, 1);
-	ret->status  = SOUP_STATUS_IDLE;
+	ret = g_new0 (SoupMessage, 1);
+	soup_message_construct (ret);
+
 	ret->method  = method ? method : SOUP_METHOD_GET;
-
-	ret->request_headers = g_hash_table_new (soup_str_case_hash, 
-						 soup_str_case_equal);
-
-	ret->response_headers = g_hash_table_new (soup_str_case_hash, 
-						  soup_str_case_equal);
-
-	ret->priv->http_version = SOUP_HTTP_1_1;
-
 	soup_message_set_context (ret, context);
 
 	return ret;

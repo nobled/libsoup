@@ -28,7 +28,6 @@
 #include "soup-headers.h"
 #include "soup-message.h"
 #include "soup-private.h"
-#include "soup-ntlm.h"
 
 /* 
  * Basic Authentication Support 
@@ -433,130 +432,6 @@ soup_auth_new_digest (void)
 
 
 /*
- * NTLM Authentication Support
- */
-
-typedef struct {
-	SoupAuth  auth;
-	gchar    *response;
-	gchar    *header;
-} SoupAuthNTLM;
-
-/*
- * SoupAuthNTLMs are one time use. Just return the response, and set our
- * reference to NULL so future requests do not include this header.
- */
-static gchar *
-ntlm_auth (SoupAuth *sa, SoupMessage *msg)
-{
-	SoupAuthNTLM *auth = (SoupAuthNTLM *) sa;
-	gchar *ret;
-
-	ret = auth->response;
-	auth->response = NULL;
-
-	return ret;
-}
-
-static inline gchar *
-ntlm_get_authmech_token (const SoupUri *uri, gchar *key)
-{
-	gchar *idx;
-	gint len;
-
-	if (!uri->authmech) return NULL;
-
-      	idx = strstr (uri->authmech, key);
-	if (idx) {
-		idx += strlen (key);
-
-		len = strcspn (idx, ",; ");
-		if (len)
-			return g_strndup (idx, len);
-		else
-			return g_strdup (idx);
-	}
-
-	return NULL;
-}
-
-static void
-ntlm_parse (SoupAuth *sa, const char *header)
-{
-	SoupAuthNTLM *auth = (SoupAuthNTLM *) sa;
-
-	auth->header = g_strdup (header);
-	g_strstrip (auth->header);
-}
-
-static void
-ntlm_init (SoupAuth *sa, const SoupUri *uri)
-{
-	SoupAuthNTLM *auth = (SoupAuthNTLM *) sa;
-
-	if (strlen (auth->header) < sizeof ("NTLM"))
-		auth->response = soup_ntlm_request ();
-	else {
-		gchar *host, *domain, *nonce;
-
-		host   = ntlm_get_authmech_token (uri, "host=");
-		domain = ntlm_get_authmech_token (uri, "domain=");
-
-		if (!soup_ntlm_parse_challenge (auth->header,
-						&nonce,
-						domain ? NULL : &domain))
-			auth->response = NULL;
-		else {
-			auth->response = 
-				soup_ntlm_response (nonce,
-						    uri->user,
-						    uri->passwd,
-						    host,
-						    domain);
-			g_free (nonce);
-		}
-
-		g_free (host);
-		g_free (domain);
-
-		/* Set this now so that if the server returns 401,
-		 * soup will fail instead of looping (since that
-		 * probably means the password was incorrect).
-		 */
-		sa->status = SOUP_AUTH_STATUS_SUCCESSFUL;
-	}
-
-	g_free (auth->header);
-	auth->header = NULL;
-}
-
-static void
-ntlm_free (SoupAuth *sa)
-{
-	SoupAuthNTLM *auth = (SoupAuthNTLM *) sa;
-
-	g_free (auth->response);
-	g_free (auth);
-}
-
-static SoupAuth *
-ntlm_new (void)
-{
-	SoupAuthNTLM *auth;
-
-	auth = g_new0 (SoupAuthNTLM, 1);
-	auth->auth.type = SOUP_AUTH_TYPE_NTLM;
-
-	auth->auth.parse_func = ntlm_parse;
-	auth->auth.init_func = ntlm_init;
-	auth->auth.auth_func = ntlm_auth;
-	auth->auth.free_func = ntlm_free;
-
-	return (SoupAuth *) auth;
-}
-
-
-/*
  * Generic Authentication Interface
  */
 
@@ -656,7 +531,6 @@ typedef struct {
 
 static AuthScheme known_auth_schemes [] = {
 	{ "Basic",  soup_auth_new_basic,  0 },
-	{ "NTLM",   ntlm_new,             2 },
 	{ "Digest", soup_auth_new_digest, 3 },
 	{ NULL }
 };

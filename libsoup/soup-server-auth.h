@@ -69,20 +69,10 @@ typedef struct {
 	const gchar          *request_method;
 } SoupServerAuthDigest;
 
-typedef struct {
-	SoupAuthType  type;
-	const gchar  *host;
-	const gchar  *domain;
-	const gchar  *user;
-	const gchar  *lm_hash;
-	const gchar  *nt_hash;
-} SoupServerAuthNTLM;
-
 union _SoupServerAuth {
 	SoupAuthType          type;
 	SoupServerAuthBasic   basic;
 	SoupServerAuthDigest  digest;
-	SoupServerAuthNTLM    ntlm;
 };
 
 SoupServerAuth *soup_server_auth_new          (SoupServerAuthContext *auth_ctx, 

@@ -275,11 +275,7 @@ soup_encode_http_auth (SoupMessage *msg, GString *header, gboolean proxy_auth)
 	char *token;
 
 	ctx = proxy_auth ? soup_get_proxy () : msg->priv->context;
-
-	if (msg->connection->auth)
-		auth = msg->connection->auth;
-	else
-		auth = soup_auth_lookup (ctx);
+	auth = soup_auth_lookup (ctx);
 
 	if (auth) {
 		token = soup_auth_authorize (auth, msg);

@@ -22,7 +22,6 @@ libsoupinclude_HEADERS =	\
 	soup-message.h		\
 	soup-method.h		\
 	soup-misc.h     	\
-	soup-ntlm.h		\
 	soup-server-auth.h	\
 	soup-server.h		\
 	soup-socket.h		\
@@ -53,7 +52,6 @@ libsoup_2_0_la_SOURCES =	\
 	soup-misc.c     	\
 	soup-nss.h		\
 	soup-nss.c		\
-	soup-ntlm.c     	\
 	soup-private.h     	\
 	soup-queue.h		\
 	soup-queue.c		\

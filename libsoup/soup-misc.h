@@ -57,8 +57,7 @@ void               soup_get_ssl_cert_files   (const gchar **cert_file,
 
 typedef enum {
 	SOUP_AUTH_TYPE_BASIC = 1,
-	SOUP_AUTH_TYPE_DIGEST,
-	SOUP_AUTH_TYPE_NTLM,	
+	SOUP_AUTH_TYPE_DIGEST
 } SoupAuthType;
 
 typedef void (*SoupAuthorizeFn) (SoupAuthType   type,

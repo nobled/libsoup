@@ -65,7 +65,6 @@ struct _SoupContext {
 
 struct _SoupConnection {
 	SoupSocket   *socket;
-	SoupAuth     *auth;
 	gboolean      in_use;
 	guint         last_used_id;
 	gboolean      keep_alive;

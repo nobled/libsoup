@@ -1,3 +1,26 @@
+2003-04-11  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-ntlm.[ch]: Remove. NTLM totally violates the HTTP
+	auth spec, and shoehorning it into soup just adds a lot of
+	complexity. In the new-and-improved API, we should be able to
+	handle NTLM auth externally to libsoup.
+
+	* libsoup/Makefile.am (libsoupinclude_HEADERS,
+	libsoup_2_0_la_SOURCES): remove soup-ntlm
+
+	* libsoup/soup-auth.c: Remove NTLM code
+
+	* libsoup/soup-server-auth.c: Remove NTLM code which was never
+	completed and never could have been anyway.
+
+	* libsoup/soup-private.h: Remove "auth" field from SoupConnection.
+
+	* libsoup/soup-message.c (soup_message_requeue): Remove all the
+	complicated stuff here that was only to deal with NTLM
+	(authorize_handler): Remove NTLM handling.
+
+	* libsoup/soup-queue.c (soup_encode_http_auth): Remove NTLM code
+
 2002-11-22  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-types.h: New, typedefs for basic soup structs, to

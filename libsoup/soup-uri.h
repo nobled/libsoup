@@ -32,8 +32,8 @@ typedef struct {
 	guint         port;
 
 	char         *path;
-	GData        *params;
 	char         *query;
+
 	char         *fragment;
 } SoupUri;
 

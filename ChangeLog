@@ -1,3 +1,15 @@
+2002-11-22  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-uri.c: Update this to match RFC 2396. In
+	particular: Don't parse "parameters" separately from "path", never
+	copy a "fragment" from the base URI, and consider the relative URI
+	"?x" to have a path of "" rather than no path. Also fix a bug that
+	could result in the port not getting set to the right default when
+	resolving certain relative URIs.
+
+	* tests/uri-parsing.c: Update the tests and answers to match the
+	examples from RFC 2396.
+
 2002-11-19  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-message.c: Move context into SoupMessagePrivate.

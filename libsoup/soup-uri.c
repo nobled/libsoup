@@ -70,14 +70,6 @@ soup_protocol_default_port (SoupProtocol proto)
 	return 0;
 }
 
-static void
-copy_param (GQuark key_id, gpointer data, gpointer user_data)
-{
-	GData **copy = user_data;
-
-	g_datalist_id_set_data_full (copy, key_id, g_strdup (data), g_free);
-}
-
 /**
  * soup_uri_new_with_base:
  * @base: a base URI
@@ -96,8 +88,9 @@ soup_uri_new_with_base (const SoupUri *base, const char *uri_string)
 
 	uri = g_new0 (SoupUri, 1);
 
-	/* See RFC1808 for details. IF YOU CHANGE ANYTHING IN THIS
-	 * FUNCTION, RUN tests/uri-parsing AFTERWARDS.
+	/* See docs/rfcs/rfc2396.txt for details. IF YOU CHANGE
+	 * ANYTHING IN THIS FUNCTION, RUN tests/uri-parsing
+	 * AFTERWARDS.
 	 */
 
 	/* Find fragment. */
@@ -168,7 +161,6 @@ soup_uri_new_with_base (const SoupUri *base, const char *uri_string)
 		} else {
 			uri->host = g_strndup (uri_string, slash - uri_string);
 			soup_uri_decode (uri->host);
-			uri->port = soup_protocol_default_port (uri->protocol);
 		}
 
 		uri_string = slash;
@@ -185,49 +177,15 @@ soup_uri_new_with_base (const SoupUri *base, const char *uri_string)
 		end = question;
 	}
 
-	/* Find parameters */
-	semi = memchr (uri_string, ';', end - uri_string);
-	if (semi) {
-		if (semi[1]) {
-			const char *cur, *p, *eq;
-			char *name, *value;
-
-			for (cur = semi + 1; cur < end; cur = p + 1) {
-				p = memchr (cur, ';', end - cur);
-				if (!p)
-					p = end;
-				eq = memchr (cur, '=', p - cur);
-				if (eq) {
-					name = g_strndup (cur, eq - cur);
-					value = g_strndup (eq + 1, p - (eq + 1));
-					soup_uri_decode (value);
-				} else {
-					name = g_strndup (cur, p - cur);
-					value = g_strdup ("");
-				}
-				soup_uri_decode (name);
-				g_datalist_set_data_full (&uri->params, name,
-							  value, g_free);
-				g_free (name);
-			}
-		}
-		end = semi;
-	}
-
 	if (end != uri_string) {
 		uri->path = g_strndup (uri_string, end - uri_string);
 		soup_uri_decode (uri->path);
 	}
 
-	/* Apply base URI. Again, this is spelled out in RFC 1808. */
+	/* Apply base URI. Again, this is spelled out in RFC 2396. */
 	if (base && !uri->protocol && uri->host)
 		uri->protocol = base->protocol;
 	else if (base && !uri->protocol) {
-		if (!uri->user && !uri->authmech && !uri->passwd &&
-		    !uri->host && !uri->port && !uri->path &&
-		    !uri->params && !uri->query && !uri->fragment)
-			uri->fragment = g_strdup (base->fragment);
-
 		uri->protocol = base->protocol;
 		uri->user = g_strdup (base->user);
 		uri->authmech = g_strdup (base->authmech);
@@ -236,14 +194,15 @@ soup_uri_new_with_base (const SoupUri *base, const char *uri_string)
 		uri->port = base->port;
 
 		if (!uri->path) {
-			uri->path = g_strdup (base->path);
-			if (!uri->params) {
-				g_datalist_foreach ((GData **)&base->params,
-						    copy_param, &uri->params);
-				if (!uri->query)
-					uri->query = g_strdup (base->query);
+			if (uri->query)
+				uri->path = g_strdup ("");
+			else {
+				uri->path = g_strdup (base->path);
+				uri->query = g_strdup (base->query);
 			}
-		} else if (*uri->path != '/') {
+		}
+
+		if (*uri->path != '/') {
 			char *newpath, *last, *p, *q;
 
 			last = strrchr (base->path, '/');
@@ -283,7 +242,7 @@ soup_uri_new_with_base (const SoupUri *base, const char *uri_string)
 				memmove (p, q + 4, strlen (q + 4) + 1);
 				p = newpath + 1;
 			}
-			/* Remove "<segment>/.." at end */
+			/* Remove "<segment>/.." at end where <segment> != ".." */
 			q = strrchr (newpath, '/');
 			if (q && !strcmp (q, "/..")) {
 				p = q - 1;
@@ -292,10 +251,14 @@ soup_uri_new_with_base (const SoupUri *base, const char *uri_string)
 				if (strncmp (p, "/../", 4) != 0)
 					*(p + 1) = 0;
 			}
+
 			g_free (uri->path);
 			uri->path = newpath;
 		}
 	}
+
+	if (!uri->port)
+		uri->port = soup_protocol_default_port (uri->protocol);
 
 	return uri;
 }
@@ -324,26 +287,10 @@ soup_uri_new (const char *uri_string)
 	return uri;
 }
 
-static void
-output_param (GQuark key_id, gpointer data, gpointer user_data)
-{
-	GString *str = user_data;
-	char *enc;
-
-	enc = soup_uri_encode (g_quark_to_string (key_id), FALSE, NULL);
-	g_string_sprintfa (str, ";%s", enc);
-	g_free (enc);
-	if (*(char *)data) {
-		enc = soup_uri_encode (data, FALSE, NULL);
-		g_string_sprintfa (str, "=%s", enc);
-		g_free (enc);
-	}
-}
-
 /**
  * soup_uri_to_string:
  * @uri: a SoupUri
- * @just_path: if %TRUE, output just the path, params, and query portions
+ * @just_path: if %TRUE, output just the path and query portions
  *
  * Return value: a string representing @uri, which the caller must free.
  **/
@@ -360,7 +307,7 @@ soup_uri_to_string (const SoupUri *uri, gboolean just_path)
 	str = g_string_sized_new (20);
 
 	if (uri->protocol && !just_path)
-		g_string_sprintfa (str, "%s:", soup_protocol_name (uri->protocol));
+		g_string_sprintfa (str, "%s:", soup_uri_protocol_name (uri->protocol));
 	if (uri->host && !just_path) {
 		g_string_append (str, "//");
 		if (uri->user) {
@@ -385,7 +332,7 @@ soup_uri_to_string (const SoupUri *uri, gboolean just_path)
 		}
 		if (uri->port && uri->port != soup_protocol_default_port (uri->protocol))
 			g_string_sprintfa (str, ":%d", uri->port);
-		if (!uri->path && (uri->params || uri->query || uri->fragment))
+		if (!uri->path && (uri->query || uri->fragment))
 			g_string_append_c (str, '/');
 	}
 
@@ -396,8 +343,6 @@ soup_uri_to_string (const SoupUri *uri, gboolean just_path)
 	} else if (just_path)
 		g_string_append_c (str, '/');
 
-	if (uri->params)
-		g_datalist_foreach ((GData **)&uri->params, output_param, str);
 	if (uri->query) {
 		enc = soup_uri_encode (uri->query, FALSE, NULL);
 		g_string_sprintfa (str, "?%s", enc);
@@ -422,16 +367,15 @@ soup_uri_copy (const SoupUri *uri)
 	g_return_val_if_fail (uri != NULL, NULL);
 
 	dup = g_new0 (SoupUri, 1);
-	dup->protocol    = uri->protocol;
-	dup->user        = g_strdup (uri->user);
-	dup->authmech    = g_strdup (uri->authmech);
-	dup->passwd      = g_strdup (uri->passwd);
-	dup->host        = g_strdup (uri->host);
-	dup->port        = uri->port;
-	dup->path        = g_strdup (uri->path);
-	dup->query       = g_strdup (uri->query);
-	dup->fragment    = g_strdup (uri->fragment);
-	g_datalist_foreach ((GData **)&uri->params, copy_param, &dup->params);
+	dup->protocol = uri->protocol;
+	dup->user     = g_strdup (uri->user);
+	dup->authmech = g_strdup (uri->authmech);
+	dup->passwd   = g_strdup (uri->passwd);
+	dup->host     = g_strdup (uri->host);
+	dup->port     = uri->port;
+	dup->path     = g_strdup (uri->path);
+	dup->query    = g_strdup (uri->query);
+	dup->fragment = g_strdup (uri->fragment);
 
 	return dup;
 }
@@ -446,24 +390,9 @@ parts_equal (const char *one, const char *two)
 	return !strcmp (one, two);
 }
 
-static void
-check_param (GQuark key_id, gpointer val1, gpointer user_data)
-{
-	GData **check = user_data;
-	char *val_check;
-
-	val_check = g_datalist_id_get_data (check, key_id);
-	if (!val_check)
-		g_datalist_id_set_data (check, key_id, val1);
-	else if (!strcmp (val1, val_check))
-		g_datalist_id_remove_data (check, key_id);
-}
-
 gboolean 
 soup_uri_equal (const SoupUri *u1, const SoupUri *u2)
 {
-	GData *copy = NULL;
-
 	if (u1->protocol != u2->protocol              ||
 	    u1->port     != u2->port                  ||
 	    !parts_equal (u1->user, u2->user)         ||
@@ -474,18 +403,6 @@ soup_uri_equal (const SoupUri *u1, const SoupUri *u2)
 	    !parts_equal (u1->query, u2->query)       ||
 	    !parts_equal (u1->fragment, u2->fragment))
 		return FALSE;
-
-	/* Make a copy of u1->params and then remove each element from
-	 * it that matches an element in u2->params and add another
-	 * element to it for each element of u2->params that isn't in
-	 * it. If it is non-empty at the end, then it didn't match.
-	 */
-	g_datalist_foreach ((GData **)&u1->params, copy_param, &copy);
-	g_datalist_foreach ((GData **)&u2->params, check_param, &copy);
-	if (copy) {
-		g_datalist_clear (&copy);
-		return FALSE;
-	}
 
 	return TRUE;
 }
@@ -502,7 +419,6 @@ soup_uri_free (SoupUri *uri)
 	g_free (uri->path);
 	g_free (uri->query);
 	g_free (uri->fragment);
-	g_datalist_clear (&uri->params);
 
 	g_free (uri);
 }

@@ -14,8 +14,8 @@
 
 #ifdef HAVE_OPENSSL_SSL_H
 
+#include <string.h>
 #include <unistd.h>
-#include <glib.h>
 #include <sys/time.h>
 
 #include <openssl/ssl.h>

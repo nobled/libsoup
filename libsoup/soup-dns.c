@@ -10,12 +10,12 @@
 #endif
 
 #include <errno.h>
-#include <fcntl.h>
-#include <glib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <sys/wait.h>
 
 #include <arpa/inet.h>
@@ -24,9 +24,8 @@
 #include "soup-dns.h"
 #include "soup-private.h"
 
-#include <unistd.h>
 #ifndef socklen_t
-#  define socklen_t size_t
+#  define socklen_t int
 #endif
 
 #ifndef INET_ADDRSTRLEN

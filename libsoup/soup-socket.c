@@ -28,7 +28,7 @@
 #include <netinet/tcp.h>
 
 #ifndef socklen_t
-#  define socklen_t size_t
+#  define socklen_t int
 #endif
 
 #define SOUP_SOCKET_IS_SERVER (1<<0)

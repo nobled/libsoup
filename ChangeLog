@@ -1,3 +1,32 @@
+2003-04-25  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-connection.c: Remove some unused #includes
+	(SoupConnectionPrivate): Add ac and proxy_ac fields
+	(finalize): Unref them
+	(soup_connection_new, soup_connection_new_via_proxy): Add ac and
+	proxy_ac args, for setting the connection's auth context and proxy
+	auth context.
+	(soup_connection_is_via_proxy): New, returns whether or not the
+	connection is using a proxy
+	(soup_connection_start_request): Set a SoupMessage's connection
+	field, add Authorization and Proxy-Authorization headers if
+	available, set up 401 and 407 handlers, and pass off to
+	soup_message_send_request.
+
+	* libsoup/soup-context.c (try_create_connection): Pass
+	authcontexts to soup_connection_new{,_via_proxy}.
+
+	* libsoup/soup-message.c (soup_message_send_request): Basically
+	formerly soup-queue.c:start_request. Move all the transfer code
+	from soup-queue here.
+	(soup_get_request_header): Remove authorization handling since
+	that's done before this now. Decide whether to use full URI or
+	just path based on soup_connection_is_via_proxy().
+	(global_handlers): Remove 401 and 407 handlers
+
+	* libsoup/soup-queue.c: Remove a lot of code that's in
+	soup-message.c now.
+
 2003-04-20  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-auth.c: Make this a GObject and an abstract base

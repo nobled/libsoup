@@ -34,10 +34,13 @@ typedef void  (*SoupConnectionCallbackFn)     (SoupConnection           *conn,
 					       gpointer                  data);
 
 SoupConnection *soup_connection_new           (SoupUri                  *uri,
+					       SoupAuthContext          *ac,
 					       SoupConnectionCallbackFn  func,
 					       gpointer                  data);
 SoupConnection *soup_connection_new_via_proxy (SoupUri                  *uri,
+					       SoupAuthContext          *ac,
 					       SoupUri                  *proxy,
+					       SoupAuthContext          *proxy_ac,
 					       SoupConnectionCallbackFn  func,
 					       gpointer                  data);
 
@@ -46,6 +49,11 @@ GIOChannel    *soup_connection_get_iochannel  (SoupConnection           *conn);
 void           soup_connection_set_in_use     (SoupConnection           *conn, 
 					       gboolean                  in_use);
 gboolean       soup_connection_is_in_use      (SoupConnection           *conn);
+
+gboolean       soup_connection_is_via_proxy   (SoupConnection           *conn);
+
+void           soup_connection_start_request  (SoupConnection           *conn,
+					       SoupMessage              *msg);
 
 void           soup_connection_close          (SoupConnection           *conn);
 

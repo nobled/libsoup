@@ -350,6 +350,7 @@ try_existing_connections (SoupContext          *ctx,
 static gboolean
 try_create_connection (struct SoupContextConnectData *data)
 {
+	SoupContext *ctx = data->ctx;
 	SoupContext *proxy;
 
 	data->timeout_tag = 0;
@@ -357,13 +358,15 @@ try_create_connection (struct SoupContextConnectData *data)
 	proxy = soup_get_proxy ();
 	if (proxy) {
 		data->connection =
-			soup_connection_new_via_proxy (data->ctx->uri,
+			soup_connection_new_via_proxy (ctx->uri,
+						       ctx->server->ac,
 						       proxy->uri,
+						       proxy->server->ac,
 						       soup_context_connect_cb,
 						       data);
 	} else {
 		data->connection =
-			soup_connection_new (data->ctx->uri,
+			soup_connection_new (ctx->uri, ctx->server->ac,
 					     soup_context_connect_cb,
 					     data);
 	}

@@ -9,28 +9,16 @@
 #include <config.h>
 #endif
 
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <glib.h>
-
-#include <fcntl.h>
-#include <sys/types.h>
-
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-
-#include "soup-auth.h"
+#include "soup-auth-context.h"
 #include "soup-connection.h"
-#include "soup-context.h"
 #include "soup-private.h"
-#include "soup-misc.h"
 #include "soup-socket.h"
 #include "soup-socks.h"
 #include "soup-ssl.h"
 
 struct _SoupConnectionPrivate {
+	SoupAuthContext *ac, *proxy_ac;
+
 	guint watch_tag;
 	gboolean in_use;
 
@@ -54,6 +42,11 @@ static void
 finalize (GObject *object)
 {
 	SoupConnection *conn = SOUP_CONNECTION (object);
+
+	if (conn->priv->ac)
+		g_object_unref (conn->priv->ac);
+	if (conn->priv->proxy_ac)
+		g_object_unref (conn->priv->proxy_ac);
 
 	if (conn->priv->watch_tag)
 		g_source_remove (conn->priv->watch_tag);
@@ -189,7 +182,11 @@ socket_connected (SoupSocket *socket, SoupKnownErrorCode status, gpointer data)
 /**
  * soup_connection_new_via_proxy:
  * @uri: URI of the origin server (final destination)
+ * @ac: auth context for that server (or %NULL if auth will not be
+ * used)
  * @proxy_uri: URI of proxy to use to connect to @uri
+ * @proxy_ac: auth context for the proxy server (or %NULL if proxy
+ * auth will not be used).
  * @func: a #SoupConnectionCallbackFn to be called when a valid
  * connection is available.
  * @data: the user_data passed to @func.
@@ -200,7 +197,8 @@ socket_connected (SoupSocket *socket, SoupKnownErrorCode status, gpointer data)
  * Return value: the new #SoupConnection.
  */
 SoupConnection *
-soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
+soup_connection_new_via_proxy (SoupUri *uri, SoupAuthContext *ac,
+			       SoupUri *proxy_uri, SoupAuthContext *proxy_ac,
 			       SoupConnectionCallbackFn func, gpointer data)
 {
 	SoupConnection *conn;
@@ -208,6 +206,15 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
 	g_return_val_if_fail (uri != NULL, NULL);
 
 	conn = g_object_new (SOUP_TYPE_CONNECTION, NULL);
+
+	if (ac) {
+		conn->priv->ac = ac;
+		g_object_ref (ac);
+	}
+	if (proxy_ac) {
+		conn->priv->proxy_ac = proxy_ac;
+		g_object_ref (proxy_ac);
+	}
 
 	conn->priv->connect_func = func;
 	conn->priv->connect_data = data;
@@ -228,6 +235,7 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
 /**
  * soup_connection_new:
  * @uri: URI of the server to connect to
+ * @ac: auth context for that server
  * @func: a #SoupConnectionCallbackFn to be called when a valid
  * connection is available.
  * @data: the user_data passed to @func.
@@ -238,10 +246,10 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
  * Return value: the new #SoupConnection.
  */
 SoupConnection *
-soup_connection_new (SoupUri *uri,
+soup_connection_new (SoupUri *uri, SoupAuthContext *ac,
 		     SoupConnectionCallbackFn func, gpointer data)
 {
-	return soup_connection_new_via_proxy (uri, NULL, func, data);
+	return soup_connection_new_via_proxy (uri, ac, NULL, NULL, func, data);
 }
 
 /**
@@ -300,6 +308,65 @@ soup_connection_is_in_use (SoupConnection *conn)
 	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), FALSE);
 
 	return conn->priv->in_use;
+}
+
+/**
+ * soup_connection_is_via_proxy:
+ * @conn: a #SoupConnection.
+ *
+ * Return value: whether or not @conn is using an HTTP/HTTPS proxy.
+ */
+gboolean
+soup_connection_is_via_proxy (SoupConnection *conn)
+{
+	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), FALSE);
+
+	return conn->priv->proxy_uri != NULL;
+}
+
+
+static void 
+authorize_handler (SoupMessage *msg, gpointer ac)
+{
+	if (soup_auth_context_handle_unauthorized (ac, msg))
+		soup_message_requeue (msg);
+}
+
+/**
+ * soup_connection_start_request:
+ * @conn: a #SoupConnection
+ * @msg: a #SoupMessage
+ *
+ * Queues @msg on @conn.
+ **/
+void
+soup_connection_start_request (SoupConnection *conn, SoupMessage *msg)
+{
+	msg->connection = conn;
+
+	/* Handle authorization */
+	if (conn->priv->ac) {
+		soup_auth_context_authorize_message (conn->priv->ac, msg);
+		soup_message_remove_handler (
+			msg, SOUP_HANDLER_PRE_BODY,
+			authorize_handler, conn->priv->ac);
+		soup_message_add_error_code_handler (
+			msg, SOUP_ERROR_UNAUTHORIZED,
+			SOUP_HANDLER_PRE_BODY,
+			authorize_handler, conn->priv->ac);
+	}
+	if (conn->priv->proxy_ac) {
+		soup_auth_context_authorize_message (conn->priv->proxy_ac, msg);
+		soup_message_remove_handler (
+			msg, SOUP_HANDLER_PRE_BODY,
+			authorize_handler, conn->priv->proxy_ac);
+		soup_message_add_error_code_handler (
+			msg, SOUP_ERROR_PROXY_UNAUTHORIZED,
+			SOUP_HANDLER_PRE_BODY,
+			authorize_handler, conn->priv->proxy_ac);
+	}
+
+	soup_message_send_request (msg);
 }
 
 /**

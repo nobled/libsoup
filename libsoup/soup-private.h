@@ -82,6 +82,8 @@ struct _SoupMessagePrivate {
 
 /* from soup-message.c */
 
+void     soup_message_send_request   (SoupMessage      *req);
+
 void     soup_message_issue_callback (SoupMessage      *req);
 
 gboolean soup_message_run_handlers   (SoupMessage      *msg,

@@ -16,6 +16,7 @@
 #include "soup-misc.h"
 #include "soup-context.h"
 #include "soup-private.h"
+#include "soup-proxy-connection.h"
 #include "soup-queue.h"
 #include "soup-transfer.h"
 
@@ -1240,7 +1241,7 @@ soup_message_send_request (SoupMessage *req)
 		return;
 	}
 
-	proxy = soup_connection_is_via_proxy (req->connection);
+	proxy = SOUP_IS_PROXY_CONNECTION (req->connection);
 
 	req->priv->write_tag = 
 		soup_transfer_write_simple (channel,

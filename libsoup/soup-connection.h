@@ -14,6 +14,8 @@
 #define SOUP_CONNECTION_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), SOUP_TYPE_CONNECTION, SoupConnectionClass))
 #define SOUP_IS_CONNECTION(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SOUP_TYPE_CONNECTION))
 #define SOUP_IS_CONNECTION_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((obj), SOUP_TYPE_CONNECTION))
+#define SOUP_CONNECTION_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), SOUP_TYPE_CONNECTION, SoupConnectionClass))
+
 
 struct _SoupConnection {
 	SoupSocket parent;
@@ -24,37 +26,27 @@ struct _SoupConnection {
 struct _SoupConnectionClass {
 	SoupSocketClass parent_class;
 
+	SoupAddress *(*get_remote_address) (SoupConnection *);
+	void         (*start_request)      (SoupConnection *, SoupMessage *);
 };
 
-GType           soup_connection_get_type      (void);
+GType           soup_connection_get_type          (void);
 
 
-typedef void  (*SoupConnectionCallbackFn)     (SoupConnection           *conn, 
-					       SoupKnownErrorCode        err,
-					       gpointer                  data);
+SoupConnection *soup_connection_new                (SoupUri         *uri,
+						    SoupAuthContext *ac);
 
-SoupConnection *soup_connection_new           (SoupUri                  *uri,
-					       SoupAuthContext          *ac,
-					       SoupConnectionCallbackFn  func,
-					       gpointer                  data);
-SoupConnection *soup_connection_new_via_proxy (SoupUri                  *uri,
-					       SoupAuthContext          *ac,
-					       SoupUri                  *proxy,
-					       SoupAuthContext          *proxy_ac,
-					       SoupConnectionCallbackFn  func,
-					       gpointer                  data);
+GIOChannel     *soup_connection_get_iochannel      (SoupConnection  *conn);
 
-GIOChannel    *soup_connection_get_iochannel  (SoupConnection           *conn);
+void            soup_connection_set_in_use         (SoupConnection  *conn, 
+						    gboolean         in_use);
+gboolean        soup_connection_is_in_use          (SoupConnection  *conn);
 
-void           soup_connection_set_in_use     (SoupConnection           *conn, 
-					       gboolean                  in_use);
-gboolean       soup_connection_is_in_use      (SoupConnection           *conn);
+SoupAddress    *soup_connection_get_remote_address (SoupConnection *conn);
 
-gboolean       soup_connection_is_via_proxy   (SoupConnection           *conn);
+void            soup_connection_start_request      (SoupConnection  *conn,
+						    SoupMessage     *msg);
 
-void           soup_connection_start_request  (SoupConnection           *conn,
-					       SoupMessage              *msg);
-
-void           soup_connection_close          (SoupConnection           *conn);
+void            soup_connection_close              (SoupConnection  *conn);
 
 #endif /*SOUP_CONNECTION_H*/

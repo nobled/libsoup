@@ -24,13 +24,14 @@
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 
-#include "soup-www-auth-context.h"
 #include "soup-connection.h"
 #include "soup-context.h"
-#include "soup-private.h"
 #include "soup-misc.h"
+#include "soup-private.h"
+#include "soup-proxy-connection.h"
 #include "soup-socket.h"
 #include "soup-ssl.h"
+#include "soup-www-auth-context.h"
 
 GHashTable *soup_hosts;  /* KEY, VALUE: SoupHost */
 
@@ -358,18 +359,16 @@ try_create_connection (struct SoupContextConnectData *data)
 	proxy = soup_get_proxy ();
 	if (proxy) {
 		data->connection =
-			soup_connection_new_via_proxy (ctx->uri,
-						       ctx->server->ac,
-						       proxy->uri,
-						       proxy->server->ac,
-						       soup_context_connect_cb,
-						       data);
+			soup_proxy_connection_new (ctx->uri,
+						   ctx->server->ac,
+						   proxy->uri,
+						   proxy->server->ac);
 	} else {
 		data->connection =
-			soup_connection_new (ctx->uri, ctx->server->ac,
-					     soup_context_connect_cb,
-					     data);
+			soup_connection_new (ctx->uri, ctx->server->ac);
 	}
+	g_signal_connect (data->connection, "connected",
+			  G_CALLBACK (soup_context_connect_cb), data);
 
 	return TRUE;
 }

@@ -26,7 +26,16 @@ gboolean soup_initialized = FALSE;
 SoupContext *
 soup_get_proxy (void)
 {
-	return NULL;
+	static SoupContext *proxy_ctx;
+	static gboolean inited;
+
+	if (!inited) {
+		if (getenv ("SOUP_PROXY"))
+			proxy_ctx = soup_context_get (getenv ("SOUP_PROXY"));
+		inited = TRUE;
+	}
+
+	return proxy_ctx;
 }
 
 guint

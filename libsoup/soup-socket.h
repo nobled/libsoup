@@ -9,6 +9,7 @@
 #include <glib-object.h>
 #include <libsoup/soup-error.h>
 #include <libsoup/soup-types.h>
+#include <libsoup/soup-uri.h>
 
 #define SOUP_TYPE_SOCKET            (soup_socket_get_type ())
 #define SOUP_SOCKET(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SOUP_TYPE_SOCKET, SoupSocket))
@@ -25,45 +26,37 @@ struct _SoupSocket {
 struct _SoupSocketClass {
 	GObjectClass parent_class;
 
+	/* signals */
+	void (*connected)    (SoupSocket *, SoupKnownErrorCode);
 };
 
 GType soup_socket_get_type (void);
 
-
-typedef void (*SoupSocketConnectedFn)       (SoupSocket            *socket,
-					     SoupKnownErrorCode     status,
-					     gpointer               data);
-
-SoupSocket  *soup_socket_client_new         (const char            *hostname,
-					     guint                  port,
-					     gboolean               ssl,
-					     SoupSocketConnectedFn  func,
-					     gpointer               data);
-
-void         soup_socket_client_connect     (SoupSocket            *socket,
-					     const char            *hostname,
-					     guint                  port,
-					     gboolean               ssl,
-					     SoupSocketConnectedFn  func,
-					     gpointer               data);
-
-GIOChannel  *soup_socket_get_iochannel      (SoupSocket            *socket);
-
-SoupAddress *soup_socket_get_local_address  (SoupSocket            *socket);
-guint        soup_socket_get_local_port     (SoupSocket            *socket);
-SoupAddress *soup_socket_get_remote_address (SoupSocket            *socket);
-guint        soup_socket_get_remote_port    (SoupSocket            *socket);
-
-gboolean     soup_socket_start_ssl          (SoupSocket            *socket);
-
 #define SOUP_SERVER_ANY_PORT 0
 
-SoupSocket  *soup_socket_server_new         (SoupAddress           *local_addr,
-					     guint                  local_port,
-					     gboolean               ssl);
 
-SoupSocket  *soup_socket_server_accept      (SoupSocket            *socket);
+SoupSocket    *soup_socket_client_new         (const SoupUri *uri);
 
-SoupSocket  *soup_socket_server_try_accept  (SoupSocket            *socket);
+void           soup_socket_client_connect     (SoupSocket    *sock,
+					       const SoupUri *uri);
+
+SoupSocket    *soup_socket_server_new         (SoupAddress   *local_addr,
+					       guint          local_port,
+					       gboolean       ssl);
+
+gboolean       soup_socket_start_ssl          (SoupSocket    *sock);
+
+GIOChannel    *soup_socket_get_iochannel      (SoupSocket    *sock);
+
+SoupAddress   *soup_socket_get_local_address  (SoupSocket    *sock);
+guint          soup_socket_get_local_port     (SoupSocket    *sock);
+SoupAddress   *soup_socket_get_remote_address (SoupSocket    *sock);
+guint          soup_socket_get_remote_port    (SoupSocket    *sock);
+
+const SoupUri *soup_socket_get_uri            (SoupSocket    *sock);
+
+SoupSocket    *soup_socket_server_accept      (SoupSocket    *sock);
+
+SoupSocket    *soup_socket_server_try_accept  (SoupSocket    *sock);
 
 #endif /* SOUP_SOCKET_H */

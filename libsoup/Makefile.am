@@ -42,6 +42,7 @@ libsoupinclude_HEADERS =		\
 	soup-method.h			\
 	soup-misc.h     		\
 	soup-proxy-auth-context.h	\
+	soup-proxy-connection.h		\
 	soup-server-auth.h		\
 	soup-server.h			\
 	soup-server-cgi.h		\
@@ -85,6 +86,7 @@ libsoup_2_0_la_SOURCES =		\
 	soup-nss.c			\
 	soup-private.h     		\
 	soup-proxy-auth-context.c	\
+	soup-proxy-connection.c		\
 	soup-queue.h			\
 	soup-queue.c			\
 	soup-server.c			\
@@ -93,8 +95,6 @@ libsoup_2_0_la_SOURCES =		\
 	soup-server-message.c		\
 	soup-server-tcp.c		\
 	soup-socket.c			\
-	soup-socks.h			\
-	soup-socks.c			\
 	soup-ssl.h			\
 	soup-ssl.c			\
 	soup-transfer.h			\

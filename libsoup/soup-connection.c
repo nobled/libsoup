@@ -13,22 +13,29 @@
 #include "soup-connection.h"
 #include "soup-private.h"
 #include "soup-socket.h"
-#include "soup-socks.h"
 #include "soup-ssl.h"
 
 struct _SoupConnectionPrivate {
-	SoupAuthContext *ac, *proxy_ac;
+	SoupAuthContext *ac;
 
 	guint watch_tag;
 	gboolean in_use;
-
-	SoupConnectionCallbackFn connect_func;
-	gpointer                 connect_data;
-	SoupUri *dest_uri, *proxy_uri;
 };
 
 #define PARENT_TYPE SOUP_TYPE_SOCKET
 static SoupSocketClass *parent_class;
+
+enum {
+	PROP_0,
+	PROP_AUTH_CONTEXT
+};
+
+static void connected (SoupSocket *sock, SoupKnownErrorCode status);
+static SoupAddress *get_remote_address (SoupConnection *conn);
+static void start_request (SoupConnection *conn, SoupMessage *msg);
+
+static void set_property (GObject *object, guint prop_id,
+			  const GValue *value, GParamSpec *pspec);
 
 static void
 init (GObject *object)
@@ -45,16 +52,9 @@ finalize (GObject *object)
 
 	if (conn->priv->ac)
 		g_object_unref (conn->priv->ac);
-	if (conn->priv->proxy_ac)
-		g_object_unref (conn->priv->proxy_ac);
 
 	if (conn->priv->watch_tag)
 		g_source_remove (conn->priv->watch_tag);
-
-	if (conn->priv->dest_uri)
-		soup_uri_free (conn->priv->dest_uri);
-	if (conn->priv->proxy_uri)
-		soup_uri_free (conn->priv->proxy_uri);
 
 	g_free (conn->priv);
 
@@ -64,19 +64,57 @@ finalize (GObject *object)
 static void
 class_init (GObjectClass *object_class)
 {
+	SoupSocketClass *socket_class =
+		SOUP_SOCKET_CLASS (object_class);
+	SoupConnectionClass *connection_class =
+		SOUP_CONNECTION_CLASS (object_class);
+
 	parent_class = g_type_class_ref (PARENT_TYPE);
 
+	/* virtual method definition */
+	connection_class->get_remote_address = get_remote_address;
+	connection_class->start_request = start_request;
+
 	/* virtual method override */
+	socket_class->connected = connected;
 	object_class->finalize = finalize;
+	object_class->set_property = set_property;
+
+	/* properties */
+	g_object_class_install_property (
+		object_class, PROP_AUTH_CONTEXT,
+		g_param_spec_object ("auth_context",
+				     "Authentication context",
+				     "Object that manages authentication for th e connection",
+				     SOUP_TYPE_AUTH_CONTEXT,
+				     G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
 }
 
 SOUP_MAKE_TYPE (soup_connection, SoupConnection, class_init, init, PARENT_TYPE)
 
+static void
+set_property (GObject *object, guint prop_id,
+	      const GValue *value, GParamSpec *pspec)
+{
+	SoupConnection *conn = SOUP_CONNECTION (object);
+
+	switch (prop_id) {
+	case PROP_AUTH_CONTEXT:
+		conn->priv->ac =
+			g_object_ref (g_value_get_object (value));
+		break;
+	default:
+		break;
+	}
+}
+
 
 static gboolean 
 connection_watch (GIOChannel *iochannel, GIOCondition condition,
-		  SoupConnection *conn)
+		  gpointer user_data)
 {
+	SoupConnection *conn = user_data;
+
 	if (!conn->priv->in_use) {
 		g_object_unref (conn);
 		return FALSE;
@@ -85,160 +123,25 @@ connection_watch (GIOChannel *iochannel, GIOCondition condition,
 	return TRUE;
 }
 
-static gboolean
-proxy_https_connect (SoupConnection *conn, 
-		     SoupUri        *dest_uri)
-{
-	SoupContext *ctx;
-	SoupMessage *connect_msg;
-	gboolean ret = FALSE;
-
-	ctx = soup_context_from_uri (dest_uri);
-	connect_msg = soup_message_new (ctx, SOUP_METHOD_CONNECT);
-	soup_context_unref (ctx);
-	connect_msg->connection = conn;
-	soup_message_send (connect_msg);
-
-	if (!SOUP_MESSAGE_IS_ERROR (connect_msg)) {
-		/*
-		 * Avoid releasing the connection on message free
-		 */
-		connect_msg->connection = NULL;
-		ret = TRUE;
-	}
-	g_object_unref (connect_msg);
-
-	return ret;
-}
-
 static void
-socket_connected (SoupSocket *socket, SoupKnownErrorCode status, gpointer data)
+connected (SoupSocket *sock, SoupKnownErrorCode status)
 {
-	SoupConnection *conn = SOUP_CONNECTION (socket);
+	SoupConnection *conn = SOUP_CONNECTION (sock);
 	GIOChannel *chan;
-	SoupConnectionCallbackFn connect_func;
-	gpointer connect_data;
 
-	connect_func = conn->priv->connect_func;
-	conn->priv->connect_func = NULL;
-	connect_data = conn->priv->connect_data;
-	conn->priv->connect_data = NULL;
-
-	if (status == SOUP_ERROR_CANT_RESOLVE) {
-		connect_func (conn, (conn->priv->proxy_uri ?
-				     SOUP_ERROR_CANT_RESOLVE_PROXY :
-				     SOUP_ERROR_CANT_RESOLVE), 
-			      connect_data);
+	if (status != SOUP_ERROR_OK)
 		return;
-	} else if (status != SOUP_ERROR_OK) {
-		connect_func (conn, (conn->priv->proxy_uri ?
-				     SOUP_ERROR_CANT_CONNECT_PROXY :
-				     SOUP_ERROR_CANT_CONNECT), 
-			      connect_data);
-		return;
-	}
 
-	/* Handle SOCKS proxy negotiation */
-	if (conn->priv->proxy_uri &&
-	    (conn->priv->proxy_uri->protocol == SOUP_PROTOCOL_SOCKS4 ||
-	     conn->priv->proxy_uri->protocol == SOUP_PROTOCOL_SOCKS5)) {
-		SoupUri *proxy_uri;
-
-		proxy_uri = conn->priv->proxy_uri;
-		conn->priv->proxy_uri = NULL;
-
-		soup_socks_proxy_connect (socket,
-					  proxy_uri,
-					  conn->priv->dest_uri,
-					  socket_connected,
-					  conn);
-		soup_uri_free (proxy_uri);
-		return;
-	}
-
-	chan = soup_socket_get_iochannel (socket);
-	conn->priv->watch_tag = g_io_add_watch (chan,
-						G_IO_ERR | G_IO_HUP | G_IO_NVAL,
-						(GIOFunc) connection_watch,
-						conn);
-
-	/* Handle HTTPS tunnel setup via proxy CONNECT request. */
-	if (conn->priv->proxy_uri &&
-	    conn->priv->dest_uri->protocol == SOUP_PROTOCOL_HTTPS) {
-		/* Synchronously send CONNECT request */
-		if (proxy_https_connect (conn, conn->priv->dest_uri)) {
-			soup_socket_start_ssl (socket);
-		} else {
-			connect_func (conn,
-				      SOUP_ERROR_CANT_CONNECT, 
-				      connect_data);
-			return;
-		}
-	}
-
-	connect_func (conn, SOUP_ERROR_OK, connect_data);
-}
-
-/**
- * soup_connection_new_via_proxy:
- * @uri: URI of the origin server (final destination)
- * @ac: auth context for that server (or %NULL if auth will not be
- * used)
- * @proxy_uri: URI of proxy to use to connect to @uri
- * @proxy_ac: auth context for the proxy server (or %NULL if proxy
- * auth will not be used).
- * @func: a #SoupConnectionCallbackFn to be called when a valid
- * connection is available.
- * @data: the user_data passed to @func.
- *
- * Initiates the process of establishing a connection to the server
- * referenced by @uri via @proxy_uri.
- *
- * Return value: the new #SoupConnection.
- */
-SoupConnection *
-soup_connection_new_via_proxy (SoupUri *uri, SoupAuthContext *ac,
-			       SoupUri *proxy_uri, SoupAuthContext *proxy_ac,
-			       SoupConnectionCallbackFn func, gpointer data)
-{
-	SoupConnection *conn;
-
-	g_return_val_if_fail (uri != NULL, NULL);
-
-	conn = g_object_new (SOUP_TYPE_CONNECTION, NULL);
-
-	if (ac) {
-		conn->priv->ac = ac;
-		g_object_ref (ac);
-	}
-	if (proxy_ac) {
-		conn->priv->proxy_ac = proxy_ac;
-		g_object_ref (proxy_ac);
-	}
-
-	conn->priv->connect_func = func;
-	conn->priv->connect_data = data;
-
-	conn->priv->dest_uri = soup_uri_copy (uri);
-	if (proxy_uri) {
-		conn->priv->proxy_uri = soup_uri_copy (proxy_uri);
-		uri = proxy_uri;
-	}
-
-	soup_socket_client_connect (SOUP_SOCKET (conn),
-				    uri->host, uri->port,
-				    uri->protocol == SOUP_PROTOCOL_HTTPS,
-				    socket_connected, NULL);
-	return conn;
+	chan = soup_socket_get_iochannel (sock);
+	conn->priv->watch_tag =
+		g_io_add_watch (chan, G_IO_ERR | G_IO_HUP | G_IO_NVAL,
+				connection_watch, conn);
 }
 
 /**
  * soup_connection_new:
  * @uri: URI of the server to connect to
  * @ac: auth context for that server
- * @func: a #SoupConnectionCallbackFn to be called when a valid
- * connection is available.
- * @data: the user_data passed to @func.
  *
  * Initiates the process of establishing a connection to the server
  * referenced by @uri.
@@ -246,10 +149,18 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupAuthContext *ac,
  * Return value: the new #SoupConnection.
  */
 SoupConnection *
-soup_connection_new (SoupUri *uri, SoupAuthContext *ac,
-		     SoupConnectionCallbackFn func, gpointer data)
+soup_connection_new (SoupUri *uri, SoupAuthContext *ac)
 {
-	return soup_connection_new_via_proxy (uri, ac, NULL, NULL, func, data);
+	SoupConnection *conn;
+
+	g_return_val_if_fail (uri != NULL, NULL);
+
+	conn = g_object_new (SOUP_TYPE_CONNECTION,
+			     "auth_context", ac,
+			     NULL);
+
+	soup_socket_client_connect (SOUP_SOCKET (conn), uri);
+	return conn;
 }
 
 /**
@@ -266,10 +177,6 @@ GIOChannel *
 soup_connection_get_iochannel (SoupConnection *conn)
 {
 	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), NULL);
-
-	/* Don't return the channel if we're still connecting. */
-	if (conn->priv->connect_func)
-		return NULL;
 
 	return soup_socket_get_iochannel (SOUP_SOCKET (conn));
 }
@@ -310,20 +217,27 @@ soup_connection_is_in_use (SoupConnection *conn)
 	return conn->priv->in_use;
 }
 
-/**
- * soup_connection_is_via_proxy:
- * @conn: a #SoupConnection.
- *
- * Return value: whether or not @conn is using an HTTP/HTTPS proxy.
- */
-gboolean
-soup_connection_is_via_proxy (SoupConnection *conn)
+static SoupAddress *
+get_remote_address (SoupConnection *conn)
 {
-	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), FALSE);
-
-	return conn->priv->proxy_uri != NULL;
+	return soup_socket_get_remote_address (SOUP_SOCKET (conn));
 }
 
+/**
+ * soup_connection_get_remote_address:
+ * @conn: a #SoupConnection
+ *
+ * Return value: the address of the remote server @conn is connected
+ * to, or %NULL if it is connected to a proxy that can talk to any
+ * server (or if @conn is invalid or not connected).
+ **/
+SoupAddress *
+soup_connection_get_remote_address (SoupConnection *conn)
+{
+	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), NULL);
+
+	return SOUP_CONNECTION_GET_CLASS (conn)->get_remote_address (conn);
+}
 
 static void 
 authorize_handler (SoupMessage *msg, gpointer ac)
@@ -332,15 +246,8 @@ authorize_handler (SoupMessage *msg, gpointer ac)
 		soup_message_requeue (msg);
 }
 
-/**
- * soup_connection_start_request:
- * @conn: a #SoupConnection
- * @msg: a #SoupMessage
- *
- * Queues @msg on @conn.
- **/
-void
-soup_connection_start_request (SoupConnection *conn, SoupMessage *msg)
+static void
+start_request (SoupConnection *conn, SoupMessage *msg)
 {
 	msg->connection = conn;
 
@@ -355,18 +262,24 @@ soup_connection_start_request (SoupConnection *conn, SoupMessage *msg)
 			SOUP_HANDLER_PRE_BODY,
 			authorize_handler, conn->priv->ac);
 	}
-	if (conn->priv->proxy_ac) {
-		soup_auth_context_authorize_message (conn->priv->proxy_ac, msg);
-		soup_message_remove_handler (
-			msg, SOUP_HANDLER_PRE_BODY,
-			authorize_handler, conn->priv->proxy_ac);
-		soup_message_add_error_code_handler (
-			msg, SOUP_ERROR_PROXY_UNAUTHORIZED,
-			SOUP_HANDLER_PRE_BODY,
-			authorize_handler, conn->priv->proxy_ac);
-	}
 
 	soup_message_send_request (msg);
+}
+
+/**
+ * soup_connection_start_request:
+ * @conn: a #SoupConnection
+ * @msg: a #SoupMessage
+ *
+ * Queues @msg on @conn.
+ **/
+void
+soup_connection_start_request (SoupConnection *conn, SoupMessage *msg)
+{
+	g_return_if_fail (SOUP_IS_CONNECTION (conn));
+	g_return_if_fail (SOUP_IS_MESSAGE (msg));
+
+	return SOUP_CONNECTION_GET_CLASS (conn)->start_request (conn, msg);
 }
 
 /**

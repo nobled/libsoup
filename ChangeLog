@@ -1,3 +1,40 @@
+2003-05-14  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-socket.c: Add a "connected" signal and use that
+	rather than a callback. Update things accordingly.
+
+	* libsoup/soup-connection.c: Update for SoupSocket change, and
+	remove all proxy and SOCKS stuff.
+	(class_init): add get_remote_address and start_request methods,
+	override SoupSocket's connected signal, and implement
+	set_property. Install the "auth_context" property.
+	(set_property): implement
+	(connected): Just set up the death watch. (Remove proxy stuff)
+	(soup_connection_new): Remove callback args; the caller can listen
+	to the signal.
+	(soup_connection_get_remote_address): New, to get the remote
+	SoupAddress, so that theoretically connections could be shared
+	among virtual servers on a host, and non-tunneled proxy
+	connections don't need to be per-dest-host. (Not yet used).
+	(soup_connection_start_request): Make this a method.
+
+	* libsoup/soup-proxy-connection.c: Subclass of SoupConnection for
+	HTTP proxies.
+	(soup_proxy_connection_new): Replaces
+	soup_connection_new_via_proxy
+	(connected): Do HTTPS tunnel setup, if needed
+	(get_remote_address): Return NULL if this isn't a tunnel.
+	(start_request): Do proxy auth then call parent method
+
+	* libsoup/soup-message.c (soup_message_send_request): Use
+	SOUP_IS_PROXY_CONNECTION rather than soup_connection_is_via_proxy.
+
+	* libsoup/soup-context.c (try_create_connection): Update
+
+	* libsoup/Makefile.am (libsoupinclude_HEADERS,
+	libsoup_2_0_la_SOURCES): Add soup-proxy-connection, remove
+	soup-socks (for now).
+
 2003-04-25  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-connection.c: Remove some unused #includes

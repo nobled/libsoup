@@ -19,25 +19,6 @@
 
 gboolean soup_initialized = FALSE;
 
-/* This is just here so that stuff that currently calls soup_get_proxy
- * doesn't need to be changed, so that as that code is being moved, I
- * remember where to think about proxy stuff.
- */
-SoupContext *
-soup_get_proxy (void)
-{
-	static SoupContext *proxy_ctx;
-	static gboolean inited;
-
-	if (!inited) {
-		if (getenv ("SOUP_PROXY"))
-			proxy_ctx = soup_context_get (getenv ("SOUP_PROXY"));
-		inited = TRUE;
-	}
-
-	return proxy_ctx;
-}
-
 guint
 soup_str_case_hash (gconstpointer key)
 {

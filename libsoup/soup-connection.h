@@ -33,7 +33,7 @@ struct _SoupConnectionClass {
 GType           soup_connection_get_type          (void);
 
 
-SoupConnection *soup_connection_new                (SoupUri         *uri,
+SoupConnection *soup_connection_new                (const SoupUri   *uri,
 						    SoupAuthContext *ac);
 
 GIOChannel     *soup_connection_get_iochannel      (SoupConnection  *conn);

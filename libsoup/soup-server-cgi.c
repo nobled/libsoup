@@ -147,7 +147,7 @@ run_async (SoupServer *serv)
 {
 	SoupServerCGI *cgi = SOUP_SERVER_CGI (serv);
 	SoupMessage *msg;
-	SoupContext *ctx;
+	SoupUri *uri;
 	const char *length, *proto, *host, *https;
 	int i;
 	char *url;
@@ -180,17 +180,17 @@ run_async (SoupServer *serv)
 			   getenv ("SERVER_PORT"),
 			   getenv ("REQUEST_URI"),
 			   NULL);
-	ctx = soup_context_get (url);
+	uri = soup_uri_new (url);
 	g_free (url);
 
-	if (!ctx) {
+	if (!uri) {
 		soup_server_quit (serv);
 		g_object_unref (msg);
 		return;
 	}
 
-	soup_message_set_context (msg, ctx);
-	soup_context_unref (ctx);
+	soup_message_set_uri (msg, uri);
+	soup_uri_free (uri);
 
 	/* Load request headers from environment. Header environment
 	 * variables are of the form "HTTP_<NAME>=<VALUE>"

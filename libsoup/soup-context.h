@@ -22,7 +22,7 @@ typedef void (*SoupContextConnectFn)       (SoupContext          *ctx,
 
 SoupContext   *soup_context_get            (const char           *uri);
 
-SoupContext   *soup_context_from_uri       (SoupUri              *suri);
+SoupContext   *soup_context_from_uri       (const SoupUri        *suri);
 
 void           soup_context_ref            (SoupContext          *ctx);
 

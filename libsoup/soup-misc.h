@@ -21,8 +21,6 @@ void               soup_load_config          (gchar       *config_file);
 
 void               soup_shutdown             (void);
 
-SoupContext       *soup_get_proxy            (void);
-
 /* SSL setup routines */
 
 void               soup_set_ssl_ca_file      (const gchar *ca_file);

@@ -202,7 +202,7 @@ read_headers_cb (const GString        *headers,
 {
 	SoupServerTCPConnection *sconn = user_data;
 	SoupMessage *msg = sconn->msg;
-	SoupContext *ctx;
+	SoupUri *uri;
 	char *req_path = NULL;
 	const char *length, *enc;
 
@@ -239,10 +239,10 @@ read_headers_cb (const GString        *headers,
 
 	/* Generate correct context for request */
 	if (*req_path != '/') {
-		/* Should be an absolute URI. (If not, soup_context_get
+		/* Should be an absolute URI. (If not, soup_uri_new
 		 * will fail and return NULL.
 		 */
-		ctx = soup_context_get (req_path);
+		uri = soup_uri_new (req_path);
 	} else {
 		SoupServerTCP *tcp = SOUP_SERVER_TCP (sconn->serv);
 		const char *req_host;
@@ -261,14 +261,14 @@ read_headers_cb (const GString        *headers,
 				       req_host, 
 				       tcp->priv->port,
 				       req_path);
-		ctx = soup_context_get (url);
+		uri = soup_uri_new (url);
 		g_free (url);
 	}
-	if (!ctx)
+	if (!uri)
 		goto THROW_MALFORMED_HEADER;
 
-	soup_message_set_context (msg, ctx);
-	soup_context_unref (ctx);
+	soup_message_set_uri (msg, uri);
+	soup_uri_free (uri);
 
 	g_free (req_path);
 

@@ -77,10 +77,10 @@ GType soup_message_get_type (void);
 
 typedef void (*SoupCallbackFn) (SoupMessage *req, gpointer user_data);
 
-SoupMessage   *soup_message_new                 (SoupContext       *context,
+SoupMessage   *soup_message_new                 (const SoupUri     *uri,
 						 const char        *method);
 
-SoupMessage   *soup_message_new_full            (SoupContext       *context,
+SoupMessage   *soup_message_new_full            (const SoupUri     *uri,
 						 const char        *method,
 						 SoupOwnership      req_owner,
 						 char              *req_body,
@@ -130,10 +130,8 @@ void             soup_message_set_http_version  (SoupMessage       *msg,
 
 SoupHttpVersion  soup_message_get_http_version  (SoupMessage       *msg);
 
-void             soup_message_set_context       (SoupMessage       *msg,
-						 SoupContext       *new_ctx);
-
-SoupContext     *soup_message_get_context       (SoupMessage       *msg);
+void             soup_message_set_uri           (SoupMessage       *msg,
+						 const SoupUri     *uri);
 
 const SoupUri   *soup_message_get_uri           (SoupMessage       *msg);
 

@@ -27,9 +27,9 @@ struct _SoupProxyConnectionClass {
 
 GType           soup_proxy_connection_get_type (void);
 
-SoupConnection *soup_proxy_connection_new      (SoupUri         *origin_server,
+SoupConnection *soup_proxy_connection_new      (const SoupUri   *origin_server,
 						SoupAuthContext *origin_ac,
-						SoupUri         *proxy_server,
+						const SoupUri   *proxy_server,
 						SoupAuthContext *proxy_ac);
 
 #endif /* SOUP_PROXY_CONNECTION_H */

@@ -33,34 +33,13 @@
 #include "soup-ssl.h"
 #include "soup-www-auth-context.h"
 
+struct _SoupContext {
+	SoupUri      *uri;
+	SoupHost     *server;
+	guint         refcnt;
+};
+
 GHashTable *soup_hosts;  /* KEY, VALUE: SoupHost */
-
-/**
- * soup_context_get:
- * @uri: the stringified URI.
- *
- * Returns a pointer to the %SoupContext representing @uri. If a context
- * already exists for the URI, it is returned with an added reference.
- * Otherwise, a new context is created with a reference count of one.
- *
- * Return value: a %SoupContext representing @uri.
- */
-SoupContext *
-soup_context_get (const gchar *uri)
-{
-	SoupUri *suri;
-	SoupContext *con;
-
-	g_return_val_if_fail (uri != NULL, NULL);
-
-	suri = soup_uri_new (uri);
-	if (!suri) return NULL;
-
-	con = soup_context_from_uri (suri);
-	soup_uri_free (suri);
-
-	return con;
-}
 
 /**
  * soup_context_uri_hash:
@@ -163,7 +142,7 @@ authenticate (SoupAuthContext *ac, SoupAuth *auth, SoupMessage *msg)
  * Return value: a %SoupContext representing @uri.
  */
 SoupContext *
-soup_context_from_uri (SoupUri *suri)
+soup_context_from_uri (const SoupUri *suri)
 {
 	SoupHost *serv = NULL;
 	SoupContext *ret;
@@ -348,21 +327,39 @@ try_existing_connections (SoupContext          *ctx,
 	return FALSE;
 }
 
+static const SoupUri *
+get_proxy (void)
+{
+	static SoupUri *proxy = NULL;
+	static gboolean inited = FALSE;
+
+	if (!inited) {
+		char *proxy_string;
+
+		proxy_string = getenv ("SOUP_PROXY");
+		if (proxy_string)
+			proxy = soup_uri_new (proxy_string);
+		inited = TRUE;
+	}
+
+	return proxy;
+}
+
 static gboolean
 try_create_connection (struct SoupContextConnectData *data)
 {
 	SoupContext *ctx = data->ctx;
-	SoupContext *proxy;
+	const SoupUri *proxy_uri;
 
 	data->timeout_tag = 0;
 
-	proxy = soup_get_proxy ();
-	if (proxy) {
+	proxy_uri = get_proxy ();
+	if (proxy_uri) {
 		data->connection =
 			soup_proxy_connection_new (ctx->uri,
 						   ctx->server->ac,
-						   proxy->uri,
-						   proxy->server->ac);
+						   proxy_uri,
+						   NULL);
 	} else {
 		data->connection =
 			soup_connection_new (ctx->uri, ctx->server->ac);

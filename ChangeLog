@@ -1,3 +1,37 @@
+2003-06-03  Dan Winship  <danw@ximian.com>
+
+	Push SoupContext into the background in preparation for its
+	eventual removal.
+
+	* libsoup/soup-message.c (soup_message_new,
+	soup_message_new_full): Take a SoupUri instead of a SoupContext
+	(soup_message_set_uri): instead of set_context
+	(redirect_handler): Use soup_message_set_uri
+	(soup_message_get_context): gone
+
+	* libsoup/soup-context.c (struct _SoupContext): Move this here. No
+	one else needs to know.
+	(soup_context_get): Gone
+	(soup_context_from_uri): constify uri
+	(get_proxy): moved here from soup-misc.c and made to return a
+	SoupUri.
+	(try_create_connection): Update for that.
+
+	* libsoup/soup-private.h: Remove struct _SoupContext def
+
+	* libsoup/soup-connection.c (soup_connection_new): constify uri
+
+	* libsoup/soup-proxy-connection.c (soup_proxy_connection_new):
+	constify uri arguments, remove SoupContext references
+
+	* libsoup/soup-misc.c (soup_get_proxy): Gone
+
+	* libsoup/soup-server-cgi.c (run_async): Use soup_message_set_uri, etc
+
+	* libsoup/soup-server-tcp.c (read_headers_cb): Likewise
+
+	* tests/*: update soup_message_new() calls
+
 2003-05-14  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-socket.c: Add a "connected" signal and use that

@@ -174,7 +174,7 @@ handler (SoupMessage *msg, gpointer data)
 int
 main (int argc, char **argv)
 {
-        SoupContext *ctx;
+        SoupUri *uri;
         SoupMessage *msg;
 	char *expected;
 	int i;
@@ -185,13 +185,13 @@ main (int argc, char **argv)
 		printf ("Test %d: %s\n", i + 1, tests[i].explanation);
 
 		printf ("  GET %s\n", tests[i].url);
-		ctx = soup_context_get (tests[i].url);
-		if (!ctx) {
+		uri = soup_uri_new (tests[i].url);
+		if (!uri) {
 			fprintf (stderr, "auth-test: Could not parse URI\n");
 			exit (1);
 		}
 
-		msg = soup_message_new (ctx, SOUP_METHOD_GET);
+		msg = soup_message_new (uri, SOUP_METHOD_GET);
 
 		expected = g_strdup (tests[i].expected);
 		soup_message_add_error_code_handler (
@@ -222,10 +222,9 @@ main (int argc, char **argv)
 
 		printf ("\n");
 
-		g_object_unref (msg);
-		/* We don't free ctx because if we did, we'd end up
-		 * discarding the cached auth info at the end of each
-		 * test.
+		/* We don't free msg because if we did, we'd end up
+		 * freeing its SoupContext and therefore the SoupContext's
+		 * SoupAuthContext.
 		 */
 	}
 

@@ -147,7 +147,7 @@ static void
 get_url (const char *url)
 {
 	char *url_to_get, *slash, *name;
-	SoupContext *ctx;
+	SoupUri *uri;
 	SoupMessage *msg;
 	int fd;
 
@@ -176,14 +176,14 @@ get_url (const char *url)
 		close (fd);
 	}
 
-	ctx = soup_context_get (url_to_get);
-	msg = soup_message_new (ctx, SOUP_METHOD_GET);
+	uri = soup_uri_new (url_to_get);
+	g_free (url_to_get);
+
+	msg = soup_message_new (uri, SOUP_METHOD_GET);
 	soup_message_set_flags (msg, SOUP_MESSAGE_NO_REDIRECT);
 
 	pending++;
-	soup_message_queue (msg, got_url, soup_uri_new (url));
-	soup_context_unref (ctx);
-	g_free (url_to_get);
+	soup_message_queue (msg, got_url, uri);
 }
 
 static void

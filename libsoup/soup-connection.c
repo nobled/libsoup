@@ -149,7 +149,7 @@ connected (SoupSocket *sock, SoupKnownErrorCode status)
  * Return value: the new #SoupConnection.
  */
 SoupConnection *
-soup_connection_new (SoupUri *uri, SoupAuthContext *ac)
+soup_connection_new (const SoupUri *uri, SoupAuthContext *ac)
 {
 	SoupConnection *conn;
 

@@ -109,8 +109,10 @@ set_property (GObject *object, guint prop_id,
 
 
 SoupConnection *
-soup_proxy_connection_new (SoupUri *origin_server, SoupAuthContext *origin_ac,
-			   SoupUri *proxy_server, SoupAuthContext *proxy_ac)
+soup_proxy_connection_new (const SoupUri *origin_server,
+			   SoupAuthContext *origin_ac,
+			   const SoupUri *proxy_server,
+			   SoupAuthContext *proxy_ac)
 {
 	SoupProxyConnection *pconn;
 
@@ -156,7 +158,6 @@ connected (SoupSocket *sock, SoupKnownErrorCode err)
 {
 	SoupProxyConnection *pconn = SOUP_PROXY_CONNECTION (sock);
 	SoupConnection *conn = SOUP_CONNECTION (sock);
-	SoupContext *ctx;
 	SoupMessage *connect_msg;
 
 	/* Let the signal through if it's an error, or we don't need
@@ -170,9 +171,8 @@ connected (SoupSocket *sock, SoupKnownErrorCode err)
 	g_signal_stop_emission_by_name (sock, "connected");
 
 	/* Handle HTTPS tunnel setup via proxy CONNECT request. */
-	ctx = soup_context_from_uri (pconn->priv->tunnel_dest);
-	connect_msg = soup_message_new (ctx, SOUP_METHOD_CONNECT);
-	soup_context_unref (ctx);
+	connect_msg = soup_message_new (pconn->priv->tunnel_dest,
+					SOUP_METHOD_CONNECT);
 	connect_msg->connection = conn;
 	soup_message_queue (connect_msg, connect_cb, conn);
 }

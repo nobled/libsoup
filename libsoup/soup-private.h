@@ -55,12 +55,6 @@ typedef struct {
 #define soup_sockaddr_max sockaddr_in
 #endif
 
-struct _SoupContext {
-	SoupUri      *uri;
-	SoupHost     *server;
-	guint         refcnt;
-};
-
 struct _SoupMessagePrivate {
 	SoupContext       *context;
 

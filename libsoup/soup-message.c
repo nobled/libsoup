@@ -84,41 +84,39 @@ SOUP_MAKE_TYPE (soup_message, SoupMessage, class_init, init, PARENT_TYPE)
 
 /**
  * soup_message_new:
- * @context: a #SoupContext for the destination endpoint.
+ * @uri: a #SoupUri for the destination endpoint.
  * @method: a (static) string which will be used as the HTTP method
  * for the created request
  * 
- * Creates a new empty #SoupMessage, which will connect to the URL
- * represented by @context. A reference will be added to @context.
+ * Creates a new empty #SoupMessage, which will connect to @uri
  * 
  * The new message has a status of %SOUP_STATUS_IDLE.
  *
  * Return value: the new #SoupMessage.
  */
 SoupMessage *
-soup_message_new (SoupContext *context, const char *method) 
+soup_message_new (const SoupUri *uri, const char *method) 
 {
 	SoupMessage *msg;
 
 	msg = g_object_new (SOUP_TYPE_MESSAGE, NULL);
 
 	msg->method = method;
-	soup_message_set_context (msg, context);
+	soup_message_set_uri (msg, uri);
 
 	return msg;
 }
 
 /**
  * soup_message_new_full:
- * @context: a #SoupContext for the destination endpoint.
+ * @uri: a #SoupUri for the destination endpoint.
  * @method: a string which will be used as the HTTP method for the
  * created request
  * @req_owner: the #SoupOwnership of the passed data buffer.
  * @req_body: a data buffer containing the body of the message request.
  * @req_length: the byte length of @req_body.
  * 
- * Creates a new #SoupMessage, which will connect to the URL
- * represented by @context. A reference is added to @context. The
+ * Creates a new #SoupMessage, which will connect to @uri. The
  * request data buffer will be filled from @req_owner, @req_body, and
  * @req_length respectively.
  *
@@ -127,13 +125,13 @@ soup_message_new (SoupContext *context, const char *method)
  * Return value: the new #SoupMessage.
  */
 SoupMessage *
-soup_message_new_full (SoupContext   *context,
+soup_message_new_full (const SoupUri *uri,
 		       const char    *method,
 		       SoupOwnership  req_owner,
 		       char          *req_body,
 		       gulong         req_length)
 {
-	SoupMessage *msg = soup_message_new (context, method);
+	SoupMessage *msg = soup_message_new (uri, method);
 
 	msg->request.owner = req_owner;
 	msg->request.body = req_body;
@@ -495,7 +493,6 @@ redirect_handler (SoupMessage *msg, gpointer user_data)
 	if (new_loc) {
 		const SoupUri *old_uri;
 		SoupUri *new_uri;
-		SoupContext *new_ctx;
 
 		old_uri = soup_message_get_uri (msg);
 
@@ -512,15 +509,9 @@ redirect_handler (SoupMessage *msg, gpointer user_data)
 					   old_uri->passwd, 
 					   old_uri->authmech);
 
-		new_ctx = soup_context_from_uri (new_uri);
 
+		soup_message_set_uri (msg, new_uri);
 		soup_uri_free (new_uri);
-
-		if (!new_ctx)
-			goto INVALID_REDIRECT;
-
-		soup_message_set_context (msg, new_ctx);
-		soup_context_unref (new_ctx);
 
 		soup_message_requeue (msg);
 	}
@@ -817,29 +808,18 @@ soup_message_get_http_version (SoupMessage *msg)
 }
 
 void
-soup_message_set_context (SoupMessage       *msg,
-			  SoupContext       *new_ctx)
+soup_message_set_uri (SoupMessage       *msg,
+		      const SoupUri     *new_uri)
 {
 	g_return_if_fail (SOUP_IS_MESSAGE (msg));
 
 	if (msg->priv->context)
 		soup_context_unref (msg->priv->context);
 
-	if (new_ctx)
-		soup_context_ref (new_ctx);
-
-	msg->priv->context = new_ctx;
-}
-
-SoupContext *
-soup_message_get_context (SoupMessage       *msg)
-{
-	g_return_val_if_fail (SOUP_IS_MESSAGE (msg), NULL);
-
-	if (msg->priv->context)
-		soup_context_ref (msg->priv->context);
-
-	return msg->priv->context;
+	if (new_uri)
+		msg->priv->context = soup_context_from_uri (new_uri);
+	else
+		msg->priv->context = NULL;
 }
 
 const SoupUri *

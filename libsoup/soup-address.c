@@ -42,7 +42,7 @@
 
 struct _SoupAddressPrivate {
 	char *name, *physical;
-	int family;
+	SoupAddressFamily family;
 	char buf[sizeof (struct soup_sockaddr_max)];
 
 	SoupAsyncHandle lookup_dns_id;
@@ -126,7 +126,7 @@ soup_address_new_from_hostent (struct hostent *h)
  * passing to soup_socket_server_new().
  **/
 SoupAddress *
-soup_address_new_any (int family)
+soup_address_new_any (SoupAddressFamily family)
 {
 	static SoupAddress *ipv4_any = NULL;
 #ifdef HAVE_IPV6

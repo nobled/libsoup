@@ -23,13 +23,13 @@ SoupAsyncHandle  soup_gethostbyname        (const char         *name,
 					    gpointer            data);
 
 SoupAsyncHandle  soup_gethostbyaddr        (gpointer            addr,
-					    int                 family,
+					    SoupAddressFamily   family,
 					    SoupGetHostByFn     func,
 					    gpointer            data);
 
 void             soup_gethostby_cancel     (SoupAsyncHandle     id);
 
 char            *soup_ntop                 (gpointer            addr,
-					    int                 family);
+					    SoupAddressFamily   family);
 
 #endif /* SOUP_DNS_H */

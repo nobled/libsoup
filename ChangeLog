@@ -1,3 +1,44 @@
+2003-04-18  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-server.c: Make this a GObject and an abstract base
+	class. Also remove all the SoupServerMessage code.
+
+	* libsoup/soup-server-tcp.c: TCP-based SoupServer class.
+
+	* libsoup/soup-server-cgi.c: CGI-based SoupServer class. Totally
+	untested after porting, but then, I'm not sure it was really
+	tested before porting either.
+
+	* libsoup/soup-server-message.c: Move SoupServerMessage code here
+
+	* libsoup/soup-types.h: add typedefs for new classes. Also define
+	SoupProtocol and SoupAddressFamily (ipv4/ipv6) here
+
+	* libsoup/soup-address.c (SoupAddressPrivate): change "family" to
+	a SoupAddressFamily
+	(soup_address_new_any): Likewise
+
+	* libsoup/soup-dns.c (soup_ntop, soup_gethostbyaddr): change
+	"family" to a SoupAddressFamily
+
+	* libsoup/soup-socket.c (soup_socket_get_iochannel): Call
+	g_io_channel_set_close_on_unref on the channel.
+	(finalize): Only close the fd if there's no iochannel. (Makes it
+	possible to keep the iochannel+fd around after destroying the
+	socket if you want.)
+	(got_address): Use soup_socket_get_iochannel
+
+	* libsoup/soup-uri.h: #include soup-types for SoupProtocol
+
+	* libsoup/Makefile.am (libsoup_2_0_la_SOURCES,
+	libsoupinclude_HEADERS): add new files
+
+	* tests/simple-httpd.c (server_callback): print request headers
+	and body as well.
+	(main): Update for soup-server changes
+
+	* tests/timeserver.c (main): Update for SoupAddressFamily
+
 2003-04-17  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-socket.c (soup_socket_get_iochannel): Don't ref the

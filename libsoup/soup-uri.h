@@ -10,16 +10,7 @@
 #define  SOUP_URI_H 1
 
 #include <glib.h>
-
-typedef enum {
-	SOUP_PROTOCOL_HTTP = 1,
-	SOUP_PROTOCOL_HTTPS,
-	SOUP_PROTOCOL_SOCKS4,
-	SOUP_PROTOCOL_SOCKS5,
-	SOUP_PROTOCOL_FTP,
-	SOUP_PROTOCOL_FILE,
-	SOUP_PROTOCOL_MAILTO
-} SoupProtocol;
+#include <libsoup/soup-types.h>
 
 typedef struct {
 	SoupProtocol  protocol;

@@ -25,6 +25,9 @@ libsoupinclude_HEADERS =	\
 	soup-misc.h     	\
 	soup-server-auth.h	\
 	soup-server.h		\
+	soup-server-cgi.h	\
+	soup-server-message.h	\
+	soup-server-tcp.h	\
 	soup-socket.h		\
 	soup-types.h		\
 	soup-uri.h
@@ -59,6 +62,9 @@ libsoup_2_0_la_SOURCES =	\
 	soup-queue.c		\
 	soup-server.c		\
 	soup-server-auth.c	\
+	soup-server-cgi.c	\
+	soup-server-message.c	\
+	soup-server-tcp.c	\
 	soup-socket.c		\
 	soup-socks.h		\
 	soup-socks.c		\

@@ -69,14 +69,15 @@ finalize (GObject *object)
 	if (sock->priv->addr_lookup_id)
 		soup_gethostby_cancel (sock->priv->addr_lookup_id);
 
-	if (sock->priv->sockfd != -1)
-		close (sock->priv->sockfd);
 	if (sock->priv->local_addr)
 		g_object_unref (sock->priv->local_addr);
 	if (sock->priv->remote_addr)
 		g_object_unref (sock->priv->remote_addr);
+
 	if (sock->priv->iochannel)
 		g_io_channel_unref (sock->priv->iochannel);
+	else if (sock->priv->sockfd != -1)
+		close (sock->priv->sockfd);
 
 	g_free (sock->priv);
 
@@ -177,7 +178,6 @@ got_address (SoupKnownErrorCode err, struct hostent *h, gpointer user_data)
 	SoupSocket *sock = user_data;
 	struct sockaddr *sa = NULL;
 	int len, status;
-	GIOChannel *chan;
 
 	sock->priv->addr_lookup_id = NULL;
 
@@ -209,12 +209,11 @@ got_address (SoupKnownErrorCode err, struct hostent *h, gpointer user_data)
 	if (errno != EINPROGRESS)
 		goto cant_connect;
 
-	chan = g_io_channel_unix_new (sock->priv->sockfd);
-	sock->priv->connect_watch = g_io_add_watch (chan,
+	soup_socket_get_iochannel (sock);
+	sock->priv->connect_watch = g_io_add_watch (sock->priv->iochannel,
 						    SOUP_ANY_IO_CONDITION,
 						    connect_watch,
 						    sock);
-	g_io_channel_unref (chan);
 	return;
 
  cant_connect:
@@ -289,8 +288,7 @@ soup_socket_client_new (const char *hostname, guint port, gboolean ssl,
  * soup_socket_get_iochannel:
  * @socket: #SoupSocket to get #GIOChannel from.
  *
- * Get the #GIOChannel for the #SoupSocket. You should not ref or
- * unref this channel; it belongs to the socket.
+ * Get the #GIOChannel for the #SoupSocket.
  *
  * For a client socket or connected server socket, the #GIOChannel
  * represents the data stream. Use it like you would any other
@@ -299,15 +297,22 @@ soup_socket_client_new (const char *hostname, guint port, gboolean ssl,
  * For a listening server socket, the #GIOChannel represents incoming
  * connections. If you can read from it, there's a connection waiting.
  *
+ * If you ref the iochannel, it will remain valid after @socket is
+ * destroyed.
+ *
  * Returns: A #GIOChannel; %NULL on failure.
  **/
-GIOChannel*
-soup_socket_get_iochannel (SoupSocket* socket)
+GIOChannel *
+soup_socket_get_iochannel (SoupSocket *socket)
 {
 	g_return_val_if_fail (socket != NULL, NULL);
 
-	if (socket->priv->iochannel == NULL)
-		socket->priv->iochannel = g_io_channel_unix_new (socket->priv->sockfd);
+	if (!socket->priv->iochannel) {
+		socket->priv->iochannel =
+			g_io_channel_unix_new (socket->priv->sockfd);
+		g_io_channel_set_close_on_unref (socket->priv->iochannel, TRUE);
+	}
+
 	return socket->priv->iochannel;
 }
 

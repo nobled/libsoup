@@ -7,12 +7,8 @@
 #define SOUP_ADDRESS_H
 
 #include <glib-object.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 
-#include <libsoup/soup-error.h>
-#include <libsoup/soup-types.h>
+#include <libsoup/soup-dns.h>
 
 #define SOUP_TYPE_ADDRESS            (soup_address_get_type ())
 #define SOUP_ADDRESS(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SOUP_TYPE_ADDRESS, SoupAddress))
@@ -33,25 +29,25 @@ struct _SoupAddressClass {
 
 GType soup_address_get_type (void);
 
-SoupAddress     *soup_address_new_from_hostent  (struct hostent   *h);
-SoupAddress     *soup_address_new_any           (int               family);
-SoupAddress     *soup_address_new_from_sockaddr (struct sockaddr  *sa,
-						 guint            *port);
+SoupAddress     *soup_address_new_from_hostent  (struct hostent    *h);
+SoupAddress     *soup_address_new_any           (SoupAddressFamily  family);
+SoupAddress     *soup_address_new_from_sockaddr (struct sockaddr   *sa,
+						 guint             *port);
 
-void             soup_address_make_sockaddr     (SoupAddress      *addr,
-						 guint             port,
-						 struct sockaddr **sa,
-						 int              *len);
+void             soup_address_make_sockaddr     (SoupAddress       *addr,
+						 guint              port,
+						 struct sockaddr  **sa,
+						 int               *len);
 
-typedef void   (*SoupAddressGetNameFn)          (SoupAddress      *addr,
-						 const char       *name,
-						 gpointer          data);
-SoupAsyncHandle  soup_address_get_name          (SoupAddress      *addr,
+typedef void   (*SoupAddressGetNameFn)          (SoupAddress       *addr,
+						 const char        *name,
+						 gpointer           data);
+SoupAsyncHandle  soup_address_get_name          (SoupAddress       *addr,
 						 SoupAddressGetNameFn,
-						 gpointer          data);
-void             soup_address_cancel_get_name   (SoupAsyncHandle   id);
+						 gpointer           data);
+void             soup_address_cancel_get_name   (SoupAsyncHandle    id);
 
-const char      *soup_address_check_name        (SoupAddress      *addr);
-const char      *soup_address_get_physical      (SoupAddress      *addr);
+const char      *soup_address_check_name        (SoupAddress       *addr);
+const char      *soup_address_get_physical      (SoupAddress       *addr);
 
 #endif /* SOUP_ADDRESS_H */

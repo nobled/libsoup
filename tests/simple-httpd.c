@@ -14,7 +14,13 @@
 
 #include <glib.h>
 #include <libsoup/soup-message.h>
-#include <libsoup/soup-server.h>
+#include <libsoup/soup-server-tcp.h>
+
+static void
+print_header (gpointer name, gpointer value, gpointer data)
+{
+	printf ("%s: %s\n", (char *)name, (char *)value);
+}
 
 static void
 server_callback (SoupServerContext *context, SoupMessage *msg, gpointer data)
@@ -26,6 +32,9 @@ server_callback (SoupServerContext *context, SoupMessage *msg, gpointer data)
 	path = soup_uri_to_string (soup_message_get_uri (msg), TRUE);
 	printf ("%s %s HTTP/1.%d\n", msg->method, path,
 		soup_message_get_http_version (msg));
+	soup_message_foreach_header (msg->request_headers, print_header, NULL);
+	if (msg->request.length)
+		printf ("%.*s\n", msg->request.length, msg->request.body);
 
 	if (soup_method_get_id (msg->method) != SOUP_METHOD_ID_GET) {
 		soup_message_set_error (msg, SOUP_ERROR_NOT_IMPLEMENTED);
@@ -92,7 +101,7 @@ server_callback (SoupServerContext *context, SoupMessage *msg, gpointer data)
 	soup_message_set_error (msg, SOUP_ERROR_OK);
 
  DONE:
-	printf ("  -> %d %s\n", msg->errorcode, msg->errorphrase);
+	printf ("  -> %d %s\n\n", msg->errorcode, msg->errorphrase);
 }
 
 int
@@ -121,14 +130,18 @@ main (int argc, char **argv)
 		}
 	}
 
-	server = soup_server_new (SOUP_PROTOCOL_HTTP, port);
+	server = soup_server_tcp_new (SOUP_PROTOCOL_HTTP,
+				      SOUP_ADDRESS_FAMILY_IPV4,
+				      port);
 	if (!server) {
 		fprintf (stderr, "Unable to bind to server port %d\n", port);
 		exit (1);
 	}
 	soup_server_register (server, NULL, NULL, server_callback, NULL, NULL);
 
-	ssl_server = soup_server_new (SOUP_PROTOCOL_HTTPS, ssl_port);
+	ssl_server = soup_server_tcp_new (SOUP_PROTOCOL_HTTPS,
+					  SOUP_ADDRESS_FAMILY_IPV4,
+					  ssl_port);
 	if (!ssl_server) {
 		fprintf (stderr, "Unable to bind to SSL server port %d\n", ssl_port);
 		exit (1);
@@ -136,11 +149,11 @@ main (int argc, char **argv)
 	soup_server_register (ssl_server, NULL, NULL, server_callback, NULL, NULL);
 
 	printf ("\nStarting Server on port %d\n",
-		soup_server_get_port (server));
+		soup_server_tcp_get_port (SOUP_SERVER_TCP (server)));
 	soup_server_run_async (server);
 
 	printf ("Starting SSL Server on port %d\n", 
-		soup_server_get_port (ssl_server));
+		soup_server_tcp_get_port (SOUP_SERVER_TCP (ssl_server)));
 	soup_server_run_async (ssl_server);
 
 	printf ("\nWaiting for requests...\n");

@@ -123,7 +123,7 @@ new_hostent_from_phys (const char *addr)
 }
 
 char *
-soup_ntop (gpointer addr, int family)
+soup_ntop (gpointer addr, SoupAddressFamily family)
 {
 	switch (family) {
 	case AF_INET:
@@ -581,7 +581,7 @@ soup_gethostbyname (const char *name, SoupGetHostByFn func, gpointer data)
 }
 
 SoupAsyncHandle
-soup_gethostbyaddr (gpointer addr, int family,
+soup_gethostbyaddr (gpointer addr, SoupAddressFamily family,
 		    SoupGetHostByFn func, gpointer data)
 {
 	SoupDNSEntry *entry;

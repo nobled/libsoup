@@ -26,8 +26,6 @@
 #include "soup-headers.h"
 #include "soup-misc.h"
 #include "soup-private.h"
-#include "soup-socks.h"
-#include "soup-ssl.h"
 #include "soup-transfer.h"
 
 static GSList *soup_active_requests = NULL, *soup_active_request_next = NULL;
@@ -505,96 +503,6 @@ start_request (SoupContext *ctx, SoupMessage *req)
 	req->status = SOUP_STATUS_SENDING_REQUEST;
 }
 
-static void
-proxy_https_connect_cb (SoupMessage *msg, gpointer user_data)
-{
-	gboolean *ret = user_data;
-
-	if (!SOUP_MESSAGE_IS_ERROR (msg)) {
-		/*
-		 * Bless the connection to SSL
-		 */
-		msg->connection->channel = 
-			soup_ssl_get_iochannel (msg->connection->channel);
-
-		/*
-		 * Avoid releasing the connection on message free
-		 */
-		msg->connection = NULL;
-		
-		*ret = TRUE;
-	}
-}
-
-static gboolean
-proxy_https_connect (SoupContext    *proxy, 
-		     SoupConnection *conn, 
-		     SoupContext    *dest_ctx)
-{
-	SoupProtocol proxy_proto;
-	SoupMessage *connect_msg;
-	gboolean ret = FALSE;
-
-	proxy_proto = soup_context_get_uri (proxy)->protocol;
-
-	if (proxy_proto != SOUP_PROTOCOL_HTTP && 
-	    proxy_proto != SOUP_PROTOCOL_HTTPS) 
-		return FALSE;
-
-	connect_msg = soup_message_new (dest_ctx, SOUP_METHOD_CONNECT);
-	connect_msg->connection = conn;
-	soup_message_add_handler (connect_msg, 
-				  SOUP_HANDLER_POST_BODY,
-				  proxy_https_connect_cb,
-				  &ret);
-	soup_message_send (connect_msg);
-	soup_message_free (connect_msg);
-
-	return ret;
-}
-
-static gboolean
-proxy_connect (SoupContext *ctx, SoupMessage *req, SoupConnection *conn)
-{
-	SoupProtocol proto, dest_proto;
-
-	/* 
-	 * Only attempt proxy connect if the connection's context is different
-	 * from the requested context, and if the connection is new 
-	 */
-	if (ctx == req->context || !soup_connection_is_new (conn))
-		return FALSE;
-
-	proto = soup_context_get_uri (ctx)->protocol;
-	dest_proto = soup_context_get_uri (req->context)->protocol;
-	
-	/* Handle SOCKS proxy negotiation */
-	if ((proto == SOUP_PROTOCOL_SOCKS4 || proto == SOUP_PROTOCOL_SOCKS5)) {
-		soup_connect_socks_proxy (conn, 
-					  req->context, 
-					  soup_queue_connect_cb,
-					  req);
-		return TRUE;
-	} 
-	
-	/* Handle HTTPS tunnel setup via proxy CONNECT request. */
-	if (dest_proto == SOUP_PROTOCOL_HTTPS) {
-		/* Syncronously send CONNECT request */
-		if (!proxy_https_connect (ctx, conn, req->context)) {
-			soup_message_set_error_full (
-				req, 
-				SOUP_ERROR_CANT_CONNECT_PROXY,
-				"Unable to create secure data "
-				"tunnel through proxy");
-
-			soup_message_issue_callback (req);
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-}
-
 void
 soup_queue_connect_cb (SoupContext        *ctx,
 		       SoupKnownErrorCode  err,
@@ -606,41 +514,11 @@ soup_queue_connect_cb (SoupContext        *ctx,
 	req->priv->connect_tag = NULL;
 	req->connection = conn;
 
-	switch (err) {
-	case SOUP_ERROR_OK:
-		/* 
-		 * NOTE: proxy_connect will either set an error or call us 
-		 * again after proxy negotiation.
-		 */
-		if (proxy_connect (ctx, req, conn))
-			return;
-
+	if (err != SOUP_ERROR_OK) {
+		soup_message_set_error (req, err);
+		soup_message_issue_callback (req);
+	} else
 		start_request (ctx, req);
-		break;
-
-	case SOUP_ERROR_CANT_RESOLVE:
-		if (ctx != req->context)
-			soup_message_set_error (req, 
-						SOUP_ERROR_CANT_RESOLVE_PROXY);
-		else 
-			soup_message_set_error (req, 
-						SOUP_ERROR_CANT_RESOLVE);
-
-		soup_message_issue_callback (req);
-		break;
-
-	case SOUP_ERROR_CANT_CONNECT:
-	default:
-		if (ctx != req->context)
-			soup_message_set_error (req, 
-						SOUP_ERROR_CANT_CONNECT_PROXY);
-		else
-			soup_message_set_error (req, 
-						SOUP_ERROR_CANT_CONNECT);
-
-		soup_message_issue_callback (req);
-		break;
-	}
 
 	return;
 }
@@ -696,25 +574,20 @@ soup_idle_handle_new_requests (gpointer unused)
 	SoupMessage *req = soup_queue_first_request ();
 
 	for (; req; req = soup_queue_next_request ()) {
-		SoupContext *ctx, *proxy;
-
 		if (req->status != SOUP_STATUS_QUEUED)
 			continue;
-
-		proxy = soup_get_proxy ();
-		ctx = proxy ? proxy : req->context;
 
 		req->status = SOUP_STATUS_CONNECTING;
 
 		if (req->connection && 
 		    soup_connection_is_keep_alive (req->connection))
-			start_request (ctx, req);
+			start_request (req->context, req);
 		else {
 			gpointer connect_tag;
 
 			connect_tag = 
 				soup_context_get_connection (
-					ctx, 
+					req->context,
 					soup_queue_connect_cb, 
 					req);
 

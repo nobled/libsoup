@@ -554,7 +554,7 @@ requeue_read_error (gboolean body_started, gpointer user_data)
 {
 	RequeueConnectData *data = user_data;
 	SoupMessage *msg = data->msg;
-	SoupContext *dest_ctx = msg->connection->context;
+	SoupContext *dest_ctx = msg->context;
 
 	soup_context_ref (dest_ctx);
 

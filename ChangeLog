@@ -1,5 +1,29 @@
 2002-11-18  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-connection.c: New, split SoupConnection stuff out
+	of soup-context.c. (A SoupConnection wraps a SoupSocket and also
+	handles proxies and keepalive-ness.)
+
+	* libsoup/soup-private.h (struct _SoupConnection): Remove the
+	server and context fields, which are no longer relevant to a
+	SoupConnection, and the port field, which can be extracted from
+	the socket if needed.
+
+	* libsoup/soup-context.c: Remove SoupConnection code and update
+	accordingly. (SoupContext still handles try_existing_connections,
+	soup_connection_limit, and timeouts to wait for a connection to
+	become available.)
+
+	* libsoup/soup-queue.c: Remove proxy-handling code. SoupConnection
+	does this itself now.
+
+	* libsoup/soup-socks.c: Make this work at the SoupSocket level
+	rather than the SoupConnection level.
+
+	* libsoup/Makefile.am: add soup-connection.[ch]
+
+2002-11-18  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-error.c: add SOUP_ERROR_CANT_RESOLVE and
 	SOUP_ERROR_CANT_RESOLVE_PROXY. Consistentify the capitalization of
 	the transport error phrases.

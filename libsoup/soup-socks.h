@@ -12,11 +12,13 @@
 #define SOUP_SOCKS_H 1
 
 #include <glib.h>
-#include <libsoup/soup-context.h>
+#include "soup-socket.h"
+#include "soup-uri.h"
 
-void soup_connect_socks_proxy (SoupConnection        *conn, 
-			       SoupContext           *dest_ctx, 
-			       SoupConnectCallbackFn  cb,
-			       gpointer               user_data);
+void soup_socks_proxy_connect (SoupSocket          *socket,
+			       SoupUri             *proxy_uri,
+			       SoupUri             *dest_uri,
+			       SoupSocketConnectFn  cb,
+			       gpointer             user_data);
 
 #endif /*SOUP_SOCKS_H*/

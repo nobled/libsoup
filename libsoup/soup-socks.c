@@ -11,13 +11,14 @@
 #include <glib.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 #include "soup-socks.h"
-#include "soup-context.h"
-#include "soup-socket.h"
-#include "soup-private.h"
 
 typedef struct {
-	SoupConnection        *src_conn;
+	SoupSocket          *socket;
 	
 	enum {
 		SOCKS_4_DEST_ADDR_LOOKUP,
@@ -32,17 +33,24 @@ typedef struct {
 		SOCKS_5_VERIFY_SUCCESS	
 	} phase;
 
-	SoupAddress           *dest_addr;
-	SoupContext           *dest_ctx;
-	SoupConnectCallbackFn  cb;
-	gpointer               user_data;
+	SoupUri             *proxy_uri;
+	SoupUri             *dest_uri;
+	SoupAddress         *dest_addr;
+	SoupSocketConnectFn  cb;
+	gpointer             user_data;
 } SoupSocksData;
 
 static void
 socks_data_free (SoupSocksData *sd)
 {
-	if (sd->dest_ctx)
-		soup_context_unref (sd->dest_ctx);
+	if (sd->socket)
+		soup_socket_unref (sd->socket);
+
+	if (sd->proxy_uri)
+		soup_uri_free (sd->proxy_uri);
+
+	if (sd->dest_uri)
+		soup_uri_free (sd->dest_uri);
 
 	if (sd->dest_addr)
 		soup_address_unref (sd->dest_addr);
@@ -76,8 +84,6 @@ soup_socks_write (GIOChannel* iochannel,
 		  GIOCondition condition, 
 		  SoupSocksData *sd)
 {
-	const SoupUri *dest_uri, *proxy_uri;
-	SoupContext *proxy_ctx;
 	struct sockaddr *sa;
 	gboolean finished = FALSE;
 	guchar buf[128];
@@ -85,20 +91,14 @@ soup_socks_write (GIOChannel* iochannel,
 	gsize bytes_written;
 	GIOError error;
 
-	dest_uri = soup_context_get_uri (sd->dest_ctx);
-
-	proxy_ctx = soup_connection_get_context (sd->src_conn);
-	proxy_uri = soup_context_get_uri (proxy_ctx);
-	soup_context_unref (proxy_ctx);
-
 	switch (sd->phase) {
 	case SOCKS_4_SEND_DEST_ADDR: 
 		/* FIXME: This won't work if dest_addr isn't IPv4 */
 
 		buf[len++] = 0x04;
 		buf[len++] = 0x01;
-		WSHORT (buf, &len, (gushort) dest_uri->port);
-		soup_address_make_sockaddr (sd->dest_addr, dest_uri->port,
+		WSHORT (buf, &len, (gushort) sd->dest_uri->port);
+		soup_address_make_sockaddr (sd->dest_addr, sd->dest_uri->port,
 					    &sa, &sa_len);
 		memcpy (&buf [len], 
 			&((struct sockaddr_in *) sa)->sin_addr,
@@ -113,7 +113,7 @@ soup_socks_write (GIOChannel* iochannel,
 		break;
 
 	case SOCKS_5_SEND_INIT:
-		if (proxy_uri->user) {
+		if (sd->proxy_uri->user) {
 			buf[0] = 0x05;
 			buf[1] = 0x02;
 			buf[2] = 0x00;
@@ -131,8 +131,8 @@ soup_socks_write (GIOChannel* iochannel,
 
 	case SOCKS_5_SEND_AUTH:
 		buf[len++] = 0x01;
-		WSTRING (buf, &len, proxy_uri->user);
-		WSTRING (buf, &len, proxy_uri->passwd);
+		WSTRING (buf, &len, sd->proxy_uri->user);
+		WSTRING (buf, &len, sd->proxy_uri->passwd);
 
 		sd->phase = SOCKS_5_VERIFY_AUTH;
 		break;
@@ -142,8 +142,8 @@ soup_socks_write (GIOChannel* iochannel,
 		buf[len++] = 0x01;
 		buf[len++] = 0x00;
 		buf[len++] = 0x03;
-		WSTRING (buf, &len, dest_uri->host);
-		WSHORT (buf, &len, (gushort) dest_uri->port);
+		WSTRING (buf, &len, sd->dest_uri->host);
+		WSHORT (buf, &len, (gushort) sd->dest_uri->port);
 
 		sd->phase = SOCKS_5_VERIFY_SUCCESS;
 		finished = TRUE;
@@ -155,16 +155,15 @@ soup_socks_write (GIOChannel* iochannel,
 
 	error = g_io_channel_write (iochannel, buf, len, &bytes_written);
 	
-	if (error == G_IO_ERROR_AGAIN) return TRUE;
-	if (error != G_IO_ERROR_NONE) goto CONNECT_ERROR;
+	if (error == G_IO_ERROR_AGAIN)
+		return TRUE;
+	if (error != G_IO_ERROR_NONE)
+		goto CONNECT_ERROR;
 
 	return !finished;
 
  CONNECT_ERROR:
-	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_ERROR_CANT_CONNECT, 
-		   NULL, 
-		   sd->user_data);
+	(*sd->cb) (NULL, SOUP_ERROR_CANT_CONNECT, sd->user_data);
 	socks_data_free (sd);
 	return FALSE;
 }
@@ -180,8 +179,10 @@ soup_socks_read (GIOChannel* iochannel,
 
 	error = g_io_channel_read (iochannel, buf, sizeof (buf), &bytes_read);
 
-	if (error == G_IO_ERROR_AGAIN) return TRUE;
-	if (error != G_IO_ERROR_NONE || bytes_read == 0) goto CONNECT_ERROR;
+	if (error == G_IO_ERROR_AGAIN)
+		return TRUE;
+	if (error != G_IO_ERROR_NONE || bytes_read == 0)
+		goto CONNECT_ERROR;
 
 	switch (sd->phase) {
 	case SOCKS_4_VERIFY_SUCCESS:
@@ -220,18 +221,13 @@ soup_socks_read (GIOChannel* iochannel,
 	return TRUE;
 
  CONNECT_OK:
-	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_ERROR_OK, 
-		   sd->src_conn, 
-		   sd->user_data);
+	soup_socket_ref (sd->socket);
+	(*sd->cb) (sd->socket, SOUP_ERROR_OK, sd->user_data);
 	socks_data_free (sd);
 	return FALSE;
 
  CONNECT_ERROR:
-	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_ERROR_CANT_CONNECT, 
-		   NULL, 
-		   sd->user_data);
+	(*sd->cb) (NULL, SOUP_ERROR_CANT_CONNECT, sd->user_data);
 	socks_data_free (sd);
 	return FALSE;
 }
@@ -241,11 +237,7 @@ soup_socks_error (GIOChannel* iochannel,
 		  GIOCondition condition, 
 		  SoupSocksData *sd)
 {
-	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_ERROR_CANT_CONNECT, 
-		   NULL, 
-		   sd->user_data);
-
+	(*sd->cb) (NULL, SOUP_ERROR_CANT_CONNECT, sd->user_data);
 	socks_data_free (sd);
 	return FALSE;	
 }
@@ -259,18 +251,15 @@ soup_lookup_dest_addr_cb (SoupAddress        *inetaddr,
 	GIOChannel *channel;
 
 	if (status != SOUP_ERROR_OK) {
-		(*sd->cb) (sd->dest_ctx, 
-			   SOUP_ERROR_CANT_RESOLVE, 
-			   NULL, 
-			   sd->user_data); 
-		g_free (sd);
+		(*sd->cb) (NULL, status, sd->user_data); 
+		socks_data_free (sd);
 		return;
 	}
 
 	sd->dest_addr = inetaddr;
 	sd->phase = SOCKS_4_SEND_DEST_ADDR;
 
-	channel = soup_connection_get_iochannel (sd->src_conn);
+	channel = soup_socket_get_iochannel (sd->socket);
 	g_io_add_watch (channel, G_IO_OUT, (GIOFunc) soup_socks_write, sd);
 	g_io_add_watch (channel, G_IO_IN, (GIOFunc) soup_socks_read, sd);
 	g_io_add_watch (channel, 
@@ -281,31 +270,22 @@ soup_lookup_dest_addr_cb (SoupAddress        *inetaddr,
 }
 
 void
-soup_connect_socks_proxy (SoupConnection        *conn, 
-			  SoupContext           *dest_ctx, 
-			  SoupConnectCallbackFn  cb,
-			  gpointer               user_data)
+soup_socks_proxy_connect (SoupSocket          *socket,
+			  SoupUri             *proxy_uri,
+			  SoupUri             *dest_uri,
+			  SoupSocketConnectFn  cb,
+			  gpointer             user_data)
 {
 	SoupSocksData *sd = NULL;
-	SoupContext *proxy_ctx;
-	const SoupUri *dest_uri, *proxy_uri;
 	GIOChannel *channel;
 
-	if (!soup_connection_is_new (conn)) goto CONNECT_SUCCESS;
-	
-	soup_context_ref (dest_ctx);
-	dest_uri = soup_context_get_uri (dest_ctx);
-
-	proxy_ctx = soup_connection_get_context (conn);
-	proxy_uri = soup_context_get_uri (proxy_ctx);
-	soup_context_unref (proxy_ctx);
-
 	sd = g_new0 (SoupSocksData, 1);
-	sd->src_conn = conn;
-	sd->dest_ctx = dest_ctx;
+	sd->socket = socket;
+	sd->proxy_uri = soup_uri_copy (proxy_uri);
+	sd->dest_uri = soup_uri_copy (dest_uri);
 	sd->cb = cb;
 	sd->user_data = user_data;
-	
+
 	switch (proxy_uri->protocol) {
 	case SOUP_PROTOCOL_SOCKS4:
 		soup_address_new (dest_uri->host, 
@@ -315,7 +295,7 @@ soup_connect_socks_proxy (SoupConnection        *conn,
 		break;
 
 	case SOUP_PROTOCOL_SOCKS5:
-		channel = soup_connection_get_iochannel (conn);
+		channel = soup_socket_get_iochannel (socket);
 		g_io_add_watch (channel, 
 				G_IO_OUT, 
 				(GIOFunc) soup_socks_write, 
@@ -334,12 +314,9 @@ soup_connect_socks_proxy (SoupConnection        *conn,
 		break;
 
 	default:
-		goto CONNECT_SUCCESS;
+		g_assert_not_reached ();
+		break;
 	}
 
 	return;
-	
- CONNECT_SUCCESS:
-	(*cb) (dest_ctx, SOUP_ERROR_OK, conn, user_data); 
-	g_free (sd);
 }

@@ -73,12 +73,9 @@ struct _SoupContext {
 };
 
 struct _SoupConnection {
-	SoupHost     *server;
-	SoupContext  *context;
 	GIOChannel   *channel;
 	SoupSocket   *socket;
 	SoupAuth     *auth;
-	guint         port;
 	gboolean      in_use;
 	guint         last_used_id;
 	gboolean      keep_alive;

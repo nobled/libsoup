@@ -307,7 +307,7 @@ soup_uri_to_string (const SoupUri *uri, gboolean just_path)
 	str = g_string_sized_new (20);
 
 	if (uri->protocol && !just_path)
-		g_string_sprintfa (str, "%s:", soup_uri_protocol_name (uri->protocol));
+		g_string_sprintfa (str, "%s:", soup_protocol_name (uri->protocol));
 	if (uri->host && !just_path) {
 		g_string_append (str, "//");
 		if (uri->user) {

@@ -12,22 +12,17 @@
 #define SOUP_CONTEXT_H 1
 
 #include <glib.h>
+#include <libsoup/soup-error.h>
 #include <libsoup/soup-uri.h>
 
 typedef struct _SoupContext SoupContext;
 
 typedef struct _SoupConnection SoupConnection;
 
-typedef enum {
-	SOUP_CONNECT_ERROR_NONE,
-	SOUP_CONNECT_ERROR_ADDR_RESOLVE,
-	SOUP_CONNECT_ERROR_NETWORK
-} SoupConnectErrorCode;
-
-typedef void (*SoupConnectCallbackFn) (SoupContext          *ctx,
-				       SoupConnectErrorCode  err,
-				       SoupConnection       *conn, 
-				       gpointer              user_data);
+typedef void (*SoupConnectCallbackFn) (SoupContext        *ctx,
+				       SoupKnownErrorCode  err,
+				       SoupConnection     *conn, 
+				       gpointer            user_data);
 
 typedef gpointer SoupConnectId;
 

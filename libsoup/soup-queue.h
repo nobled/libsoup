@@ -13,14 +13,15 @@
 
 #include <glib.h>
 
+#include <libsoup/soup-error.h>
 #include <libsoup/soup-message.h>
 
 void         soup_queue_message        (SoupMessage          *req);
 
-void         soup_queue_connect_cb     (SoupContext          *ctx,
-					SoupConnectErrorCode  err,
-					SoupConnection       *conn,
-					gpointer              user_data);
+void         soup_queue_connect_cb     (SoupContext        *ctx,
+					SoupKnownErrorCode  err,
+					SoupConnection     *conn,
+					gpointer            user_data);
 
 void         soup_queue_add_request    (SoupMessage          *req);
 void         soup_queue_remove_request (SoupMessage          *req);

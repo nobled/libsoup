@@ -16,18 +16,15 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <libsoup/soup-error.h>
+
 typedef struct _SoupAddress SoupAddress;
 
 typedef gpointer SoupAddressNewId;
 
-typedef enum {
-	SOUP_ADDRESS_STATUS_OK,
-	SOUP_ADDRESS_STATUS_ERROR
-} SoupAddressStatus;
-
-typedef void (*SoupAddressNewFn) (SoupAddress       *inetaddr, 
-				  SoupAddressStatus  status, 
-				  gpointer           user_data);
+typedef void (*SoupAddressNewFn) (SoupAddress        *inetaddr, 
+				  SoupKnownErrorCode  status, 
+				  gpointer            user_data);
 
 SoupAddressNewId     soup_address_new                (const gchar*       name, 
 						      SoupAddressNewFn   func, 
@@ -49,9 +46,9 @@ SoupAddress *        soup_address_copy               (SoupAddress*       ia);
 
 typedef gpointer SoupAddressGetNameId;
 
-typedef void (*SoupAddressGetNameFn) (SoupAddress       *inetaddr, 
-				      SoupAddressStatus  status, 
-				      const gchar       *name,
+typedef void (*SoupAddressGetNameFn) (SoupAddress        *inetaddr, 
+				      SoupKnownErrorCode  status, 
+				      const gchar        *name,
 				      gpointer           user_data);
 
 SoupAddressGetNameId soup_address_get_name           (SoupAddress*         ia, 

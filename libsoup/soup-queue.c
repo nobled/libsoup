@@ -596,10 +596,10 @@ proxy_connect (SoupContext *ctx, SoupMessage *req, SoupConnection *conn)
 }
 
 void
-soup_queue_connect_cb (SoupContext          *ctx,
-		       SoupConnectErrorCode  err,
-		       SoupConnection       *conn,
-		       gpointer              user_data)
+soup_queue_connect_cb (SoupContext        *ctx,
+		       SoupKnownErrorCode  err,
+		       SoupConnection     *conn,
+		       gpointer            user_data)
 {
 	SoupMessage *req = user_data;
 
@@ -607,7 +607,7 @@ soup_queue_connect_cb (SoupContext          *ctx,
 	req->connection = conn;
 
 	switch (err) {
-	case SOUP_CONNECT_ERROR_NONE:
+	case SOUP_ERROR_OK:
 		/* 
 		 * NOTE: proxy_connect will either set an error or call us 
 		 * again after proxy negotiation.
@@ -618,22 +618,19 @@ soup_queue_connect_cb (SoupContext          *ctx,
 		start_request (ctx, req);
 		break;
 
-	case SOUP_CONNECT_ERROR_ADDR_RESOLVE:
+	case SOUP_ERROR_CANT_RESOLVE:
 		if (ctx != req->context)
-			soup_message_set_error_full (
-				req, 
-				SOUP_ERROR_CANT_CONNECT_PROXY,
-				"Unable to resolve proxy hostname");
+			soup_message_set_error (req, 
+						SOUP_ERROR_CANT_RESOLVE_PROXY);
 		else 
-			soup_message_set_error_full (
-				req, 
-				SOUP_ERROR_CANT_CONNECT,
-				"Unable to resolve hostname");
+			soup_message_set_error (req, 
+						SOUP_ERROR_CANT_RESOLVE);
 
 		soup_message_issue_callback (req);
 		break;
 
-	case SOUP_CONNECT_ERROR_NETWORK:
+	case SOUP_ERROR_CANT_CONNECT:
+	default:
 		if (ctx != req->context)
 			soup_message_set_error (req, 
 						SOUP_ERROR_CANT_CONNECT_PROXY);

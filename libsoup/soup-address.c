@@ -60,9 +60,9 @@ struct _SoupAddress {
 #endif
 
 static void
-soup_address_new_sync_cb (SoupAddress       *addr,
-			  SoupAddressStatus  status,
-			  gpointer           user_data)
+soup_address_new_sync_cb (SoupAddress        *addr,
+			  SoupKnownErrorCode  status,
+			  gpointer            user_data)
 {
 	SoupAddress **ret = user_data;
 	*ret = addr;
@@ -228,10 +228,10 @@ soup_address_copy (SoupAddress* ia)
 }
 
 static void
-soup_address_get_name_sync_cb (SoupAddress       *addr,
-			       SoupAddressStatus  status,
-			       const char        *name,
-			       gpointer           user_data)
+soup_address_get_name_sync_cb (SoupAddress        *addr,
+			       SoupKnownErrorCode  status,
+			       const char         *name,
+			       gpointer            user_data)
 {
 	const char **ret = user_data;
 	*ret = name;
@@ -753,7 +753,7 @@ soup_address_new_cb (GIOChannel* iochannel,
 		SoupAddressCbData *cb = iter->data;
 
 		soup_address_ref (ia);
-		(*cb->func) (ia, SOUP_ADDRESS_STATUS_OK, cb->data);
+		(*cb->func) (ia, SOUP_ERROR_OK, cb->data);
 
 		g_free (cb);
 	}
@@ -777,7 +777,7 @@ soup_address_new_cb (GIOChannel* iochannel,
 		SoupAddressCbData *cb_data = iter->data;
 
 		(*cb_data->func) (NULL,
-				  SOUP_ADDRESS_STATUS_ERROR,
+				  SOUP_ERROR_CANT_RESOLVE,
 				  cb_data->data);
 
 		iter = iter->next;		  
@@ -870,7 +870,7 @@ soup_address_new (const gchar* name, SoupAddressNewFn func, gpointer data)
 #endif
 		}
 
-		(*func) (ia, SOUP_ADDRESS_STATUS_OK, data);
+		(*func) (ia, SOUP_ERROR_OK, data);
 		return NULL;
 	}
 
@@ -881,7 +881,7 @@ soup_address_new (const gchar* name, SoupAddressNewFn func, gpointer data)
 		ia = g_hash_table_lookup (address_hash, name);
 		if (ia) {
 			soup_address_ref (ia);
-			(*func) (ia, SOUP_ADDRESS_STATUS_OK, data);
+			(*func) (ia, SOUP_ERROR_OK, data);
 			return ia;
 		}
 	}
@@ -907,14 +907,14 @@ soup_address_new (const gchar* name, SoupAddressNewFn func, gpointer data)
 	if (getenv ("SOUP_SYNC_DNS")) {
 		if (!soup_gethostbyname (name, &sa, &sa_len)) {
 			g_warning ("Problem resolving host name");
-			(*func) (NULL, SOUP_ADDRESS_STATUS_ERROR, data);
+			(*func) (NULL, SOUP_ERROR_CANT_RESOLVE, data);
 			return NULL;
 		}
 
 		ia = soup_address_new_from_sockaddr (sa, NULL);
 		g_free (sa);
 
-		(*func) (ia, SOUP_ADDRESS_STATUS_OK, data);
+		(*func) (ia, SOUP_ERROR_OK, data);
 		return NULL;
 	}
 
@@ -922,7 +922,7 @@ soup_address_new (const gchar* name, SoupAddressNewFn func, gpointer data)
 
 	/* Open a pipe */
 	if (pipe (pipes) == -1) {
-		(*func) (NULL, SOUP_ADDRESS_STATUS_ERROR, data);
+		(*func) (NULL, SOUP_ERROR_CANT_RESOLVE, data);
 		return NULL;
 	}
 
@@ -945,7 +945,7 @@ soup_address_new (const gchar* name, SoupAddressNewFn func, gpointer data)
 		close (pipes [0]);
 		close (pipes [1]);
 
-		(*func) (NULL, SOUP_ADDRESS_STATUS_ERROR, data);
+		(*func) (NULL, SOUP_ERROR_CANT_RESOLVE, data);
 
 		return NULL;
 	case 0:
@@ -1205,7 +1205,7 @@ soup_address_get_name_cb (GIOChannel* iochannel,
 
 			/* Call back */
 			(*state->func) (state->ia,
-					SOUP_ADDRESS_STATUS_OK,
+					SOUP_ERROR_OK,
 					state->ia->name,
 					state->data);
 
@@ -1221,7 +1221,7 @@ soup_address_get_name_cb (GIOChannel* iochannel,
 
 	/* Call back */
 	(*state->func) (state->ia,
-			SOUP_ADDRESS_STATUS_ERROR,
+			SOUP_ERROR_CANT_RESOLVE,
 			NULL,
 			state->data);
 	soup_address_get_name_cancel (state);
@@ -1260,7 +1260,7 @@ soup_address_get_name (SoupAddress*         ia,
 	g_return_val_if_fail (func != NULL, NULL);
 
 	if (ia->name) {
-		(func) (ia, SOUP_ADDRESS_STATUS_OK, ia->name, data);
+		(func) (ia, SOUP_ERROR_OK, ia->name, data);
 		return NULL;
 	}
 
@@ -1268,7 +1268,7 @@ soup_address_get_name (SoupAddress*         ia,
 
 	/* Open a pipe */
 	if (pipe (pipes) != 0) {
-		(func) (ia, SOUP_ADDRESS_STATUS_ERROR, NULL, data);
+		(func) (ia, SOUP_ERROR_CANT_RESOLVE, NULL, data);
 		return NULL;
 	}
 
@@ -1292,7 +1292,7 @@ soup_address_get_name (SoupAddress*         ia,
 			   g_strerror(errno),
 			   errno);
 
-		(*func) (ia, SOUP_ADDRESS_STATUS_ERROR, NULL, data);
+		(*func) (ia, SOUP_ERROR_CANT_RESOLVE, NULL, data);
 
 		return NULL;
 	case 0:

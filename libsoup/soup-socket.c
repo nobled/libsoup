@@ -39,35 +39,28 @@ typedef struct {
 } SoupSocketConnectState;
 
 static void
-soup_socket_connect_tcp_cb (SoupSocket* socket,
-			    SoupSocketConnectStatus status,
+soup_socket_connect_tcp_cb (SoupSocket *socket,
+			    SoupKnownErrorCode status,
 			    gpointer data)
 {
 	SoupSocketConnectState* state = (SoupSocketConnectState*) data;
 	SoupSocketConnectFn func = state->func;
 	gpointer user_data = state->data;
 
-	if (status == SOUP_SOCKET_NEW_STATUS_OK)
-		(*func) (socket,
-			 SOUP_SOCKET_CONNECT_ERROR_NONE,
-			 user_data);
-	else
-		(*func) (NULL,
-			 SOUP_SOCKET_CONNECT_ERROR_NETWORK,
-			 user_data);
+	(*func) (socket, status, user_data);
 
 	if (state->tcp_id)
 		g_free (state);
 }
 
 static void
-soup_socket_connect_inetaddr_cb (SoupAddress* inetaddr,
-				 SoupAddressStatus status,
+soup_socket_connect_inetaddr_cb (SoupAddress *inetaddr,
+				 SoupKnownErrorCode status,
 				 gpointer data)
 {
 	SoupSocketConnectState* state = (SoupSocketConnectState*) data;
 
-	if (status == SOUP_ADDRESS_STATUS_OK) {
+	if (status == SOUP_ERROR_OK) {
 		state->tcp_id = soup_socket_new (inetaddr, state->port,
 						 soup_socket_connect_tcp_cb,
 						 state);
@@ -77,7 +70,7 @@ soup_socket_connect_inetaddr_cb (SoupAddress* inetaddr,
 		gpointer user_data = state->data;
 
 		(*func) (NULL, 
-			 SOUP_SOCKET_CONNECT_ERROR_ADDR_RESOLVE, 
+			 SOUP_ERROR_CANT_RESOLVE, 
 			 user_data);
 	}
 
@@ -160,9 +153,9 @@ soup_socket_connect_cancel (SoupSocketConnectId id)
 }
 
 static void
-soup_socket_connect_sync_cb (SoupSocket              *socket,
-			     SoupSocketConnectStatus  status,
-			     gpointer                 data)
+soup_socket_connect_sync_cb (SoupSocket         *socket,
+			     SoupKnownErrorCode  status,
+			     gpointer            data)
 {
 	SoupSocket **ret = data;
 	*ret = socket;
@@ -185,8 +178,8 @@ soup_socket_connect_sync (const gchar *name,
 }
 
 static void
-soup_socket_new_sync_cb (SoupSocket*         socket,
-			 SoupSocketNewStatus status,
+soup_socket_new_sync_cb (SoupSocket         *socket,
+			 SoupKnownErrorCode  status,
 			 gpointer            data)
 {
 	SoupSocket **ret = data;
@@ -441,7 +434,7 @@ soup_socket_new_cb (GIOChannel* iochannel,
 	s->addr = state->addr;
 	s->port = state->port;
 
-	(*state->func) (s, SOUP_SOCKET_NEW_STATUS_OK, state->data);
+	(*state->func) (s, SOUP_ERROR_OK, state->data);
 
 	g_free (state);
 
@@ -449,7 +442,7 @@ soup_socket_new_cb (GIOChannel* iochannel,
 
  ERROR:
 	soup_address_unref (state->addr);
-	(*state->func) (NULL, SOUP_SOCKET_NEW_STATUS_ERROR, state->data);
+	(*state->func) (NULL, SOUP_ERROR_CANT_CONNECT, state->data);
 	g_free (state);
 
 	return FALSE;
@@ -491,7 +484,7 @@ soup_socket_new (SoupAddress      *addr,
 	soup_address_make_sockaddr (addr, port, &sa, &len);
 	sockfd = socket (sa->sa_family, SOCK_STREAM, 0);
 	if (sockfd < 0) {
-		(func) (NULL, SOUP_SOCKET_NEW_STATUS_ERROR, data);
+		(func) (NULL, SOUP_ERROR_CANT_CONNECT, data);
 		g_free (sa);
 		return NULL;
 	}
@@ -499,13 +492,13 @@ soup_socket_new (SoupAddress      *addr,
 	/* Get the flags (should all be 0?) */
 	flags = fcntl (sockfd, F_GETFL, 0);
 	if (flags == -1) {
-		(func) (NULL, SOUP_SOCKET_NEW_STATUS_ERROR, data);
+		(func) (NULL, SOUP_ERROR_CANT_CONNECT, data);
 		g_free (sa);
 		return NULL;
 	}
 
 	if (fcntl (sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		(func) (NULL, SOUP_SOCKET_NEW_STATUS_ERROR, data);
+		(func) (NULL, SOUP_ERROR_CANT_CONNECT, data);
 		g_free (sa);
 		return NULL;
 	}
@@ -514,7 +507,7 @@ soup_socket_new (SoupAddress      *addr,
 
 	/* Connect (but non-blocking!) */
 	if (connect (sockfd, sa, len) < 0 && errno != EINPROGRESS) {
-		(func) (NULL, SOUP_SOCKET_NEW_STATUS_ERROR, data);
+		(func) (NULL, SOUP_ERROR_CANT_CONNECT, data);
 		g_free (sa);
 		return NULL;
 	}
@@ -530,7 +523,7 @@ soup_socket_new (SoupAddress      *addr,
 		s->sockfd = sockfd;
 		s->addr = addr;
 
-		(*func) (s, SOUP_SOCKET_NEW_STATUS_OK, data);
+		(*func) (s, SOUP_ERROR_OK, data);
 		return NULL;
 	}
 

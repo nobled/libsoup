@@ -343,9 +343,9 @@ prune_least_used_connection (void)
 static gboolean retry_connect_timeout_cb (struct SoupConnectData *data);
 
 static void
-soup_context_connect_cb (SoupSocket              *socket,
-			 SoupSocketConnectStatus  status,
-			 gpointer                 user_data)
+soup_context_connect_cb (SoupSocket         *socket,
+			 SoupKnownErrorCode  status,
+			 gpointer            user_data)
 {
 	struct SoupConnectData *data = user_data;
 	SoupContext            *ctx = data->ctx;
@@ -353,7 +353,7 @@ soup_context_connect_cb (SoupSocket              *socket,
 	GIOChannel             *chan;
 
 	switch (status) {
-	case SOUP_SOCKET_CONNECT_ERROR_NONE:
+	case SOUP_ERROR_OK:
 		new_conn = g_new0 (SoupConnection, 1);
 		new_conn->server = ctx->server;
 		new_conn->socket = socket;
@@ -377,19 +377,20 @@ soup_context_connect_cb (SoupSocket              *socket,
 			g_slist_prepend (ctx->server->connections, new_conn);
 
 		(*data->cb) (ctx, 
-			     SOUP_CONNECT_ERROR_NONE, 
+			     SOUP_ERROR_OK, 
 			     new_conn, 
 			     data->user_data);
 		break;
-	case SOUP_SOCKET_CONNECT_ERROR_ADDR_RESOLVE:
+	case SOUP_ERROR_CANT_RESOLVE:
 		connection_count--;
 
 		(*data->cb) (ctx, 
-			     SOUP_CONNECT_ERROR_ADDR_RESOLVE, 
+			     SOUP_ERROR_CANT_RESOLVE, 
 			     NULL, 
 			     data->user_data);
 		break;
-	case SOUP_SOCKET_CONNECT_ERROR_NETWORK:
+	case SOUP_ERROR_CANT_CONNECT:
+	default:
 		connection_count--;
 
 		/*
@@ -406,7 +407,7 @@ soup_context_connect_cb (SoupSocket              *socket,
 		}
 
 		(*data->cb) (ctx, 
-			     SOUP_CONNECT_ERROR_NETWORK, 
+			     SOUP_ERROR_CANT_CONNECT, 
 			     NULL, 
 			     data->user_data);
 		break;
@@ -437,7 +438,7 @@ try_existing_connections (SoupContext           *ctx,
 			conn->context = ctx;
 
 			/* Issue success callback */
-			(*cb) (ctx, SOUP_CONNECT_ERROR_NONE, conn, user_data);
+			(*cb) (ctx, SOUP_ERROR_OK, conn, user_data);
 			return TRUE;
 		}
 

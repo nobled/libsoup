@@ -21,15 +21,9 @@ typedef struct _SoupSocket SoupSocket;
 
 typedef gpointer SoupSocketConnectId;
 
-typedef enum {
-	SOUP_SOCKET_CONNECT_ERROR_NONE,
-	SOUP_SOCKET_CONNECT_ERROR_ADDR_RESOLVE,
-	SOUP_SOCKET_CONNECT_ERROR_NETWORK
-} SoupSocketConnectStatus;
-
-typedef void (*SoupSocketConnectFn) (SoupSocket              *socket, 
-				     SoupSocketConnectStatus  status, 
-				     gpointer                 data);
+typedef void (*SoupSocketConnectFn) (SoupSocket         *socket, 
+				     SoupKnownErrorCode  status, 
+				     gpointer            data);
 
 SoupSocketConnectId  soup_socket_connect        (const gchar*        hostname,
 						 const gint          port, 
@@ -44,13 +38,8 @@ SoupSocket          *soup_socket_connect_sync   (const gchar        *hostname,
 
 typedef gpointer SoupSocketNewId;
 
-typedef enum {
-	SOUP_SOCKET_NEW_STATUS_OK,
-	SOUP_SOCKET_NEW_STATUS_ERROR
-} SoupSocketNewStatus;
-
-typedef void (*SoupSocketNewFn) (SoupSocket*         socket, 
-				 SoupSocketNewStatus status, 
+typedef void (*SoupSocketNewFn) (SoupSocket         *socket, 
+				 SoupKnownErrorCode  status, 
 				 gpointer            data);
 
 SoupSocketNewId     soup_socket_new             (SoupAddress        *addr, 

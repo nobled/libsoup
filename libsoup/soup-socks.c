@@ -162,7 +162,7 @@ soup_socks_write (GIOChannel* iochannel,
 
  CONNECT_ERROR:
 	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_CONNECT_ERROR_NETWORK, 
+		   SOUP_ERROR_CANT_CONNECT, 
 		   NULL, 
 		   sd->user_data);
 	socks_data_free (sd);
@@ -221,7 +221,7 @@ soup_socks_read (GIOChannel* iochannel,
 
  CONNECT_OK:
 	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_CONNECT_ERROR_NONE, 
+		   SOUP_ERROR_OK, 
 		   sd->src_conn, 
 		   sd->user_data);
 	socks_data_free (sd);
@@ -229,7 +229,7 @@ soup_socks_read (GIOChannel* iochannel,
 
  CONNECT_ERROR:
 	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_CONNECT_ERROR_NETWORK, 
+		   SOUP_ERROR_CANT_CONNECT, 
 		   NULL, 
 		   sd->user_data);
 	socks_data_free (sd);
@@ -242,7 +242,7 @@ soup_socks_error (GIOChannel* iochannel,
 		  SoupSocksData *sd)
 {
 	(*sd->cb) (sd->dest_ctx, 
-		   SOUP_CONNECT_ERROR_NETWORK, 
+		   SOUP_ERROR_CANT_CONNECT, 
 		   NULL, 
 		   sd->user_data);
 
@@ -251,16 +251,16 @@ soup_socks_error (GIOChannel* iochannel,
 }
 
 static void
-soup_lookup_dest_addr_cb (SoupAddress*         inetaddr, 
-			  SoupAddressStatus    status, 
-			  gpointer             data)
+soup_lookup_dest_addr_cb (SoupAddress        *inetaddr, 
+			  SoupKnownErrorCode  status, 
+			  gpointer            data)
 {
 	SoupSocksData *sd = data;
 	GIOChannel *channel;
 
-	if (status != SOUP_ADDRESS_STATUS_OK) {
+	if (status != SOUP_ERROR_OK) {
 		(*sd->cb) (sd->dest_ctx, 
-			   SOUP_CONNECT_ERROR_ADDR_RESOLVE, 
+			   SOUP_ERROR_CANT_RESOLVE, 
 			   NULL, 
 			   sd->user_data); 
 		g_free (sd);
@@ -340,6 +340,6 @@ soup_connect_socks_proxy (SoupConnection        *conn,
 	return;
 	
  CONNECT_SUCCESS:
-	(*cb) (dest_ctx, SOUP_CONNECT_ERROR_NONE, conn, user_data); 
+	(*cb) (dest_ctx, SOUP_ERROR_OK, conn, user_data); 
 	g_free (sd);
 }

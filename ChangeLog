@@ -1,5 +1,24 @@
 2002-11-18  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-error.c: add SOUP_ERROR_CANT_RESOLVE and
+	SOUP_ERROR_CANT_RESOLVE_PROXY. Consistentify the capitalization of
+	the transport error phrases.
+
+	* libsoup/soup-address.c: Replace SoupAddressStatus with
+	SoupKnownErrorCode (SOUP_ERROR_OK and SOUP_ERROR_CANT_RESOLVE)
+
+	* libsoup/soup-context.c: Replace SoupConnectErrorCode with
+	SoupKnownErrorCode (SOUP_ERROR_OK, SOUP_ERROR_CANT_RESOLVE, and
+	SOUP_ERROR_CANT_CONNECT)
+
+	* libsoup/soup-socket.c: Replace SoupSocketConnectStatus and
+	SoupSocketNewStatus with SoupKnownErrorCode (SOUP_ERROR_OK,
+	SOUP_ERROR_CANT_RESOLVE and SOUP_ERROR_CANT_CONNECT).
+
+	* libsoup/*.c: Update for status code changes.
+	
+2002-11-18  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-error.c: Fix spelling of
 	SOUP_ERROR_MOVED_PERMANENTLY and its description.
 

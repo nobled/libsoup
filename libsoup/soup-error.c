@@ -23,10 +23,12 @@ struct {
 	{ SOUP_ERROR_CANT_CONNECT,            "Cannot connect to destination" },
 	{ SOUP_ERROR_CANT_CONNECT_PROXY,      "Cannot connect to proxy" },
 	{ SOUP_ERROR_IO,                      "Connection terminated "
-	                                      "unexpectadly" },
-	{ SOUP_ERROR_MALFORMED,               "Message Corrupt" },
-	{ SOUP_ERROR_CANT_AUTHENTICATE,       "Authentication Failed" },
-	{ SOUP_ERROR_CANT_AUTHENTICATE_PROXY, "Proxy Authentication Failed" },
+	                                      "unexpectedly" },
+	{ SOUP_ERROR_MALFORMED,               "Message corrupt" },
+	{ SOUP_ERROR_CANT_AUTHENTICATE,       "Authentication failed" },
+	{ SOUP_ERROR_CANT_AUTHENTICATE_PROXY, "Proxy authentication failed" },
+	{ SOUP_ERROR_CANT_RESOLVE,            "Host name lookup failed" },
+	{ SOUP_ERROR_CANT_RESOLVE_PROXY,      "Proxy host name lookup failed" },
 
 	/* 
 	 * SOUP_ERROR_CLASS_INFORMATIONAL 

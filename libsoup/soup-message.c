@@ -530,10 +530,10 @@ typedef struct {
 } RequeueConnectData;
 
 static void
-requeue_connect_cb (SoupContext          *ctx,
-		    SoupConnectErrorCode  err,
-		    SoupConnection       *conn,
-		    gpointer              user_data)
+requeue_connect_cb (SoupContext        *ctx,
+		    SoupKnownErrorCode  err,
+		    SoupConnection     *conn,
+		    gpointer            user_data)
 {
 	RequeueConnectData *data = user_data;
 

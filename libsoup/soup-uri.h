@@ -14,41 +14,51 @@
 typedef enum {
 	SOUP_PROTOCOL_HTTP = 1,
 	SOUP_PROTOCOL_HTTPS,
-	SOUP_PROTOCOL_SMTP,
 	SOUP_PROTOCOL_SOCKS4,
 	SOUP_PROTOCOL_SOCKS5,
-	SOUP_PROTOCOL_FILE
+	SOUP_PROTOCOL_FTP,
+	SOUP_PROTOCOL_FILE,
+	SOUP_PROTOCOL_MAILTO
 } SoupProtocol;
 
 typedef struct {
-	SoupProtocol        protocol;
+	SoupProtocol  protocol;
 
-	gchar              *user;
-	gchar              *authmech;
-	gchar              *passwd;
+	char         *user;
+	char         *authmech;
+	char         *passwd;
 
-	gchar              *host;
-	gint                port;
+	char         *host;
+	guint         port;
 
-	gchar              *path;
-	gchar              *querystring;
+	char         *path;
+	GData        *params;
+	char         *query;
+	char         *fragment;
 } SoupUri;
 
-SoupUri *soup_uri_new       (const gchar   *uri_string);
+SoupUri *soup_uri_new_with_base (const SoupUri *base,
+				 const char    *uri_string);
+SoupUri *soup_uri_new           (const char    *uri_string);
 
-gchar   *soup_uri_to_string (const SoupUri *uri, 
-			     gboolean       show_password);
+char    *soup_uri_to_string     (const SoupUri *uri, 
+				 gboolean       just_path);
 
-SoupUri *soup_uri_copy      (const SoupUri *uri);
+SoupUri *soup_uri_copy          (const SoupUri *uri);
 
-gboolean soup_uri_equal     (const SoupUri *uri1, 
-			     const SoupUri *uri2);
+gboolean soup_uri_equal         (const SoupUri *uri1, 
+				 const SoupUri *uri2);
 
-void     soup_uri_free      (SoupUri       *uri);
+void     soup_uri_free          (SoupUri       *uri);
 
-void     soup_uri_set_auth  (SoupUri       *uri, 
-			     const gchar   *user, 
-			     const gchar   *passwd, 
-			     const gchar   *authmech);
+void     soup_uri_set_auth      (SoupUri       *uri, 
+				 const char    *user, 
+				 const char    *passwd, 
+				 const char    *authmech);
+
+char    *soup_uri_encode        (const char    *part,
+				 gboolean       escape_unsafe,
+				 const char    *escape_extra);
+void     soup_uri_decode        (char          *part);
 
 #endif /*SOUP_URI_H*/

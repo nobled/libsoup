@@ -1,3 +1,37 @@
+2002-11-17  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-uri.c: Update with newer code taken from Camel.
+	Handles relative URIs, URI parameters and fragments, and does
+	%-encoding/decoding in the appropriate places.
+	(soup_uri_to_string): Change the second arg to be "just_path",
+	which specifies the caller wants just the path (and params and
+	query) parts.
+	(soup_uri_encode, soup_uri_decode): New.
+
+	* libsoup/soup-auth.c (compute_response): Use soup_uri_to_string.
+	(digest_auth_func): Likewise.
+	* libsoup/soup-queue.c (soup_get_request_header): Likewise
+	* libsoup/soup-server-auth.c (parse_digest): Likewise
+
+	* libsoup/soup-message.c (soup_message_get_request_header, etc):
+	Remove long-deprecated API.
+
+	* libsoup/soup-context.c (soup_context_uri_hash,
+	soup_context_uri_equal): Don't include query in the comparison.
+	Two URIs that are identical except for query can still use the
+	same auths.
+
+	* tests/uri-parsing.c: SoupUri test program (also stolen from
+	Camel)
+
+	* tests/timeserver.c: Add "-6" to listen on the IPv6 local address
+	instead of IPv4. (Tested on OS X.)
+
+	* tests/get.c: Add "-r" for recursive get. (Tests the connection
+	re-use and timeout code.)
+
+	* tests/Makefile.am: re-enable timeserver, add uri-parsing.
+
 2002-11-16  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-message.c (soup_message_queue): Set the callback

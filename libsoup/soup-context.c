@@ -80,8 +80,6 @@ soup_context_uri_hash (gconstpointer key)
 	ret = uri->protocol;
 	if (uri->path)
 		ret += g_str_hash (uri->path);
-	if (uri->querystring)
-		ret += g_str_hash (uri->querystring);
 	if (uri->user)
 		ret += g_str_hash (uri->user);
 	if (uri->passwd)
@@ -121,8 +119,6 @@ soup_context_uri_equal (gconstpointer v1, gconstpointer v2)
 	if (!parts_equal (one->user, two->user))
 		return FALSE;
 	if (!parts_equal (one->passwd, two->passwd))
-		return FALSE;
-	if (!parts_equal (one->querystring, two->querystring))
 		return FALSE;
 
 	return TRUE;

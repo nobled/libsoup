@@ -221,8 +221,6 @@ soup_queue_read_done_cb (const SoupDataBuffer *data,
 					    soup_queue_read_done_cb,
 					    soup_queue_error_cb,
 					    req);
-
-		g_io_channel_unref (channel);
 	} 
 	else {
 		req->status = SOUP_STATUS_FINISHED;
@@ -447,8 +445,6 @@ start_request (SoupMessage *req)
 				    soup_queue_read_done_cb,
 				    soup_queue_error_cb,
 				    req);
-
-	g_io_channel_unref (channel);
 
 	req->status = SOUP_STATUS_SENDING_REQUEST;
 }

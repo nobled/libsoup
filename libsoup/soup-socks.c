@@ -270,7 +270,6 @@ soup_lookup_dest_addr_cb (SoupKnownErrorCode  status,
 			G_IO_ERR | G_IO_HUP | G_IO_NVAL, 
 			(GIOFunc) soup_socks_error, 
 			sd);		
-	g_io_channel_unref (channel);
 }
 
 void
@@ -312,7 +311,6 @@ soup_socks_proxy_connect (SoupSocket            *socket,
 				G_IO_ERR | G_IO_HUP | G_IO_NVAL, 
 				(GIOFunc) soup_socks_error, 
 				sd);		
-		g_io_channel_unref (channel);
 
 		sd->phase = SOCKS_5_SEND_INIT;
 		break;

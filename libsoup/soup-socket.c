@@ -287,9 +287,10 @@ soup_socket_client_new (const char *hostname, guint port, gboolean ssl,
 
 /**
  * soup_socket_get_iochannel:
- * @socket: SoupSocket to get #GIOChannel from.
+ * @socket: #SoupSocket to get #GIOChannel from.
  *
- * Get the #GIOChannel for the #SoupSocket.
+ * Get the #GIOChannel for the #SoupSocket. You should not ref or
+ * unref this channel; it belongs to the socket.
  *
  * For a client socket or connected server socket, the #GIOChannel
  * represents the data stream. Use it like you would any other
@@ -297,11 +298,6 @@ soup_socket_client_new (const char *hostname, guint port, gboolean ssl,
  *
  * For a listening server socket, the #GIOChannel represents incoming
  * connections. If you can read from it, there's a connection waiting.
- *
- * There is one channel for every socket. This function refs the
- * channel before returning it. You should unref the channel when you
- * are done with it. However, you should not close the channel - this
- * is done when you destroy the socket.
  *
  * Returns: A #GIOChannel; %NULL on failure.
  **/
@@ -312,9 +308,6 @@ soup_socket_get_iochannel (SoupSocket* socket)
 
 	if (socket->priv->iochannel == NULL)
 		socket->priv->iochannel = g_io_channel_unix_new (socket->priv->sockfd);
-
-	g_io_channel_ref (socket->priv->iochannel);
-
 	return socket->priv->iochannel;
 }
 
@@ -334,10 +327,11 @@ get_local_addr (SoupSocket *socket)
  * soup_socket_get_local_address:
  * @socket: #SoupSocket to get local address of.
  *
- * Get the local address of the socket.
+ * Get the local address of the socket. You must ref the address if
+ * you want to keep it after the socket is destroyed.
  *
  * Returns: #SoupAddress of the local end of the socket; %NULL on
- * failure. The caller must unref the address when it is done with it.
+ * failure.
  **/
 SoupAddress *
 soup_socket_get_local_address (SoupSocket *socket)
@@ -347,7 +341,6 @@ soup_socket_get_local_address (SoupSocket *socket)
 	if (!socket->priv->local_addr)
 		get_local_addr (socket);
 
-	g_object_ref (socket->priv->local_addr);
 	return socket->priv->local_addr;
 }
 
@@ -374,18 +367,18 @@ soup_socket_get_local_port (SoupSocket *socket)
  * soup_socket_get_remote_address:
  * @socket: #SoupSocket to get remote address of.
  *
- * Get the remote address of the socket. For a listening socket,
- * this will be %NULL.
+ * Get the remote address of the socket. (For a listening socket,
+ * this will be %NULL.) You must ref the address if you want to
+ * keep if after the socket is destroyed.
  *
  * Returns: #SoupAddress of the remote end of the socket; %NULL on
- * failure. The caller must unref the address when it is done with it.
+ * failure.
  **/
 SoupAddress *
 soup_socket_get_remote_address (SoupSocket *socket)
 {
 	g_return_val_if_fail (socket != NULL, NULL);
 
-	g_object_ref (socket->priv->remote_addr);
 	return socket->priv->remote_addr;
 }
 

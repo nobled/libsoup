@@ -168,7 +168,6 @@ socket_connected (SoupSocket *socket, SoupKnownErrorCode status, gpointer data)
 						G_IO_ERR | G_IO_HUP | G_IO_NVAL,
 						(GIOFunc) connection_watch,
 						conn);
-	g_io_channel_unref (chan);
 
 	/* Handle HTTPS tunnel setup via proxy CONNECT request. */
 	if (conn->priv->proxy_uri &&
@@ -250,7 +249,8 @@ soup_connection_new (SoupUri *uri,
  * @conn: a #SoupConnection.
  *
  * Returns a GIOChannel used for IO operations on the network connection
- * represented by @conn.
+ * represented by @conn. The caller should not ref or unref the channel;
+ * it belongs to the connection.
  *
  * Return value: a pointer to the GIOChannel used for IO on @conn.
  */

@@ -264,8 +264,7 @@ destroy_message (SoupMessage *msg)
 		if (check_close_connection (msg)) {
 			g_io_channel_close (chan);
 			g_object_unref (server_sock);
-		}
-		else {
+		} else {
 			/*
 			 * Listen for another request on this connection
 			 */
@@ -275,13 +274,11 @@ destroy_message (SoupMessage *msg)
 			data->server = server;
 			data->server_sock = server_sock;
 
-			chan = soup_socket_get_iochannel (server_sock);
 			g_io_add_watch (chan,
 					G_IO_IN|G_IO_PRI|
 					G_IO_ERR|G_IO_HUP|G_IO_NVAL,
 					start_another_request,
 					data);
-			g_io_channel_unref (chan);
 		}
 	}
 
@@ -516,7 +513,6 @@ issue_bad_request (SoupMessage *msg)
 					    write_done_cb,
 					    error_cb,
 					    msg);
-	g_io_channel_unref (channel);
 }
 
 static SoupTransferDone
@@ -611,7 +607,6 @@ read_headers_cb (const GString        *headers,
 
 			addr = soup_socket_get_local_address (smsg->socket);
 			localaddr = soup_address_get_physical (addr);
-			g_object_unref (addr);
 
 			url = 
 				g_strdup_printf (
@@ -888,8 +883,6 @@ read_done_cb (const SoupDataBuffer *data,
 						    req);
 	}
 
-	g_io_channel_unref (channel);
-
 	return;
 }
 
@@ -964,7 +957,6 @@ conn_accept (GIOChannel    *serv_chan,
 				    read_done_cb,
 				    error_cb,
 				    msg);
-	g_io_channel_unref (chan);
 
 	return TRUE;
 }
@@ -1087,8 +1079,6 @@ soup_server_run_async (SoupServer *server)
 						G_IO_IN,
 						(GIOFunc) conn_accept, 
 						server);
-
-			g_io_channel_unref (chan);
 		}
 	}
 
@@ -1200,7 +1190,6 @@ soup_server_context_get_client_host (SoupServerContext *context)
 
 	address = soup_server_context_get_client_address (context);
 	host = g_strdup (soup_address_get_physical (address));
-	g_object_unref (address);
 	
 	return host;
 }

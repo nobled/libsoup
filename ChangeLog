@@ -1,3 +1,30 @@
+2003-04-17  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-socket.c (soup_socket_get_iochannel): Don't ref the
+	channel.
+	(soup_socket_get_local_address, soup_socket_get_remote_address):
+	Don't ref the address
+
+	* libsoup/soup-connection.c (socket_connected): Don't unref the
+	socket's channel
+	(soup_connection_get_iochannel): Update docs
+
+	* libsoup/soup-queue.c (soup_queue_read_done_cb): Don't unref the
+	connection's channel
+	(start_request): Likewise
+
+	* libsoup/soup-server.c (destroy_message): Don't unref the
+	socket's iochannel (or leak an extra copy for that matter).
+	(issue_bad_request): Don't unref the channel.
+	(read_done_cb, conn_accept, soup_server_run_async): Likewise
+	(read_headers_cb): Don't unref the socket's local address
+	(soup_server_context_get_client_host): Don't unref the socket's
+	remote address
+
+	* libsoup/soup-socks.c (soup_lookup_dest_addr_cb): Don't unref the
+	socket's channel
+	(soup_socks_proxy_connect): Likewise
+
 2003-04-16  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-connection.c: Make this a subclass of SoupSocket.

@@ -30,45 +30,40 @@ struct _SoupSocketClass {
 GType soup_socket_get_type (void);
 
 
-typedef void (*SoupSocketConnectFn) (SoupSocket         *socket,
-				     SoupKnownErrorCode  status,
-				     gpointer            data);
+typedef void (*SoupSocketConnectedFn)       (SoupSocket            *socket,
+					     SoupKnownErrorCode     status,
+					     gpointer               data);
 
-SoupSocket  *soup_socket_new (void);
+SoupSocket  *soup_socket_client_new         (const char            *hostname,
+					     guint                  port,
+					     gboolean               ssl,
+					     SoupSocketConnectedFn  func,
+					     gpointer               data);
 
-void         soup_socket_connect_by_addr    (SoupSocket          *socket,
-					     SoupAddress         *addr,
-					     guint                port,
-					     gboolean             ssl,
-					     SoupSocketConnectFn  func,
-					     gpointer             data);
+void         soup_socket_client_connect     (SoupSocket            *socket,
+					     const char            *hostname,
+					     guint                  port,
+					     gboolean               ssl,
+					     SoupSocketConnectedFn  func,
+					     gpointer               data);
 
-void         soup_socket_connect_by_name    (SoupSocket          *socket,
-					     const char          *hostname,
-					     guint                port,
-					     gboolean             ssl,
-					     SoupSocketConnectFn  func,
-					     gpointer             data);
+GIOChannel  *soup_socket_get_iochannel      (SoupSocket            *socket);
 
-void         soup_socket_connect_cancel     (SoupSocket          *socket);
+SoupAddress *soup_socket_get_local_address  (SoupSocket            *socket);
+guint        soup_socket_get_local_port     (SoupSocket            *socket);
+SoupAddress *soup_socket_get_remote_address (SoupSocket            *socket);
+guint        soup_socket_get_remote_port    (SoupSocket            *socket);
 
-GIOChannel  *soup_socket_get_iochannel      (SoupSocket          *socket);
-
-SoupAddress *soup_socket_get_local_address  (SoupSocket          *socket);
-guint        soup_socket_get_local_port     (SoupSocket          *socket);
-SoupAddress *soup_socket_get_remote_address (SoupSocket          *socket);
-guint        soup_socket_get_remote_port    (SoupSocket          *socket);
-
-gboolean     soup_socket_start_ssl          (SoupSocket          *socket);
+gboolean     soup_socket_start_ssl          (SoupSocket            *socket);
 
 #define SOUP_SERVER_ANY_PORT 0
 
-SoupSocket  *soup_socket_server_new         (SoupAddress         *local_addr,
-					     guint                local_port,
-					     gboolean             ssl);
+SoupSocket  *soup_socket_server_new         (SoupAddress           *local_addr,
+					     guint                  local_port,
+					     gboolean               ssl);
 
-SoupSocket  *soup_socket_server_accept      (SoupSocket          *socket);
+SoupSocket  *soup_socket_server_accept      (SoupSocket            *socket);
 
-SoupSocket  *soup_socket_server_try_accept  (SoupSocket          *socket);
+SoupSocket  *soup_socket_server_try_accept  (SoupSocket            *socket);
 
 #endif /* SOUP_SOCKET_H */

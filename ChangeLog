@@ -1,3 +1,22 @@
+2003-04-15  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-socket.c (soup_socket_client_new): New
+	"constructor". Replaces soup_socket_new and
+	soup_socket_connect_by_name (and soup_socket_connect_by_addr,
+	which is gone since it wasn't being used)
+	(soup_socket_connect_cancel): Gone. The caller can just unref the
+	socket before it finishes connecting.
+	(connect_watch): Don't clear O_NONBLOCK here since soup-connection
+	was just turning it back on.
+
+	* libsoup/soup-connection.c (soup_connection_from_socket): Don't
+	set TCP_NODELAY and O_NONBLOCK here, do it in soup-socket
+	(soup_connection_new_via_proxy): Update for soup_socket_client_new
+	(soup_connection_cancel_connect): No need to cancel socket connect
+	now.
+
+	* libsoup/soup-address.c (soup_address_cancel_get_name): s/NULL/0/
+
 2003-04-14  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-address.c: Make this a GObject.

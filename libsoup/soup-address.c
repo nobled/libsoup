@@ -366,7 +366,7 @@ soup_address_cancel_get_name (SoupAsyncHandle id)
 			addr->priv->lookup_dns_id = NULL;
 		} else if (addr->priv->lookup_idle_id) {
 			g_source_remove (addr->priv->lookup_idle_id);
-			addr->priv->lookup_idle_id = NULL;
+			addr->priv->lookup_idle_id = 0;
 		}
 	}
 }

@@ -22,7 +22,7 @@
 #include "soup-socket.h"
 
 typedef struct {
-	SoupSocket          *socket;
+	SoupSocket            *socket;
 	
 	enum {
 		SOCKS_4_DEST_ADDR_LOOKUP,
@@ -37,11 +37,11 @@ typedef struct {
 		SOCKS_5_VERIFY_SUCCESS	
 	} phase;
 
-	SoupUri             *proxy_uri;
-	SoupUri             *dest_uri;
-	SoupAddress         *dest_addr;
-	SoupSocketConnectFn  cb;
-	gpointer             user_data;
+	SoupUri               *proxy_uri;
+	SoupUri               *dest_uri;
+	SoupAddress           *dest_addr;
+	SoupSocketConnectedFn  cb;
+	gpointer               user_data;
 } SoupSocksData;
 
 static void
@@ -274,11 +274,11 @@ soup_lookup_dest_addr_cb (SoupKnownErrorCode  status,
 }
 
 void
-soup_socks_proxy_connect (SoupSocket          *socket,
-			  SoupUri             *proxy_uri,
-			  SoupUri             *dest_uri,
-			  SoupSocketConnectFn  cb,
-			  gpointer             user_data)
+soup_socks_proxy_connect (SoupSocket            *socket,
+			  SoupUri               *proxy_uri,
+			  SoupUri               *dest_uri,
+			  SoupSocketConnectedFn  cb,
+			  gpointer               user_data)
 {
 	SoupSocksData *sd = NULL;
 	GIOChannel *channel;

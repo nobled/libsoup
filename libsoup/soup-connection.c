@@ -61,7 +61,6 @@ soup_connection_from_socket (SoupSocket *socket, SoupProtocol protocol)
 {
 	SoupConnection *conn;
 	GIOChannel *chan;
-	int yes = 1, flags = 0, fd;
 
 	conn = g_new0 (SoupConnection, 1);
 	conn->socket = socket;
@@ -70,15 +69,11 @@ soup_connection_from_socket (SoupSocket *socket, SoupProtocol protocol)
 	conn->in_use = TRUE;
 
 	chan = soup_socket_get_iochannel (socket);
-	fd = g_io_channel_unix_get_fd (chan);
-	setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
-	flags = fcntl (fd, F_GETFL, 0);
-	fcntl (fd, F_SETFL, flags | O_NONBLOCK);
-
 	conn->death_tag = g_io_add_watch (chan,
 					  G_IO_ERR | G_IO_HUP | G_IO_NVAL,
 					  (GIOFunc) connection_death,
 					  conn);
+	g_io_channel_unref (chan);
 
 	return conn;
 }
@@ -228,10 +223,9 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
 		uri = proxy_uri;
 	}
 
-	data->socket = soup_socket_new ();
-	soup_socket_connect_by_name (data->socket, uri->host, uri->port,
-				     uri->protocol == SOUP_PROTOCOL_HTTPS,
-				     soup_connection_new_cb, data);
+	data->socket = soup_socket_client_new (uri->host, uri->port,
+					       uri->protocol == SOUP_PROTOCOL_HTTPS,
+					       soup_connection_new_cb, data);
 
 	return data;
 }
@@ -251,7 +245,6 @@ soup_connection_cancel_connect (SoupConnectId tag)
 
 	g_return_if_fail (data != NULL);
 
-	soup_socket_connect_cancel (data->socket);
 	g_object_unref (data->socket);
 
 	if (data->dest_uri)

@@ -15,10 +15,10 @@
 #include "soup-socket.h"
 #include "soup-uri.h"
 
-void soup_socks_proxy_connect (SoupSocket          *socket,
-			       SoupUri             *proxy_uri,
-			       SoupUri             *dest_uri,
-			       SoupSocketConnectFn  cb,
-			       gpointer             user_data);
+void soup_socks_proxy_connect (SoupSocket            *socket,
+			       SoupUri               *proxy_uri,
+			       SoupUri               *dest_uri,
+			       SoupSocketConnectedFn  cb,
+			       gpointer               user_data);
 
 #endif /*SOUP_SOCKS_H*/

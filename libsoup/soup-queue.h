@@ -15,9 +15,7 @@
 
 #include <libsoup/soup-message.h>
 
-void         soup_queue_message        (SoupMessage          *req,
-					SoupCallbackFn        callback, 
-					gpointer              user_data);
+void         soup_queue_message        (SoupMessage          *req);
 
 void         soup_queue_connect_cb     (SoupContext          *ctx,
 					SoupConnectErrorCode  err,

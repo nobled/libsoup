@@ -634,7 +634,10 @@ soup_message_queue (SoupMessage    *req,
 		    gpointer        user_data)
 {
 	g_return_if_fail (req != NULL);
-	soup_queue_message (req, callback, user_data);
+
+	req->priv->callback = callback;
+	req->priv->user_data = user_data;
+	soup_queue_message (req);
 }
 
 typedef struct {
@@ -675,9 +678,7 @@ requeue_read_error (gboolean body_started, gpointer user_data)
 	soup_connection_release (msg->connection);
 	msg->connection = NULL;
 
-	soup_queue_message (msg, 
-			    msg->priv->callback, 
-			    msg->priv->user_data);
+	soup_queue_message (msg);
 
 	msg->status = SOUP_STATUS_CONNECTING;
 
@@ -703,9 +704,7 @@ requeue_read_finished (const SoupDataBuffer *buf,
 		g_free (data);
 		msg->connection = NULL;
 
-		soup_queue_message (msg, 
-				    msg->priv->callback, 
-				    msg->priv->user_data);
+		soup_queue_message (msg);
 
 		msg->connection = conn;
 	}
@@ -737,9 +736,7 @@ soup_message_requeue (SoupMessage *req)
 						  data);
 		req->priv->read_tag = 0;
 	} else
-		soup_queue_message (req, 
-				    req->priv->callback, 
-				    req->priv->user_data);
+		soup_queue_message (req);
 }
 
 /**

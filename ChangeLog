@@ -1,9 +1,20 @@
 2002-11-16  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-message.c (soup_message_queue): Set the callback
+	and user_data before calling soup_queue_message.
+	(requeue_read_error, requeue_read_finished, soup_message_requeue):
+	Don't need to re-pass callback and user-data to
+	soup_queue_message.
+
+	* libsoup/soup-queue.c (soup_queue_message): Just take the
+	message, not the callback and user_data (since no code ever
+	changes those after they're first passed to soup_message_queue).
+
 	* libsoup/soup-private.h (SoupHost): Add a "port" field.
 	(SoupConnections to a given host are already being separated by
 	port, and SoupAuths should be as well according to RFC2617).
-
+	(SoupMessagePrivate): Remove unused "timeout_tag" field.
+	
 	* libsoup/soup-context.c (soup_context_host_hash,
 	soup_context_host_equal): SoupHost hash functions.
 	(soup_context_from_uri): Make soup_hosts a hash table on SoupHost

@@ -744,14 +744,9 @@ soup_queue_initialize (void)
 }
 
 void 
-soup_queue_message (SoupMessage    *req,
-		    SoupCallbackFn  callback, 
-		    gpointer        user_data)
+soup_queue_message (SoupMessage *req)
 {
 	g_return_if_fail (req != NULL);
-
-	req->priv->callback = callback;
-	req->priv->user_data = user_data;
 
 	if (!req->context) {
 		soup_message_set_error_full (req, 

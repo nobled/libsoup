@@ -1,21 +1,22 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * soup-message.h: Asyncronous Callback-based HTTP Request Queue.
- *
- * Authors:
- *      Alex Graveley (alex@ximian.com)
- *
- * Copyright (C) 2000-2002, Ximian, Inc.
+ * Copyright (C) 2000-2003, Ximian, Inc.
  */
 
 #ifndef SOUP_MESSAGE_H
 #define SOUP_MESSAGE_H 1
 
-#include <glib.h>
+#include <glib-object.h>
 #include <libsoup/soup-error.h>
 #include <libsoup/soup-method.h>
 #include <libsoup/soup-types.h>
 #include <libsoup/soup-uri.h>
+
+#define SOUP_TYPE_MESSAGE            (soup_message_get_type ())
+#define SOUP_MESSAGE(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SOUP_TYPE_MESSAGE, SoupMessage))
+#define SOUP_MESSAGE_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), SOUP_TYPE_MESSAGE, SoupMessageClass))
+#define SOUP_IS_MESSAGE(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SOUP_TYPE_MESSAGE))
+#define SOUP_IS_MESSAGE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((obj), SOUP_TYPE_MESSAGE))
 
 typedef enum {
 	SOUP_STATUS_IDLE = 0,
@@ -34,24 +35,24 @@ typedef enum {
 
 typedef struct {
 	SoupOwnership  owner;
-	gchar         *body;
+	char          *body;
 	guint          length;
 } SoupDataBuffer;
 
-typedef struct _SoupMessagePrivate SoupMessagePrivate;
-
 struct _SoupMessage {
+	GObject parent;
+
 	SoupMessagePrivate *priv;
 
 	SoupConnection     *connection;
 
-	const gchar        *method;
+	const char         *method;
 
 	SoupTransferStatus  status;
 
 	guint               errorcode;
 	SoupErrorClass      errorclass;
-	const gchar        *errorphrase;
+	const char         *errorphrase;
 
 	SoupDataBuffer      request;
 	GHashTable         *request_headers;
@@ -59,6 +60,14 @@ struct _SoupMessage {
 	SoupDataBuffer      response;
 	GHashTable         *response_headers;
 };
+
+struct _SoupMessageClass {
+	GObjectClass parent_class;
+
+};
+
+GType soup_message_get_type (void);
+
 
 #define SOUP_MESSAGE_IS_ERROR(_msg)                            \
         (_msg->errorclass &&                                   \
@@ -68,20 +77,14 @@ struct _SoupMessage {
 
 typedef void (*SoupCallbackFn) (SoupMessage *req, gpointer user_data);
 
-void           soup_message_construct           (SoupMessage       *msg);
-
 SoupMessage   *soup_message_new                 (SoupContext       *context,
-						 const gchar       *method);
+						 const char        *method);
 
 SoupMessage   *soup_message_new_full            (SoupContext       *context,
-						 const gchar       *method,
+						 const char        *method,
 						 SoupOwnership      req_owner,
-						 gchar             *req_body,
+						 char              *req_body,
 						 gulong             req_length);
-
-SoupMessage   *soup_message_copy                (SoupMessage       *req);
-
-void           soup_message_free                (SoupMessage       *req);
 
 void           soup_message_cancel              (SoupMessage       *req);
 
@@ -94,14 +97,14 @@ void           soup_message_queue               (SoupMessage       *req,
 void           soup_message_requeue             (SoupMessage       *req);
 
 void           soup_message_add_header          (GHashTable        *hash,
-						 const gchar       *name,
-						 const gchar       *value);
+						 const char        *name,
+						 const char        *value);
 
-const gchar   *soup_message_get_header          (GHashTable        *hash,
-						 const gchar       *name);
+const char    *soup_message_get_header          (GHashTable        *hash,
+						 const char        *name);
 
 const GSList  *soup_message_get_header_list     (GHashTable        *hash,
-						 const gchar       *name);
+						 const char        *name);
 
 void           soup_message_foreach_header      (GHashTable        *hash,
 						 GHFunc             func,
@@ -113,7 +116,7 @@ void           soup_message_foreach_remove_header (
 						 gpointer           user_data);
 
 void           soup_message_remove_header       (GHashTable        *hash,
-						 const gchar       *name);
+						 const char        *name);
 
 void           soup_message_clear_headers       (GHashTable        *hash);
 
@@ -122,17 +125,17 @@ typedef enum {
 	SOUP_HTTP_1_1 = 1,
 } SoupHttpVersion;
 
-void             soup_message_set_http_version    (SoupMessage       *msg,
-						   SoupHttpVersion    version);
+void             soup_message_set_http_version  (SoupMessage       *msg,
+						 SoupHttpVersion    version);
 
-SoupHttpVersion  soup_message_get_http_version    (SoupMessage       *msg);
+SoupHttpVersion  soup_message_get_http_version  (SoupMessage       *msg);
 
-void             soup_message_set_context         (SoupMessage       *msg,
-						   SoupContext       *new_ctx);
+void             soup_message_set_context       (SoupMessage       *msg,
+						 SoupContext       *new_ctx);
 
-SoupContext     *soup_message_get_context         (SoupMessage       *msg);
+SoupContext     *soup_message_get_context       (SoupMessage       *msg);
 
-const SoupUri   *soup_message_get_uri             (SoupMessage       *msg);
+const SoupUri   *soup_message_get_uri           (SoupMessage       *msg);
 
 typedef enum {
 	/*
@@ -173,7 +176,7 @@ void           soup_message_add_handler         (SoupMessage       *msg,
 						 gpointer           user_data);
 
 void           soup_message_add_header_handler  (SoupMessage       *msg,
-						 const gchar       *header,
+						 const char        *header,
 						 SoupHandlerType    type,
 						 SoupCallbackFn     handler_cb,
 						 gpointer           user_data);
@@ -205,10 +208,10 @@ void           soup_message_set_error           (SoupMessage       *msg,
 
 void           soup_message_set_error_full      (SoupMessage       *msg, 
 						 guint              errcode, 
-						 const gchar       *errphrase);
+						 const char        *errphrase);
 
 void           soup_message_set_handler_error   (SoupMessage       *msg, 
 						 guint              errcode, 
-						 const gchar       *errphrase);
+						 const char        *errphrase);
 
 #endif /*SOUP_MESSAGE_H*/

@@ -13,30 +13,35 @@
  * us out of #include loops.
  */
 
-typedef struct _SoupAddress           SoupAddress;
-typedef struct _SoupAddressPrivate    SoupAddressPrivate;
-typedef struct _SoupAddressClass      SoupAddressClass;
-typedef struct _SoupAuth              SoupAuth;
-typedef struct _SoupConnection        SoupConnection;
-typedef struct _SoupConnectionPrivate SoupConnectionPrivate;
-typedef struct _SoupConnectionClass   SoupConnectionClass;
-typedef struct _SoupContext           SoupContext;
-typedef struct _SoupMessage           SoupMessage;
-typedef struct _SoupServer            SoupServer;
-typedef struct _SoupServerPrivate     SoupServerPrivate;
-typedef struct _SoupServerClass       SoupServerClass;
-typedef struct _SoupServerCGI         SoupServerCGI;
-typedef struct _SoupServerCGIPrivate  SoupServerCGIPrivate;
-typedef struct _SoupServerCGIClass    SoupServerCGIClass;
-typedef struct _SoupServerTCP         SoupServerTCP;
-typedef struct _SoupServerTCPPrivate  SoupServerTCPPrivate;
-typedef struct _SoupServerTCPClass    SoupServerTCPClass;
-typedef struct _SoupSocket            SoupSocket;
-typedef struct _SoupSocketPrivate     SoupSocketPrivate;
-typedef struct _SoupSocketClass       SoupSocketClass;
+typedef struct _SoupAddress              SoupAddress;
+typedef struct _SoupAddressPrivate       SoupAddressPrivate;
+typedef struct _SoupAddressClass         SoupAddressClass;
+typedef struct _SoupAuth                 SoupAuth;
+typedef struct _SoupConnection           SoupConnection;
+typedef struct _SoupConnectionPrivate    SoupConnectionPrivate;
+typedef struct _SoupConnectionClass      SoupConnectionClass;
+typedef struct _SoupContext              SoupContext;
+typedef struct _SoupMessage              SoupMessage;
+typedef struct _SoupMessagePrivate       SoupMessagePrivate;
+typedef struct _SoupMessageClass         SoupMessageClass;
+typedef struct _SoupServer               SoupServer;
+typedef struct _SoupServerPrivate        SoupServerPrivate;
+typedef struct _SoupServerClass          SoupServerClass;
+typedef struct _SoupServerCGI            SoupServerCGI;
+typedef struct _SoupServerCGIPrivate     SoupServerCGIPrivate;
+typedef struct _SoupServerCGIClass       SoupServerCGIClass;
+typedef struct _SoupServerMessage        SoupServerMessage;
+typedef struct _SoupServerMessagePrivate SoupServerMessagePrivate;
+typedef struct _SoupServerMessageClass   SoupServerMessageClass;
+typedef struct _SoupServerTCP            SoupServerTCP;
+typedef struct _SoupServerTCPPrivate     SoupServerTCPPrivate;
+typedef struct _SoupServerTCPClass       SoupServerTCPClass;
+typedef struct _SoupSocket               SoupSocket;
+typedef struct _SoupSocketPrivate        SoupSocketPrivate;
+typedef struct _SoupSocketClass          SoupSocketClass;
 
-typedef         void                 *SoupAsyncHandle;
-typedef         void                 *SoupConnectId;
+typedef         void                    *SoupAsyncHandle;
+typedef         void                    *SoupConnectId;
 
 
 /* Networking types */

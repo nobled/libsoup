@@ -559,7 +559,7 @@ soup_queue_initialize (void)
 void 
 soup_queue_message (SoupMessage *req)
 {
-	g_return_if_fail (req != NULL);
+	g_return_if_fail (SOUP_IS_MESSAGE (req));
 
 	if (!req->priv->context) {
 		soup_message_set_error_full (req, 

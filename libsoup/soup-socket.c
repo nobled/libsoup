@@ -305,7 +305,7 @@ soup_socket_client_new (const char *hostname, guint port, gboolean ssl,
 GIOChannel *
 soup_socket_get_iochannel (SoupSocket *socket)
 {
-	g_return_val_if_fail (socket != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_SOCKET (socket), NULL);
 
 	if (!socket->priv->iochannel) {
 		socket->priv->iochannel =
@@ -341,7 +341,7 @@ get_local_addr (SoupSocket *socket)
 SoupAddress *
 soup_socket_get_local_address (SoupSocket *socket)
 {
-	g_return_val_if_fail (socket != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_SOCKET (socket), NULL);
 
 	if (!socket->priv->local_addr)
 		get_local_addr (socket);
@@ -360,7 +360,7 @@ soup_socket_get_local_address (SoupSocket *socket)
 guint
 soup_socket_get_local_port (SoupSocket *socket)
 {
-	g_return_val_if_fail (socket != NULL, 0);
+	g_return_val_if_fail (SOUP_IS_SOCKET (socket), 0);
 
 	if (!socket->priv->local_port)
 		get_local_addr (socket);
@@ -382,7 +382,7 @@ soup_socket_get_local_port (SoupSocket *socket)
 SoupAddress *
 soup_socket_get_remote_address (SoupSocket *socket)
 {
-	g_return_val_if_fail (socket != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_SOCKET (socket), NULL);
 
 	return socket->priv->remote_addr;
 }
@@ -399,7 +399,7 @@ soup_socket_get_remote_address (SoupSocket *socket)
 guint
 soup_socket_get_remote_port (SoupSocket *socket)
 {
-	g_return_val_if_fail (socket != NULL, 0);
+	g_return_val_if_fail (SOUP_IS_SOCKET (socket), 0);
 
 	return socket->priv->remote_port;
 }
@@ -427,7 +427,7 @@ soup_socket_server_new (SoupAddress *local_addr, guint local_port,
 	struct sockaddr *sa = NULL;
 	int sockfd, sa_len;
 
-	g_return_val_if_fail (local_addr != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_ADDRESS (local_addr), NULL);
 
 	/* Create an appropriate sockaddr */
 	soup_address_make_sockaddr (local_addr, local_port, &sa, &sa_len);
@@ -472,7 +472,7 @@ server_accept_internal (SoupSocket *socket, gboolean block)
 	fd_set fdset;
 	SoupSocket *new;
 
-	g_return_val_if_fail (socket != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_SOCKET (socket), NULL);
 	g_return_val_if_fail (socket->priv->flags & SOUP_SOCKET_IS_SERVER, NULL);
 
  try_again:

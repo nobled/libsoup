@@ -13,21 +13,24 @@
 #include "soup-private.h"
 #include "soup-transfer.h"
 
-SoupMessage *
-soup_server_message_new (SoupAddress *client, SoupServerMessageType type)
+struct _SoupServerMessagePrivate {
+	SoupAddress *client;
+	SoupServerMessageType type;
+
+	GSList *chunks;           /* CONTAINS: SoupDataBuffer* */
+	gboolean started;
+	gboolean finished;
+};
+
+#define PARENT_TYPE SOUP_TYPE_MESSAGE
+static SoupMessageClass *parent_class;
+
+static void
+init (GObject *object)
 {
-	SoupServerMessage *smsg;
-	SoupMessage *msg;
+	SoupServerMessage *smsg = SOUP_SERVER_MESSAGE (object);
 
-	smsg = g_new0 (SoupServerMessage, 1);
-	msg = (SoupMessage *)smsg;
-	soup_message_construct (msg);
-
-	smsg->client = client;
-	g_object_ref (client);
-	smsg->type = type;
-
-	return msg;
+	smsg->priv = g_new0 (SoupServerMessagePrivate, 1);
 }
 
 static void
@@ -40,18 +43,55 @@ free_chunk (gpointer chunk, gpointer notused)
 	g_free (buf);
 }
 
-void
-soup_server_message_free (SoupMessage *msg)
+static void
+finalize (GObject *object)
 {
-	SoupServerMessage *smsg = (SoupServerMessage *)msg;
+	SoupServerMessage *smsg = SOUP_SERVER_MESSAGE (object);
 
-	g_slist_foreach (smsg->chunks, free_chunk, NULL);
-	g_slist_free (smsg->chunks);
+	g_slist_foreach (smsg->priv->chunks, free_chunk, NULL);
+	g_slist_free (smsg->priv->chunks);
 
-	g_object_unref (smsg->client);
+	if (smsg->priv->client)
+		g_object_unref (smsg->priv->client);
 
-	g_free ((char *) msg->method);
-	soup_message_free (msg);
+	g_free ((char *) ((SoupMessage*)smsg)->method);
+
+	g_free (smsg->priv);
+
+	G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static void
+class_init (GObjectClass *object_class)
+{
+	parent_class = g_type_class_ref (PARENT_TYPE);
+
+	/* virtual method override */
+	object_class->finalize = finalize;
+}
+
+SOUP_MAKE_TYPE (soup_server_message, SoupServerMessage, class_init, init, PARENT_TYPE)
+
+SoupMessage *
+soup_server_message_new (SoupAddress *client, SoupServerMessageType type)
+{
+	SoupServerMessage *smsg;
+
+	smsg = g_object_new (SOUP_TYPE_SERVER_MESSAGE, NULL);
+
+	smsg->priv->client = client;
+	g_object_ref (client);
+	smsg->priv->type = type;
+
+	return (SoupMessage *)smsg;
+}
+
+SoupAddress *
+soup_server_message_get_client (SoupMessage *msg)
+{
+	g_return_val_if_fail (SOUP_IS_SERVER_MESSAGE (msg), NULL);
+
+	return ((SoupServerMessage *)msg)->priv->client;
 }
 
 
@@ -60,9 +100,9 @@ soup_server_message_start (SoupMessage *msg)
 {
 	SoupServerMessage *smsg = (SoupServerMessage *)msg;
 
-	g_return_if_fail (msg != NULL);
+	g_return_if_fail (SOUP_IS_SERVER_MESSAGE (msg));
 
-	smsg->started = TRUE;
+	smsg->priv->started = TRUE;
 
 	soup_transfer_write_unpause (msg->priv->write_tag);
 }
@@ -76,7 +116,7 @@ soup_server_message_add_data (SoupMessage   *msg,
 	SoupServerMessage *smsg = (SoupServerMessage *)msg;
 	SoupDataBuffer *buf;
 
-	g_return_if_fail (msg != NULL);
+	g_return_if_fail (SOUP_IS_SERVER_MESSAGE (msg));
 	g_return_if_fail (body != NULL);
 	g_return_if_fail (length != 0);
 
@@ -91,9 +131,9 @@ soup_server_message_add_data (SoupMessage   *msg,
 		buf->owner = owner;
 	}
 
-	smsg->chunks = g_slist_append (smsg->chunks, buf);
+	smsg->priv->chunks = g_slist_append (smsg->priv->chunks, buf);
 
-	if (smsg->started)
+	if (smsg->priv->started)
 		soup_transfer_write_unpause (msg->priv->write_tag);
 }
 
@@ -102,10 +142,10 @@ soup_server_message_finish  (SoupMessage *msg)
 {
 	SoupServerMessage *smsg = (SoupServerMessage *)msg;
 
-	g_return_if_fail (msg != NULL);
+	g_return_if_fail (SOUP_IS_SERVER_MESSAGE (msg));
 
-	smsg->started = TRUE;
-	smsg->finished = TRUE;
+	smsg->priv->started = TRUE;
+	smsg->priv->finished = TRUE;
 
 	soup_transfer_write_unpause (msg->priv->write_tag);
 }
@@ -120,7 +160,7 @@ write_done_cb (gpointer user_data)
 
 	if (msg->priv->callback)
 		(* msg->priv->callback) (msg, msg->priv->user_data);
-	soup_server_message_free (msg);
+	g_object_unref (msg);
 }
 
 static void 
@@ -140,7 +180,7 @@ get_response_header (SoupMessage *msg, SoupTransferEncoding encoding)
 {
 	GString *ret = g_string_new (NULL);
 
-	switch (((SoupServerMessage *)msg)->type) {
+	switch (((SoupServerMessage *)msg)->priv->type) {
 	case SOUP_SERVER_MESSAGE_HTTP:
 		g_string_sprintfa (ret, "HTTP/1.1 %d %s\r\n", 
 				   msg->errorcode, 
@@ -170,10 +210,10 @@ get_header_cb (GString  **out_hdr,
 	       gpointer   user_data)
 {
 	SoupMessage *msg = user_data;
-	SoupServerMessage *server_msg = user_data;
+	SoupServerMessage *smsg = user_data;
 	SoupTransferEncoding encoding;
 
-	if (server_msg && server_msg->started) {
+	if (smsg && smsg->priv->started) {
 		if (msg->priv->http_version == SOUP_HTTP_1_0)
 			encoding = SOUP_TRANSFER_UNKNOWN;
 		else
@@ -188,16 +228,16 @@ static SoupTransferDone
 get_chunk_cb (SoupDataBuffer *out_next, gpointer user_data)
 {
 	SoupMessage *msg = user_data;
-	SoupServerMessage *server_msg = user_data;
+	SoupServerMessage *smsg = user_data;
 
-	if (server_msg->chunks) {
-		SoupDataBuffer *next = server_msg->chunks->data;
+	if (smsg->priv->chunks) {
+		SoupDataBuffer *next = smsg->priv->chunks->data;
 
 		out_next->owner = next->owner;
 		out_next->body = next->body;
 		out_next->length = next->length;
 
-		server_msg->chunks = g_slist_remove (server_msg->chunks, next);
+		smsg->priv->chunks = g_slist_remove (smsg->priv->chunks, next);
 
 		/*
 		 * Caller will free the response body, so just free the
@@ -206,7 +246,7 @@ get_chunk_cb (SoupDataBuffer *out_next, gpointer user_data)
 		g_free (next);
 
 		return SOUP_TRANSFER_CONTINUE;
-	} else if (server_msg->finished) {
+	} else if (smsg->priv->finished) {
 		return SOUP_TRANSFER_END;
 	} else {
 		soup_transfer_write_pause (msg->priv->write_tag);
@@ -220,10 +260,12 @@ soup_server_message_respond (SoupMessage *msg, GIOChannel *chan,
 {
 	SoupServerMessage *smsg = (SoupServerMessage *)msg;
 
+	g_return_if_fail (SOUP_IS_SERVER_MESSAGE (msg));
+
 	msg->priv->callback = callback;
 	msg->priv->user_data = user_data;
 
-	if (smsg->chunks) {
+	if (smsg->priv->chunks) {
 		SoupTransferEncoding encoding;
 
 		if (msg->priv->http_version == SOUP_HTTP_1_0)
@@ -243,7 +285,7 @@ soup_server_message_respond (SoupMessage *msg, GIOChannel *chan,
 		/*
 		 * Pause write until soup_server_message_start()
 		 */
-		if (!smsg->started)
+		if (!smsg->priv->started)
 			soup_transfer_write_pause (msg->priv->write_tag);
 	} else {
 		GString *header;

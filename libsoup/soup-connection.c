@@ -113,7 +113,7 @@ proxy_https_connect (SoupConnection *conn,
 		connect_msg->connection = NULL;
 		ret = TRUE;
 	}
-	soup_message_free (connect_msg);
+	g_object_unref (connect_msg);
 
 	return ret;
 }

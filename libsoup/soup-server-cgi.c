@@ -134,7 +134,7 @@ read_watch (GIOChannel    *chan,
 		soup_message_set_error (msg, SOUP_ERROR_BAD_REQUEST);
 		soup_server_message_respond (msg, cgi->priv->write,
 					     sent_response, cgi);
-		soup_server_message_free (msg);
+		g_object_unref (msg);
 		return FALSE;
 	}
 
@@ -185,7 +185,7 @@ run_async (SoupServer *serv)
 
 	if (!ctx) {
 		soup_server_quit (serv);
-		soup_server_message_free (msg);
+		g_object_unref (msg);
 		return;
 	}
 

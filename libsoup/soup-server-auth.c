@@ -347,7 +347,7 @@ soup_server_auth_new (SoupServerAuthContext *auth_ctx,
 	gchar *header = NULL;
 
 	g_return_val_if_fail (auth_ctx != NULL, NULL);
-	g_return_val_if_fail (msg != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_MESSAGE (msg), NULL);
 
 	if (!auth_hdrs && auth_ctx->types) {
 		soup_message_set_error (msg, SOUP_ERROR_UNAUTHORIZED);

@@ -1,5 +1,19 @@
 2003-04-18  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-message.c: Make this a GObject. Remove a few unused
+	functions that haven't actually worked right for ages.
+
+	* libsoup/soup-server-message.c: Make this a proper subclass of
+	SoupMessage and make all of its data private.
+	(soup_server_message_get_client): New, to get the client address
+
+	* libsoup/soup-server.c (soup_server_context_get_client_address):
+	Use soup_server_message_get_client.
+
+	* ... update (mostly refcounting and g_return_if_fails)
+
+2003-04-18  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-server.c: Make this a GObject and an abstract base
 	class. Also remove all the SoupServerMessage code.
 

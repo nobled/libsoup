@@ -220,7 +220,7 @@ digest_auth_func (SoupAuth *auth, SoupMessage *message)
 	char *url;
 	char *out;
 
-	g_return_val_if_fail (message, NULL);
+	g_return_val_if_fail (SOUP_IS_MESSAGE (message), NULL);
 
 	response = compute_response (digest, message);
 
@@ -600,7 +600,7 @@ gchar *
 soup_auth_authorize (SoupAuth *auth, SoupMessage *msg)
 {
 	g_return_val_if_fail (auth != NULL, NULL);
-	g_return_val_if_fail (msg != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_MESSAGE (msg), NULL);
 
 	return auth->auth_func (auth, msg);
 }

@@ -64,7 +64,7 @@ free_sconn (SoupServerTCPConnection *sconn)
 	if (sconn->new_request_watch)
 		g_source_remove (sconn->new_request_watch);
 	if (sconn->msg)
-		soup_server_message_free (sconn->msg);
+		g_object_unref (sconn->msg);
 
 	g_object_unref (sconn->sock);
 	g_free (sconn);

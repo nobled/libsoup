@@ -257,7 +257,7 @@ soup_server_context_get_client_address (SoupServerContext *context)
 {
 	g_return_val_if_fail (context != NULL, NULL);
 
-	return ((SoupServerMessage *)context->msg)->client;
+	return soup_server_message_get_client (context->msg);
 }
 
 const char *

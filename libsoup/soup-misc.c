@@ -19,96 +19,15 @@
 
 gboolean soup_initialized = FALSE;
 
-static guint max_connections = 10;
-
-static SoupContext *proxy_context = NULL;
-
-static SoupSecurityPolicy ssl_security_level = SOUP_SECURITY_DOMESTIC;
-
-/**
- * soup_set_proxy:
- * @context: a %SoupContext to use as the proxy context for all outgoing
- * connections.
- *
- * Use @context as the %SoupContext to connect to instead of the actual
- * destination specified in a SoupMessage. Messages will be routed through the
- * proxy host on their way to the actual specified destination. The URL for this
- * context should be of the form:
- * 	[http|https|socks4|socks5]://<USERNAME>:<PASSWORD>@<PROXYHOST>
- */
-void
-soup_set_proxy (SoupContext *context)
-{
-	if (proxy_context)
-		soup_context_unref (proxy_context);
-
-	proxy_context = context;
-
-	if (proxy_context)
-		soup_context_ref (proxy_context);
-}
-
-/**
- * soup_get_proxy:
- *
- * Get the current proxy %SoupContext.
- *
- * Return value: the current proxy context.
+/* This is just here so that stuff that currently calls soup_get_proxy
+ * doesn't need to be changed, so that as that code is being moved, I
+ * remember where to think about proxy stuff.
  */
 SoupContext *
 soup_get_proxy (void)
 {
-	return proxy_context;
+	return NULL;
 }
-
-/**
- * soup_set_connection_limit:
- * @max_conn: the number of connections.
- *
- * Set the maximum concurrent connection limit for outgoing requests.
- */
-void
-soup_set_connection_limit (guint max_conn)
-{
-	max_connections = max_conn;
-}
-
-/**
- * soup_get_connection_limit:
- *
- * Return value: The maximum concurrent connection limit for outgoing requests.
- */
-guint
-soup_get_connection_limit (void)
-{
-	return max_connections;
-}
-
-/**
- * soup_set_security_policy:
- * @policy: the %SoupSecurityPolicy to use.
- *
- * Set the security policy for all secure SSL connections. The security policy
- * dictates which algorithms and encryption levels can be used in order to
- * conform to your country's security legislation.
- */
-void
-soup_set_security_policy (SoupSecurityPolicy policy)
-{
-	ssl_security_level = policy;
-}
-
-/**
- * soup_get_security_policy:
- *
- * Return value: The security policy to use for secure SSL connections.
- */
-SoupSecurityPolicy
-soup_get_security_policy (void)
-{
-	return ssl_security_level;
-}
-
 
 guint
 soup_str_case_hash (gconstpointer key)
@@ -433,38 +352,6 @@ static GSList *allow_tokens = NULL;
 static GSList *deny_tokens = NULL;
 
 static void
-soup_config_connection_limit (gchar *key, gchar *value)
-{
-	soup_set_connection_limit (MAX (atoi (value), 0));
-}
-
-static void
-soup_config_proxy_uri (gchar *key, gchar *value)
-{
-	SoupContext *con = soup_context_get (value);
-	if (con) soup_set_proxy (con);
-}
-
-static void
-soup_config_security_policy (gchar *key, gchar *value)
-{
-	switch (toupper (value [0])) {
-	case 'D':
-		if (!g_strcasecmp (&value [1], "OMESTIC"))
-			soup_set_security_policy (SOUP_SECURITY_DOMESTIC);
-		break;
-	case 'E':
-		if (!g_strcasecmp (&value [1], "XPORT"))
-			soup_set_security_policy (SOUP_SECURITY_EXPORT);
-		break;
-	case 'F':
-		if (!g_strcasecmp (&value [1], "RANCE"))
-			soup_set_security_policy (SOUP_SECURITY_FRANCE);
-		break;
-	}
-}
-
-static void
 soup_config_ssl_ca_file (gchar *key, gchar *value)
 {
 	soup_set_ssl_ca_file (value);
@@ -498,10 +385,6 @@ struct SoupConfigFuncs {
 	gchar          *key;
 	SoupConfigFunc  func;
 } soup_config_funcs [] = {
-	{ "connection-limit", soup_config_connection_limit },
-	{ "proxy-uri",        soup_config_proxy_uri },
-	{ "proxy-url",        soup_config_proxy_uri },
-	{ "security-policy",  soup_config_security_policy },
 	{ "ssl-ca-file",      soup_config_ssl_ca_file },
 	{ "ssl-ca-directory", soup_config_ssl_ca_directory },
 	{ "ssl-certificate",  soup_config_ssl_certificate },
@@ -647,13 +530,6 @@ soup_load_config_internal (gchar *config_file, gboolean admin)
 void
 soup_load_config (gchar *config_file)
 {
-	/* Reset values */
-	if (soup_initialized) {
-		soup_set_proxy (NULL);
-		soup_set_connection_limit (0);
-		soup_set_security_policy (SOUP_SECURITY_DOMESTIC);
-	}
-
 #ifdef SYSCONFDIR
 	/* Load system global config */
 	soup_load_config_internal (SYSCONFDIR G_DIR_SEPARATOR_S "souprc",
@@ -780,28 +656,4 @@ soup_get_ssl_cert_files (const gchar **cert_file, const gchar **key_file)
 
 	if (key_file)
 		*key_file = ssl_key_file;
-}
-
-SoupAuthorizeFn  soup_auth_fn = NULL;
-gpointer         soup_auth_fn_user_data = NULL;
-
-/**
- * soup_set_authorize_callback:
- * @authfn: A %SoupAuthorizeFn function to be called when authorization 
- * is needed to complete a request.
- * @user_data: A pointer to be passed @authfn.
- * 
- * Sets the authorization callback to be called when a %SoupMessage fails with a
- * 401 or 407 response, and no authorization data is present in the URI (and the
- * request is not covered by a prior successful authorization attempt).
- *
- * The callback should call %soup_uri_set_auth on the passed URI in order to try
- * the request again.
- **/
-void
-soup_set_authorize_callback (SoupAuthorizeFn authfn,
-			     gpointer        user_data)
-{
-	soup_auth_fn = authfn;
-	soup_auth_fn_user_data = user_data;
 }

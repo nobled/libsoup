@@ -27,6 +27,7 @@
 #include "soup-context.h"
 #include "soup-headers.h"
 #include "soup-message.h"
+#include "soup-misc.h"
 #include "soup-private.h"
 
 /* 

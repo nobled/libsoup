@@ -686,15 +686,6 @@ authorize_handler (SoupMessage *msg, gboolean proxy)
 					  GINT_TO_POINTER (proxy));
 	}
 
-	/*
-	 * Call registered authenticate handler
-	 */
-	if (!uri->user && soup_auth_fn)
-		(*soup_auth_fn) (auth->type,
-				 (SoupUri *) uri,
-				 auth->realm, 
-				 soup_auth_fn_user_data);
-
 	if (!uri->user) {
 		soup_auth_free (auth);
 		goto THROW_CANT_AUTHENTICATE;

@@ -189,21 +189,17 @@ get_url (const char *url)
 static void
 usage (void)
 {
-	fprintf (stderr, "Usage: get [-r [-c limit]] URL\n");
+	fprintf (stderr, "Usage: get [-r] URL\n");
 	exit (1);
 }
 
 int
 main (int argc, char **argv)
 {
-	int opt, limit = 2;
+	int opt;
 
-	while ((opt = getopt (argc, argv, "c:r")) != -1) {
+	while ((opt = getopt (argc, argv, "r")) != -1) {
 		switch (opt) {
-		case 'c':
-			limit = atoi (optarg);
-			break;
-
 		case 'r':
 			recurse = TRUE;
 			break;
@@ -236,8 +232,6 @@ main (int argc, char **argv)
 		printf ("Output directory is '%s'\n", outdir);
 		chdir (outdir);
 		g_free (outdir);
-
-		soup_set_connection_limit (limit);
 	}
 
 	get_url (base);

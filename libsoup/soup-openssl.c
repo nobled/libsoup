@@ -492,17 +492,4 @@ soup_openssl_init (gboolean server)
 	return TRUE;
 }
 
-void 
-soup_openssl_set_security_policy (SoupSecurityPolicy policy)
-{
-	switch (policy) {
-	case SOUP_SECURITY_DOMESTIC:
-		break;
-	case SOUP_SECURITY_EXPORT:
-		break;
-	case SOUP_SECURITY_FRANCE:
-		break;
-	}
-}
-
 #endif /*HAVE_OPENSSL_SSL_H*/

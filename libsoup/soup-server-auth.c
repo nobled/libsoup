@@ -18,6 +18,7 @@
 
 #include "md5-utils.h"
 #include "soup-headers.h"
+#include "soup-misc.h"
 
 typedef struct {
 	const gchar   *scheme;

@@ -1,5 +1,41 @@
 2003-04-11  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-misc.c (soup_set_proxy, soup_get_proxy): Remove.
+	Proxies must be dealt with at the connection level, not globally.
+	(soup_set_connection_limit, soup_get_connection_limit): Remove.
+	Connection limits should be per host/per context, not global.
+	(soup_set_security_policy, soup_get_security_policy): Remove. Not
+	used.
+	(soup_set_authorize_callback): Remove. Authorize callbacks need to
+	be per context, not global
+
+	* libsoup/soup-auth.h: Move SoupAuthType definition here from
+	soup-misc.h
+
+	* libsoup/soup-context.c (try_create_connection): Remove
+	connection limit refs
+	(prune_least_used_connection): Removed
+
+	* libsoup/soup-connection.c: Remove last_used_id field since
+	soup-context no longer prunes connections
+
+	* libsoup/soup-message.h: Remove unused NO_PIPELINE and NO_COOKIES
+	flags
+
+	* libsoup/soup-message.c (authorize_handler): Remove global
+	authorize handler stuff.
+
+	* libsoup/soup-queue.c (soup_debug_print_headers): Removed
+
+	* libsoup/soup-openssl.c: 
+	* libsoup/soup-ssl-proxy.c: 
+	* libsoup/soup-ssl.c:
+	* libsoup/soup-nss.c: Remove security policy stuff
+
+	* tests/get.c (main): Remove connection limit code
+
+2003-04-11  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-ntlm.[ch]: Remove. NTLM totally violates the HTTP
 	auth spec, and shoehorning it into soup just adds a lot of
 	complexity. In the new-and-improved API, we should be able to

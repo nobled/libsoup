@@ -28,28 +28,10 @@
 static gint ssl_library = 0; /* -1 = fail,
 				 0 = first time, 
 				 1 = openssl */
-static SoupSecurityPolicy ssl_security_level = SOUP_SECURITY_DOMESTIC;
 
 static gboolean server_mode = FALSE;
 
 static GMainLoop *loop;
-
-static void 
-soup_ssl_proxy_set_security_policy (SoupSecurityPolicy policy)
-{
-	ssl_security_level = policy;
-
-	switch (ssl_library) {
-	case -1:
-	case 0:
-		break;
-#ifdef HAVE_OPENSSL_SSL_H
-	case 1:
-		soup_openssl_set_security_policy (policy);
-		break;
-#endif
-	}
-}
 
 static void 
 soup_ssl_proxy_init (void)
@@ -62,8 +44,6 @@ soup_ssl_proxy_init (void)
 #endif
 
 	if (ssl_library == -1) return;
-
-	soup_ssl_proxy_set_security_policy (ssl_security_level);
 }
 
 static GIOChannel *
@@ -132,7 +112,7 @@ main (int argc, char** argv)
 {
 	gchar *env;
 	GIOChannel *read_chan, *write_chan, *sock_chan;
-	int sockfd, secpol, flags;
+	int sockfd, flags;
 
 	if (getenv ("SOUP_PROXY_DELAY")) {
 		g_warning ("Proxy delay set: sleeping for 20 seconds");
@@ -148,13 +128,6 @@ main (int argc, char** argv)
 	sockfd = atoi (env);
 	if (sockfd <= 0)
 		g_error ("Invalid SOCKFD environment set.");
-
-	env = getenv ("SECURITY_POLICY");
-	if (!env) 
-		g_error ("SECURITY_POLICY environment not set.");
-
-	secpol = atoi (env);
-	soup_ssl_proxy_set_security_policy (secpol);
 
 	env = getenv ("IS_SERVER");
 	if (env)

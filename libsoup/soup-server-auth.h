@@ -13,7 +13,7 @@
 
 #include <glib.h>
 #include <libsoup/soup-message.h>
-#include <libsoup/soup-misc.h>
+#include <libsoup/soup-auth.h>
 
 typedef union _SoupServerAuth SoupServerAuth;
 typedef struct _SoupServerAuthContext SoupServerAuthContext;

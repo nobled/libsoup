@@ -81,8 +81,6 @@ soup_ssl_get_iochannel (GIOChannel *sock, SoupSSLType type)
 		close (pair [0]);
 
 		putenv (g_strdup_printf ("SOCKFD=%d", sock_fd));
-		putenv (g_strdup_printf ("SECURITY_POLICY=%d",
-					 soup_get_security_policy ()));
 
 		if (type == SOUP_SSL_TYPE_SERVER)
 			putenv ("IS_SERVER=1");

@@ -11,17 +11,20 @@
 #ifndef SOUP_AUTH_H
 #define SOUP_AUTH_H 1
 
-#include <libsoup/soup-misc.h>
 #include <libsoup/soup-types.h>
+#include <libsoup/soup-uri.h>
 
-typedef   enum _SoupAuthStatus SoupAuthStatus;
+typedef enum {
+	SOUP_AUTH_TYPE_BASIC = 1,
+	SOUP_AUTH_TYPE_DIGEST
+} SoupAuthType;
 
-enum _SoupAuthStatus {
+typedef enum {
 	SOUP_AUTH_STATUS_INVALID = 0,
 	SOUP_AUTH_STATUS_PENDING,
 	SOUP_AUTH_STATUS_FAILED,
 	SOUP_AUTH_STATUS_SUCCESSFUL
-};
+} SoupAuthStatus;
 
 struct _SoupAuth {
 	SoupAuthType  type;

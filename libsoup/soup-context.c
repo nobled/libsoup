@@ -265,43 +265,6 @@ soup_context_unref (SoupContext *ctx)
 	}
 }
 
-static void
-prune_connection_foreach (SoupHost        *key,
-			  SoupHost        *serv,
-			  SoupConnection **last)
-{
-	GSList *conns = serv->connections;
-
-	while (conns) {
-		SoupConnection *conn = conns->data;
-
-		if (!conn->in_use) {
-			if (*last == NULL ||
-			    (*last)->last_used_id > conn->last_used_id)
-				*last = conn;
-		}
-
-		conns = conns->next;
-	}
-}
-
-static gboolean
-prune_least_used_connection (void)
-{
-	SoupConnection *last = NULL;
-
-	g_hash_table_foreach (soup_hosts, 
-			      (GHFunc) prune_connection_foreach, 
-			      &last);
-	if (last) {
-		last->keep_alive = FALSE;
-		soup_connection_release (last);
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
 struct SoupContextConnectData {
 	SoupContextConnectFn  cb;
 	gpointer              user_data;
@@ -385,20 +348,8 @@ static gboolean
 try_create_connection (struct SoupContextConnectData **dataptr)
 {
 	struct SoupContextConnectData *data = *dataptr;
-	gint conn_limit = soup_get_connection_limit ();
 	gpointer connect_tag;
 	SoupContext *proxy;
-
-	/* 
-	 * Check if we are allowed to create a new connection, otherwise wait
-	 * for next timeout.  
-	 */
-	if (conn_limit &&
-	    connection_count >= conn_limit &&
-	    !prune_least_used_connection ()) {
-		data->connect_tag = 0;
-		return FALSE;
-	}
 
 	connection_count++;
 	data->timeout_tag = 0;

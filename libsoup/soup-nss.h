@@ -17,8 +17,6 @@
 
 GIOChannel *soup_nss_get_iochannel       (GIOChannel *sock, SoupSSLType type);
 
-void        soup_nss_set_security_policy (SoupSecurityPolicy policy);
-
 gboolean    soup_nss_init                (void);
 
 #endif /* SOUP_NSS_H */

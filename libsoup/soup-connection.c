@@ -33,8 +33,6 @@
 #include "soup-socks.h"
 #include "soup-ssl.h"
 
-static guint most_recently_used_id = 0;
-
 static void
 connection_free (SoupConnection *conn)
 {
@@ -69,7 +67,6 @@ soup_connection_from_socket (SoupSocket *socket, SoupProtocol protocol)
 	conn->socket = socket;
 	conn->keep_alive = TRUE;
 	conn->in_use = TRUE;
-	conn->last_used_id = 0;
 
 	chan = soup_socket_get_iochannel (socket);
 	fd = g_io_channel_unix_get_fd (chan);
@@ -281,10 +278,9 @@ soup_connection_release (SoupConnection *conn)
 {
 	g_return_if_fail (conn != NULL);
 
-	if (conn->keep_alive) {
-		conn->last_used_id = ++most_recently_used_id;
+	if (conn->keep_alive)
 		conn->in_use = FALSE;		
-	} else
+	else
 		connection_free (conn);
 }
 

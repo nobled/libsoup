@@ -33,26 +33,6 @@ static GSList *soup_active_requests = NULL, *soup_active_request_next = NULL;
 
 static guint soup_queue_idle_tag = 0;
 
-static void
-soup_debug_print_a_header (gchar *key, gchar *val, gpointer not_used)
-{
-	g_print ("\tKEY: \"%s\", VALUE: \"%s\"\n", key, val);
-}
-
-void 
-soup_debug_print_headers (SoupMessage *req)
-{
-	g_print ("Request Headers:\n");
-	soup_message_foreach_header (req->request_headers,
-				     (GHFunc) soup_debug_print_a_header,
-				     NULL);
-
-	g_print ("Response Headers:\n");
-	soup_message_foreach_header (req->response_headers,
-				     (GHFunc) soup_debug_print_a_header,
-				     NULL);
-}
-
 static void 
 soup_queue_error_cb (gboolean body_started, gpointer user_data)
 {

@@ -406,23 +406,5 @@ soup_nss_init (void)
 	return FALSE;
 }
 
-void 
-soup_nss_set_security_policy (SoupSecurityPolicy policy)
-{
-	switch (policy) {
-	case SOUP_SECURITY_DOMESTIC:
-		NSS_SetDomesticPolicy ();
-		break;
-	case SOUP_SECURITY_EXPORT:
-		NSS_SetExportPolicy ();
-		break;
-	case SOUP_SECURITY_FRANCE:
-		NSS_SetFrancePolicy ();
-		break;
-	}
-
-	SSL_ClearSessionCache ();
-}
-
 #endif /*HAVE_NSS*/
 

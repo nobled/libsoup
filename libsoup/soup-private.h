@@ -40,9 +40,6 @@ extern gboolean    soup_initialized;
 extern GSList     *soup_active_requests; /* CONTAINS: SoupMessage */
 extern GHashTable *soup_hosts;           /* KEY: uri->host, VALUE: SoupHost */
 
-extern SoupAuthorizeFn soup_auth_fn;
-extern gpointer        soup_auth_fn_user_data;
-
 typedef struct {
 	gchar      *host;
 	guint       port;
@@ -66,7 +63,6 @@ struct _SoupContext {
 struct _SoupConnection {
 	SoupSocket   *socket;
 	gboolean      in_use;
-	guint         last_used_id;
 	gboolean      keep_alive;
 	guint         death_tag;
 };

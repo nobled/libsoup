@@ -259,6 +259,8 @@ soup_uri_new_with_base (const SoupUri *base, const char *uri_string)
 
 	if (!uri->port)
 		uri->port = soup_protocol_default_port (uri->protocol);
+	if (!uri->path)
+		uri->path = g_strdup ("");
 
 	return uri;
 }

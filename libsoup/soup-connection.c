@@ -2,10 +2,7 @@
 /*
  * soup-connection.c: Connection-handling code.
  *
- * Authors:
- *      Alex Graveley (alex@ximian.com)
- *
- * Copyright (C) 2000-2002, Ximian, Inc.
+ * Copyright (C) 2000-2003, Ximian, Inc.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -33,60 +30,67 @@
 #include "soup-socks.h"
 #include "soup-ssl.h"
 
-static void
-connection_free (SoupConnection *conn)
-{
-	g_return_if_fail (conn != NULL);
+struct _SoupConnectionPrivate {
+	guint watch_tag;
+	gboolean in_use;
 
-	g_object_unref (conn->socket);
-	g_source_remove (conn->death_tag);
-	g_free (conn);
+	SoupConnectionCallbackFn connect_func;
+	gpointer                 connect_data;
+	SoupUri *dest_uri, *proxy_uri;
+};
+
+#define PARENT_TYPE SOUP_TYPE_SOCKET
+static SoupSocketClass *parent_class;
+
+static void
+init (GObject *object)
+{
+	SoupConnection *conn = SOUP_CONNECTION (object);
+
+	conn->priv = g_new0 (SoupConnectionPrivate, 1);
 }
 
+static void
+finalize (GObject *object)
+{
+	SoupConnection *conn = SOUP_CONNECTION (object);
+
+	if (conn->priv->watch_tag)
+		g_source_remove (conn->priv->watch_tag);
+
+	if (conn->priv->dest_uri)
+		soup_uri_free (conn->priv->dest_uri);
+	if (conn->priv->proxy_uri)
+		soup_uri_free (conn->priv->proxy_uri);
+
+	g_free (conn->priv);
+
+	G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static void
+class_init (GObjectClass *object_class)
+{
+	parent_class = g_type_class_ref (PARENT_TYPE);
+
+	/* virtual method override */
+	object_class->finalize = finalize;
+}
+
+SOUP_MAKE_TYPE (soup_connection, SoupConnection, class_init, init, PARENT_TYPE)
+
+
 static gboolean 
-connection_death (GIOChannel*     iochannel,
-		  GIOCondition    condition,
+connection_watch (GIOChannel *iochannel, GIOCondition condition,
 		  SoupConnection *conn)
 {
-	if (!conn->in_use) {
-		connection_free (conn);
+	if (!conn->priv->in_use) {
+		g_object_unref (conn);
 		return FALSE;
 	}
 
 	return TRUE;
 }
-
-static SoupConnection *
-soup_connection_from_socket (SoupSocket *socket, SoupProtocol protocol)
-{
-	SoupConnection *conn;
-	GIOChannel *chan;
-
-	conn = g_new0 (SoupConnection, 1);
-	conn->socket = socket;
-	g_object_ref (conn->socket);
-	conn->keep_alive = TRUE;
-	conn->in_use = TRUE;
-
-	chan = soup_socket_get_iochannel (socket);
-	conn->death_tag = g_io_add_watch (chan,
-					  G_IO_ERR | G_IO_HUP | G_IO_NVAL,
-					  (GIOFunc) connection_death,
-					  conn);
-	g_io_channel_unref (chan);
-
-	return conn;
-}
-
-struct SoupConnectData {
-	SoupSocket            *socket;
-
-	SoupConnectCallbackFn  cb;
-	gpointer               user_data;
-
-	SoupUri               *proxy_uri;
-	SoupUri               *dest_uri;
-};
 
 static gboolean
 proxy_https_connect (SoupConnection *conn, 
@@ -115,210 +119,201 @@ proxy_https_connect (SoupConnection *conn,
 }
 
 static void
-soup_connection_new_cb (SoupSocket         *socket,
-			SoupKnownErrorCode  status,
-			gpointer            user_data)
+socket_connected (SoupSocket *socket, SoupKnownErrorCode status, gpointer data)
 {
-	struct SoupConnectData *data = user_data;
-	SoupConnection *conn;
+	SoupConnection *conn = SOUP_CONNECTION (socket);
+	GIOChannel *chan;
+	SoupConnectionCallbackFn connect_func;
+	gpointer connect_data;
+
+	connect_func = conn->priv->connect_func;
+	conn->priv->connect_func = NULL;
+	connect_data = conn->priv->connect_data;
+	conn->priv->connect_data = NULL;
 
 	if (status == SOUP_ERROR_CANT_RESOLVE) {
-		(*data->cb) (NULL,
-			     (data->proxy_uri ?
-			      SOUP_ERROR_CANT_RESOLVE_PROXY :
-			      SOUP_ERROR_CANT_RESOLVE), 
-			     data->user_data);
-		goto DONE;
+		connect_func (conn, (conn->priv->proxy_uri ?
+				     SOUP_ERROR_CANT_RESOLVE_PROXY :
+				     SOUP_ERROR_CANT_RESOLVE), 
+			      connect_data);
+		return;
 	} else if (status != SOUP_ERROR_OK) {
-		(*data->cb) (NULL,
-			     (data->proxy_uri ?
-			      SOUP_ERROR_CANT_CONNECT_PROXY :
-			      SOUP_ERROR_CANT_CONNECT), 
-			     data->user_data);
-		goto DONE;
+		connect_func (conn, (conn->priv->proxy_uri ?
+				     SOUP_ERROR_CANT_CONNECT_PROXY :
+				     SOUP_ERROR_CANT_CONNECT), 
+			      connect_data);
+		return;
 	}
 
 	/* Handle SOCKS proxy negotiation */
-	if (data->proxy_uri &&
-	    (data->proxy_uri->protocol == SOUP_PROTOCOL_SOCKS4 ||
-	     data->proxy_uri->protocol == SOUP_PROTOCOL_SOCKS5)) {
+	if (conn->priv->proxy_uri &&
+	    (conn->priv->proxy_uri->protocol == SOUP_PROTOCOL_SOCKS4 ||
+	     conn->priv->proxy_uri->protocol == SOUP_PROTOCOL_SOCKS5)) {
 		SoupUri *proxy_uri;
 
-		proxy_uri = data->proxy_uri;
-		data->proxy_uri = NULL;
+		proxy_uri = conn->priv->proxy_uri;
+		conn->priv->proxy_uri = NULL;
 
 		soup_socks_proxy_connect (socket,
 					  proxy_uri,
-					  data->dest_uri,
-					  soup_connection_new_cb,
-					  data);
+					  conn->priv->dest_uri,
+					  socket_connected,
+					  conn);
 		soup_uri_free (proxy_uri);
 		return;
-	} 
-
-	/* Handle HTTPS tunnel setup via proxy CONNECT request. */
-	if (data->proxy_uri &&
-	    data->dest_uri->protocol == SOUP_PROTOCOL_HTTPS) {
-		/* Synchronously send CONNECT request */
-		conn = soup_connection_from_socket (socket, data->proxy_uri->protocol);
-		if (proxy_https_connect (conn, data->dest_uri)) {
-			soup_socket_start_ssl (socket);
-			(*data->cb) (conn,
-				     SOUP_ERROR_OK,
-				     data->user_data);
-		} else {
-			connection_free (conn);
-			(*data->cb) (NULL,
-				     SOUP_ERROR_CANT_CONNECT, 
-				     data->user_data);
-		}
-		goto DONE;
 	}
 
-	conn = soup_connection_from_socket (socket, data->dest_uri->protocol);
-	(*data->cb) (conn, SOUP_ERROR_OK, data->user_data);
+	chan = soup_socket_get_iochannel (socket);
+	conn->priv->watch_tag = g_io_add_watch (chan,
+						G_IO_ERR | G_IO_HUP | G_IO_NVAL,
+						(GIOFunc) connection_watch,
+						conn);
+	g_io_channel_unref (chan);
 
- DONE:
-	g_object_unref (data->socket);
-	if (data->dest_uri)
-		soup_uri_free (data->dest_uri);
-	if (data->proxy_uri)
-		soup_uri_free (data->proxy_uri);
-	g_free (data);
+	/* Handle HTTPS tunnel setup via proxy CONNECT request. */
+	if (conn->priv->proxy_uri &&
+	    conn->priv->dest_uri->protocol == SOUP_PROTOCOL_HTTPS) {
+		/* Synchronously send CONNECT request */
+		if (proxy_https_connect (conn, conn->priv->dest_uri)) {
+			soup_socket_start_ssl (socket);
+		} else {
+			connect_func (conn,
+				      SOUP_ERROR_CANT_CONNECT, 
+				      connect_data);
+			return;
+		}
+	}
+
+	connect_func (conn, SOUP_ERROR_OK, connect_data);
 }
 
 /**
  * soup_connection_new_via_proxy:
  * @uri: URI of the origin server (final destination)
- * @proxy_uri: URI of proxy to use to connect to @uri (or %NULL for a
- * direct connection).
- * @cb: a %SoupConnectCallbackFn to be called when a valid connection is
- * available.
- * @user_data: the user_data passed to @cb.
+ * @proxy_uri: URI of proxy to use to connect to @uri
+ * @func: a #SoupConnectionCallbackFn to be called when a valid
+ * connection is available.
+ * @data: the user_data passed to @func.
  *
  * Initiates the process of establishing a connection to the server
- * referenced by @uri. If @proxy_uri is non-%NULL, the actual network
- * connection will be made to the server it identifies, which will
- * then be asked to connect to @uri on our behalf.
+ * referenced by @uri via @proxy_uri.
  *
- * Return value: a %SoupConnectId which can be used to cancel a
- * connection attempt using %soup_connection_cancel(), or %NULL if
- * the connect attempt fails immediately.
+ * Return value: the new #SoupConnection.
  */
-SoupConnectId
+SoupConnection *
 soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
-			       SoupConnectCallbackFn cb, gpointer user_data)
+			       SoupConnectionCallbackFn func, gpointer data)
 {
-	struct SoupConnectData *data;
+	SoupConnection *conn;
 
 	g_return_val_if_fail (uri != NULL, NULL);
 
-	data = g_new0 (struct SoupConnectData, 1);
-	data->cb = cb;
-	data->user_data = user_data;
+	conn = g_object_new (SOUP_TYPE_CONNECTION, NULL);
 
-	data->dest_uri = soup_uri_copy (uri);
+	conn->priv->connect_func = func;
+	conn->priv->connect_data = data;
+
+	conn->priv->dest_uri = soup_uri_copy (uri);
 	if (proxy_uri) {
-		data->proxy_uri = soup_uri_copy (proxy_uri);
+		conn->priv->proxy_uri = soup_uri_copy (proxy_uri);
 		uri = proxy_uri;
 	}
 
-	data->socket = soup_socket_client_new (uri->host, uri->port,
-					       uri->protocol == SOUP_PROTOCOL_HTTPS,
-					       soup_connection_new_cb, data);
-
-	return data;
+	soup_socket_client_connect (SOUP_SOCKET (conn),
+				    uri->host, uri->port,
+				    uri->protocol == SOUP_PROTOCOL_HTTPS,
+				    socket_connected, NULL);
+	return conn;
 }
 
 /**
- * soup_connection_cancel_connect:
- * @tag: a %SoupConnectId representing a connection in progress.
+ * soup_connection_new:
+ * @uri: URI of the server to connect to
+ * @func: a #SoupConnectionCallbackFn to be called when a valid
+ * connection is available.
+ * @data: the user_data passed to @func.
  *
- * Cancels the connection attempt represented by @tag. The
- * %SoupConnectCallbackFn passed in %soup_context_get_connection is not
- * called.
- */
-void
-soup_connection_cancel_connect (SoupConnectId tag)
-{
-	struct SoupConnectData *data = tag;
-
-	g_return_if_fail (data != NULL);
-
-	g_object_unref (data->socket);
-
-	if (data->dest_uri)
-		soup_uri_free (data->dest_uri);
-	if (data->proxy_uri)
-		soup_uri_free (data->proxy_uri);
-	g_free (data);
-}
-
-/**
- * soup_connection_release:
- * @conn: a %SoupConnection currently in use.
+ * Initiates the process of establishing a connection to the server
+ * referenced by @uri.
  *
- * Mark the connection represented by @conn as being unused. If the
- * keep-alive flag is not set on the connection, the connection is closed
- * and its resources freed, otherwise the connection is returned to the
- * unused connection pool for the server.
+ * Return value: the new #SoupConnection.
  */
-void
-soup_connection_release (SoupConnection *conn)
+SoupConnection *
+soup_connection_new (SoupUri *uri,
+		     SoupConnectionCallbackFn func, gpointer data)
 {
-	g_return_if_fail (conn != NULL);
-
-	if (conn->keep_alive)
-		conn->in_use = FALSE;		
-	else
-		connection_free (conn);
+	return soup_connection_new_via_proxy (uri, NULL, func, data);
 }
 
 /**
  * soup_connection_get_iochannel:
- * @conn: a %SoupConnection.
+ * @conn: a #SoupConnection.
  *
  * Returns a GIOChannel used for IO operations on the network connection
  * represented by @conn.
  *
- * Return value: a pointer to the GIOChannel used for IO on %conn.
+ * Return value: a pointer to the GIOChannel used for IO on @conn.
  */
 GIOChannel *
 soup_connection_get_iochannel (SoupConnection *conn)
 {
-	g_return_val_if_fail (conn != NULL, NULL);
+	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), NULL);
 
-	return soup_socket_get_iochannel (conn->socket);
+	/* Don't return the channel if we're still connecting. */
+	if (conn->priv->connect_func)
+		return NULL;
+
+	return soup_socket_get_iochannel (SOUP_SOCKET (conn));
 }
 
 /**
- * soup_connection_set_keep_alive:
- * @conn: a %SoupConnection.
- * @keep_alive: boolean keep-alive value.
+ * soup_connection_set_in_use:
+ * @conn: a #SoupConnection.
+ * @in_use: whether or not @conn is in use
  *
- * Sets the keep-alive flag on the %SoupConnection pointed to by %conn.
+ * Sets the in-use flag on the #SoupConnection pointed to by @conn.
  */
 void
-soup_connection_set_keep_alive (SoupConnection *conn, gboolean keep_alive)
+soup_connection_set_in_use (SoupConnection *conn, gboolean in_use)
 {
-	g_return_if_fail (conn != NULL);
-	conn->keep_alive = keep_alive;
+	g_return_if_fail (SOUP_IS_CONNECTION (conn));
+
+	if (conn->priv->in_use == in_use)
+		return;
+
+	conn->priv->in_use = in_use;
+	if (in_use)
+		g_object_ref (conn);
+	else
+		g_object_unref (conn);
 }
 
 /**
- * soup_connection_is_keep_alive:
- * @conn: a %SoupConnection.
+ * soup_connection_is_in_use:
+ * @conn: a #SoupConnection.
  *
- * Returns the keep-alive flag for the %SoupConnection pointed to by
- * %conn. If this flag is TRUE, the connection will be returned to the pool
- * of unused connections when next %soup_connection_release is called,
- * otherwise the connection will be closed and resources freed.
- *
- * Return value: the keep-alive flag for @conn.
+ * Return value: the in-use flag for @conn.
  */
 gboolean
-soup_connection_is_keep_alive (SoupConnection *conn)
+soup_connection_is_in_use (SoupConnection *conn)
 {
-	g_return_val_if_fail (conn != NULL, FALSE);
-	return conn->keep_alive;
+	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), FALSE);
+
+	return conn->priv->in_use;
+}
+
+/**
+ * soup_connection_close:
+ * @conn: a #SoupConnection
+ *
+ * Marks @conn not in use and then unrefs it, which should cause
+ * the connection to be destroyed.
+ */
+void
+soup_connection_close (SoupConnection *conn)
+{
+	g_return_if_fail (SOUP_IS_CONNECTION (conn));
+
+	soup_connection_set_in_use (conn, FALSE);
+	g_object_unref (conn);
 }

@@ -60,13 +60,6 @@ struct _SoupContext {
 	guint         refcnt;
 };
 
-struct _SoupConnection {
-	SoupSocket   *socket;
-	gboolean      in_use;
-	gboolean      keep_alive;
-	guint         death_tag;
-};
-
 struct _SoupMessagePrivate {
 	SoupContext       *context;
 

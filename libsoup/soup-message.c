@@ -147,20 +147,21 @@ soup_message_copy (SoupMessage *req)
 	return cpy;
 }
 
-static void 
+static void
 release_connection (const SoupDataBuffer *data,
 		    gpointer              user_data)
 {
 	SoupConnection *conn = user_data;
-	soup_connection_release (conn);
+
+	soup_connection_set_in_use (conn, FALSE);
 }
 
-static void 
-release_and_close_connection (gboolean headers_done, gpointer user_data)
+static void
+close_connection (gboolean headers_done, gpointer user_data)
 {
 	SoupConnection *conn = user_data;
-	soup_connection_set_keep_alive (conn, FALSE);
-	soup_connection_release (conn);
+
+	soup_connection_close (conn);
 }
 
 /**
@@ -176,19 +177,19 @@ soup_message_cleanup (SoupMessage *req)
 {
 	g_return_if_fail (req != NULL);
 
-	if (req->connection && 
+	if (req->connection &&
 	    req->priv->read_tag &&
 	    req->status == SOUP_STATUS_READING_RESPONSE) {
 		soup_transfer_read_set_callbacks (req->priv->read_tag,
 						  NULL,
 						  NULL,
 						  release_connection,
-						  release_and_close_connection,
+						  close_connection,
 						  req->connection);
 		req->priv->read_tag = 0;
 		req->connection = NULL;
-		/* 
-		 * The buffer doesn't belong to us until the message is 
+		/*
+		 * The buffer doesn't belong to us until the message is
 		 * finished.
 		 */
 		req->response.owner = SOUP_BUFFER_STATIC;
@@ -210,7 +211,7 @@ soup_message_cleanup (SoupMessage *req)
 	}
 
 	if (req->connection) {
-		soup_connection_release (req->connection);
+		soup_connection_set_in_use (req->connection, FALSE);
 		req->connection = NULL;
 	}
 
@@ -305,8 +306,10 @@ soup_message_cancel (SoupMessage *msg)
 	soup_message_set_error (msg, SOUP_ERROR_CANCELLED);
 
 	/* Kill the connection as a safety measure */
-	if (msg->connection)
-		soup_connection_set_keep_alive (msg->connection, FALSE);
+	if (msg->connection) {
+		soup_connection_close (msg->connection);
+		msg->connection = NULL;
+	}
 
 	soup_message_issue_callback (msg);
 }

@@ -34,8 +34,6 @@
 
 GHashTable *soup_hosts;  /* KEY, VALUE: SoupHost */
 
-static gint connection_count = 0;
-
 /**
  * soup_context_get:
  * @uri: the stringified URI.
@@ -265,13 +263,23 @@ soup_context_unref (SoupContext *ctx)
 	}
 }
 
+static void
+connection_destroyed (gpointer data, GObject *where_conn_was)
+{
+	SoupContext *ctx = data;
+
+	ctx->server->connections = g_slist_remove (ctx->server->connections,
+						   where_conn_was);
+	soup_context_unref (ctx);
+}
+
 struct SoupContextConnectData {
 	SoupContextConnectFn  cb;
 	gpointer              user_data;
 
 	SoupContext          *ctx;
 	guint                 timeout_tag;
-	SoupConnectId         connect_tag;
+	SoupConnection       *connection;
 };
 
 static gboolean retry_connect_timeout_cb (struct SoupContextConnectData *data);
@@ -288,16 +296,16 @@ soup_context_connect_cb (SoupConnection     *conn,
 	case SOUP_ERROR_OK:
 		ctx->server->connections =
 			g_slist_prepend (ctx->server->connections, conn);
+		g_object_weak_ref (G_OBJECT (conn), connection_destroyed, ctx);
+		soup_context_ref (ctx);
+		soup_connection_set_in_use (conn, TRUE);
 		break;
 
 	case SOUP_ERROR_CANT_RESOLVE:
 	case SOUP_ERROR_CANT_RESOLVE_PROXY:
-		connection_count--;
 		break;
 
 	default:
-		connection_count--;
-
 		/*
 		 * Check if another connection exists to this server
 		 * before reporting error. 
@@ -329,9 +337,8 @@ try_existing_connections (SoupContext          *ctx,
 	while (conns) {
 		SoupConnection *conn = conns->data;
 
-		if (conn->in_use == FALSE && conn->keep_alive == TRUE) {
-			/* Set connection to in use */
-			conn->in_use = TRUE;
+		if (!soup_connection_is_in_use (conn)) {
+			soup_connection_set_in_use (conn, TRUE);
 
 			/* Issue success callback */
 			(*cb) (ctx, SOUP_ERROR_OK, conn, user_data);
@@ -345,35 +352,25 @@ try_existing_connections (SoupContext          *ctx,
 }
 
 static gboolean
-try_create_connection (struct SoupContextConnectData **dataptr)
+try_create_connection (struct SoupContextConnectData *data)
 {
-	struct SoupContextConnectData *data = *dataptr;
-	gpointer connect_tag;
 	SoupContext *proxy;
 
-	connection_count++;
 	data->timeout_tag = 0;
 
 	proxy = soup_get_proxy ();
 	if (proxy) {
-		connect_tag = soup_connection_new_via_proxy (data->ctx->uri,
-							     proxy->uri,
-							     soup_context_connect_cb,
-							     data);
+		data->connection =
+			soup_connection_new_via_proxy (data->ctx->uri,
+						       proxy->uri,
+						       soup_context_connect_cb,
+						       data);
 	} else {
-		connect_tag = soup_connection_new (data->ctx->uri,
-						   soup_context_connect_cb,
-						   data);
+		data->connection =
+			soup_connection_new (data->ctx->uri,
+					     soup_context_connect_cb,
+					     data);
 	}
-
-	/* 
-	 * NOTE: soup_connection_new can fail immediately and call our
-	 * callback which will delete the state.
-	 */
-	if (connect_tag)
-		data->connect_tag = connect_tag;
-	else
-		*dataptr = NULL;
 
 	return TRUE;
 }
@@ -389,7 +386,7 @@ retry_connect_timeout_cb (struct SoupContextConnectData *data)
 		return FALSE;
 	}
 
-	return try_create_connection (&data) == FALSE;
+	return try_create_connection (data) == FALSE;
 }
 
 /**
@@ -434,7 +431,7 @@ soup_context_get_connection (SoupContext          *ctx,
 	data->ctx = ctx;
 	soup_context_ref (ctx);
 
-	if (!try_create_connection (&data))
+	if (!try_create_connection (data))
 		data->timeout_tag =
 			g_timeout_add (150,
 				       (GSourceFunc) retry_connect_timeout_cb,
@@ -460,10 +457,8 @@ soup_context_cancel_connect (SoupConnectId tag)
 
 	if (data->timeout_tag)
 		g_source_remove (data->timeout_tag);
-	else if (data->connect_tag) {
-		connection_count--;
-		soup_connection_cancel_connect (data->connect_tag);
-	}
+	else if (data->connection)
+		g_object_unref (data->connection);
 
 	g_free (data);
 }

@@ -15,6 +15,8 @@ typedef struct _SoupAddressPrivate    SoupAddressPrivate;
 typedef struct _SoupAddressClass      SoupAddressClass;
 typedef struct _SoupAuth              SoupAuth;
 typedef struct _SoupConnection        SoupConnection;
+typedef struct _SoupConnectionPrivate SoupConnectionPrivate;
+typedef struct _SoupConnectionClass   SoupConnectionClass;
 typedef struct _SoupContext           SoupContext;
 typedef struct _SoupMessage           SoupMessage;
 typedef struct _SoupSocket            SoupSocket;

@@ -1,3 +1,46 @@
+2003-04-16  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-connection.c: Make this a subclass of SoupSocket.
+	(soup_connection_new, soup_connection_new_via_proxy): Return a
+	SoupConnection rather than a SoupConnectId
+	(soup_connection_cancel_connect): Gone. The caller can just unref
+	the connection before it's done connecting.
+	(soup_connection_close): Replaces soup_connection_release. Marks
+	it not-in-use and unrefs it, which should close it.
+	(soup_connection_set_keep_alive, soup_connection_is_keep_alive):
+	Gone. Keepaliveness is a property of a particular message
+	exchange, not the connection.
+	(soup_connection_set_in_use, soup_connection_is_in_use): Add these
+	since the in_use field is now private.
+
+	* libsoup/soup-context.c (soup_context_connect_cb): weak ref each
+	new connection
+	(connection_destroyed): Remove the connection from the server's
+	list when it's destroyed
+	(try_create_connection): Simplify this since it doesn't have to
+	worry about immediate success/failure of soup_connection_new any
+	more.
+	(soup_context_cancel_connect): Unref the connection
+
+	* libsoup/soup-message.c (release_connection): Just call
+	soup_connection_set_in_use (conn, FALSE).
+	(close_connection): Close the connection.
+	(soup_message_cancel): Close the connection
+
+	* libsoup/soup-queue.c (soup_queue_error_cb): Close the connection
+	(soup_queue_read_headers_cb): Don't look at Connection header
+	here.
+	(soup_queue_read_done_cb): Do it here, and close the connection if
+	apropriate
+
+	* libsoup/soup-private.h: remove SoupConnection def
+
+	* libsoup/soup-dns.c (soup_gothost): Clear the source_id here
+	rather than in soup_gethostby_cb, so that it gets cleared in the
+	idle case too
+	(soup_gethostbyname): Fix the sense of the expiration check, and
+	never expire an entry that has pending returns
+
 2003-04-15  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-socket.c (soup_socket_client_new): New

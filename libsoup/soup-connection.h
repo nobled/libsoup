@@ -6,33 +6,47 @@
 #ifndef SOUP_CONNECTION_H
 #define SOUP_CONNECTION_H 1
 
-#include <glib.h>
-#include <libsoup/soup-error.h>
-#include <libsoup/soup-types.h>
+#include <libsoup/soup-socket.h>
 #include <libsoup/soup-uri.h>
 
-typedef void (*SoupConnectCallbackFn) (SoupConnection     *conn, 
-				       SoupKnownErrorCode  err,
-				       gpointer            user_data);
+#define SOUP_TYPE_CONNECTION            (soup_connection_get_type ())
+#define SOUP_CONNECTION(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SOUP_TYPE_CONNECTION, SoupConnection))
+#define SOUP_CONNECTION_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), SOUP_TYPE_CONNECTION, SoupConnectionClass))
+#define SOUP_IS_CONNECTION(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SOUP_TYPE_CONNECTION))
+#define SOUP_IS_CONNECTION_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((obj), SOUP_TYPE_CONNECTION))
 
-SoupConnectId  soup_connection_new_via_proxy  (SoupUri               *uri,
-					       SoupUri               *proxy_uri,
-					       SoupConnectCallbackFn  cb,
-					       gpointer               user_data);
+struct _SoupConnection {
+	SoupSocket parent;
 
-#define        soup_connection_new(uri, cb, user_data) \
-	       soup_connection_new_via_proxy (uri, NULL, cb, user_data);
+	SoupConnectionPrivate *priv;
+};
 
-void           soup_connection_cancel_connect (SoupConnectId          tag);
+struct _SoupConnectionClass {
+	SoupSocketClass parent_class;
+
+};
+
+GType           soup_connection_get_type      (void);
 
 
-GIOChannel    *soup_connection_get_iochannel  (SoupConnection        *conn);
+typedef void  (*SoupConnectionCallbackFn)     (SoupConnection           *conn, 
+					       SoupKnownErrorCode        err,
+					       gpointer                  data);
 
-void           soup_connection_set_keep_alive (SoupConnection        *conn, 
-					       gboolean               keepalive);
+SoupConnection *soup_connection_new           (SoupUri                  *uri,
+					       SoupConnectionCallbackFn  func,
+					       gpointer                  data);
+SoupConnection *soup_connection_new_via_proxy (SoupUri                  *uri,
+					       SoupUri                  *proxy,
+					       SoupConnectionCallbackFn  func,
+					       gpointer                  data);
 
-gboolean       soup_connection_is_keep_alive  (SoupConnection        *conn);
+GIOChannel    *soup_connection_get_iochannel  (SoupConnection           *conn);
 
-void           soup_connection_release        (SoupConnection        *conn);
+void           soup_connection_set_in_use     (SoupConnection           *conn, 
+					       gboolean                  in_use);
+gboolean       soup_connection_is_in_use      (SoupConnection           *conn);
+
+void           soup_connection_close          (SoupConnection           *conn);
 
 #endif /*SOUP_CONNECTION_H*/

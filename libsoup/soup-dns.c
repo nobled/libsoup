@@ -413,6 +413,11 @@ soup_gothost (gpointer user_data)
 	SoupDNSEntry *entry = user_data;
 	SoupDNSLookupInfo *info;
 
+	if (entry->source_id) {
+		g_source_remove (entry->source_id);
+		entry->source_id = 0;
+	}
+
 	while (entry->lookups) {
 		info = entry->lookups->data;
 		entry->lookups = g_slist_remove (entry->lookups, info);
@@ -432,9 +437,6 @@ soup_gethostby_cb (GIOChannel *iochannel,
 	SoupDNSEntry *entry = data;
 	char buf[256], *namelenp, *name, *typep, *addrlenp, *addr;
 	int nread;
-
-	g_source_remove (entry->source_id);
-	entry->source_id = 0;
 
 	if (condition & G_IO_IN)
 		nread = read (entry->fd, buf, sizeof (buf));
@@ -509,7 +511,7 @@ soup_gethostbyname (const char *name, SoupGetHostByFn func, gpointer data)
 	/* Try the cache */
 	entry = lookup_entry (name);
 	if (entry) {
-		if (entry->expires > time (0))
+		if (entry->expires < time (0) && !entry->source_id)
 			free_entry (entry);
 		else
 			return lookup_info (entry, func, data);

@@ -38,7 +38,8 @@ soup_queue_error_cb (gboolean body_started, gpointer user_data)
 {
 	SoupMessage *req = user_data;
 
-	soup_connection_set_keep_alive (req->connection, FALSE);
+	soup_connection_close (req->connection);
+	req->connection = NULL;
 
 	req->priv->read_tag = 0;
 	req->priv->write_tag = 0;
@@ -91,7 +92,7 @@ soup_queue_read_headers_cb (const GString        *headers,
 			    gpointer              user_data)
 {
 	SoupMessage *req = user_data;
-	const gchar *connection, *length, *enc;
+	const gchar *length, *enc;
 	SoupHttpVersion version;
 	GHashTable *resp_hdrs;
 	SoupMethodId meth_id;
@@ -113,24 +114,6 @@ soup_queue_read_headers_cb (const GString        *headers,
 	resp_hdrs = req->response_headers;
 
 	req->errorclass = soup_error_get_class (req->errorcode);
-
-	/* 
-	 * Handle connection persistence
-	 * Close connection if:
-	 *   - Connection header is "close"
-	 *   - HTTP 1.0 and Connection header is not present
-	 */
-	connection = soup_message_get_header (resp_hdrs, "Connection");
-
-	if ((connection && !g_strcasecmp (connection, "close")) ||
-	    (!connection && version == SOUP_HTTP_1_0))
-		soup_connection_set_keep_alive (req->connection, FALSE);
-
-	/*
-	 * Handle successful CONNECT request by keeping connection open
-	 */
-	if (meth_id == SOUP_METHOD_ID_CONNECT && !SOUP_MESSAGE_IS_ERROR (req))
-		soup_connection_set_keep_alive (req->connection, TRUE);
 
 	/* 
 	 * Special case zero body handling for:
@@ -191,7 +174,8 @@ soup_queue_read_headers_cb (const GString        *headers,
 	return SOUP_TRANSFER_CONTINUE;
 
  THROW_MALFORMED_HEADER:
-	soup_connection_set_keep_alive (req->connection, FALSE);
+	soup_connection_close (req->connection);
+	req->connection = NULL;
 	soup_message_issue_callback (req);
 	return SOUP_TRANSFER_END;
 }
@@ -216,6 +200,7 @@ soup_queue_read_done_cb (const SoupDataBuffer *data,
 			 gpointer              user_data)
 {
 	SoupMessage *req = user_data;
+	const char *connection;
 
 	req->response.owner = data->owner;
 	req->response.length = data->length;
@@ -242,6 +227,14 @@ soup_queue_read_done_cb (const SoupDataBuffer *data,
 	else {
 		req->status = SOUP_STATUS_FINISHED;
 		req->priv->read_tag = 0;
+
+		connection = soup_message_get_header (req->response_headers,
+						      "Connection");
+		if ((connection && !g_strcasecmp (connection, "close")) ||
+		    (req->priv->http_version == SOUP_HTTP_1_0)) {
+			soup_connection_close (req->connection);
+			req->connection = NULL;
+		}
 	}
 
 	soup_message_run_handlers (req, SOUP_HANDLER_POST_BODY);
@@ -536,8 +529,7 @@ soup_idle_handle_new_requests (gpointer unused)
 
 		req->status = SOUP_STATUS_CONNECTING;
 
-		if (req->connection && 
-		    soup_connection_is_keep_alive (req->connection))
+		if (req->connection)
 			start_request (req);
 		else {
 			gpointer connect_tag;

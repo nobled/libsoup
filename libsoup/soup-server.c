@@ -87,7 +87,8 @@ soup_server_new (SoupProtocol proto, guint port)
 			return NULL;
 		}
 	} else {
-		sock = soup_socket_server_new (soup_address_ipv4_any (), port,
+		sock = soup_socket_server_new (soup_address_new_any (AF_INET),
+					       port,
 					       proto == SOUP_PROTOCOL_HTTPS);
 		if (!sock)
 			return NULL;
@@ -606,11 +607,11 @@ read_headers_cb (const GString        *headers,
 			 * No Host header, no AbsoluteUri
 			 */
 			SoupAddress *addr;
-			char *localaddr;
+			const char *localaddr;
 
 			addr = soup_socket_get_local_address (smsg->socket);
-			localaddr = soup_address_get_canonical_name (addr);
-			soup_address_unref (addr);
+			localaddr = soup_address_get_physical (addr);
+			g_object_unref (addr);
 
 			url = 
 				g_strdup_printf (
@@ -622,7 +623,6 @@ read_headers_cb (const GString        *headers,
 					localaddr,
 					server->port,
 					req_path);
-			g_free (localaddr);
 		}
 
 		ctx = soup_context_get (url);
@@ -1192,15 +1192,15 @@ soup_server_context_get_client_address (SoupServerContext *context)
 	return address;
 }
 
-gchar *
+const char *
 soup_server_context_get_client_host (SoupServerContext *context)
 {
-	gchar *host;
+	const char *host;
 	SoupAddress *address;
 
 	address = soup_server_context_get_client_address (context);
-	host = g_strdup (soup_address_get_canonical_name (address));
-	soup_address_unref (address);
+	host = g_strdup (soup_address_get_physical (address));
+	g_object_unref (address);
 	
 	return host;
 }

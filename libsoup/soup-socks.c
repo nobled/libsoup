@@ -17,6 +17,7 @@
 
 #include "soup-socks.h"
 #include "soup-address.h"
+#include "soup-dns.h"
 #include "soup-error.h"
 #include "soup-socket.h"
 
@@ -56,7 +57,7 @@ socks_data_free (SoupSocksData *sd)
 		soup_uri_free (sd->dest_uri);
 
 	if (sd->dest_addr)
-		soup_address_unref (sd->dest_addr);
+		g_object_unref (sd->dest_addr);
 
 	while (g_source_remove_by_user_data (sd))
 		continue;
@@ -246,8 +247,8 @@ soup_socks_error (GIOChannel* iochannel,
 }
 
 static void
-soup_lookup_dest_addr_cb (SoupAddress        *inetaddr, 
-			  SoupKnownErrorCode  status, 
+soup_lookup_dest_addr_cb (SoupKnownErrorCode  status,
+			  struct hostent     *h,
 			  gpointer            data)
 {
 	SoupSocksData *sd = data;
@@ -259,7 +260,7 @@ soup_lookup_dest_addr_cb (SoupAddress        *inetaddr,
 		return;
 	}
 
-	sd->dest_addr = inetaddr;
+	sd->dest_addr = soup_address_new_from_hostent (h);
 	sd->phase = SOCKS_4_SEND_DEST_ADDR;
 
 	channel = soup_socket_get_iochannel (sd->socket);
@@ -291,9 +292,9 @@ soup_socks_proxy_connect (SoupSocket          *socket,
 
 	switch (proxy_uri->protocol) {
 	case SOUP_PROTOCOL_SOCKS4:
-		soup_address_new (dest_uri->host, 
-				  soup_lookup_dest_addr_cb,
-				  sd);
+		soup_gethostbyname (dest_uri->host, 
+				    soup_lookup_dest_addr_cb,
+				    sd);
 		sd->phase = SOCKS_4_DEST_ADDR_LOOKUP;
 		break;
 

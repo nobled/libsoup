@@ -28,11 +28,12 @@ main (int argc, char **argv)
 	while ((opt = getopt (argc, argv, "6p:s")) != -1) {
 		switch (opt) {
 		case '6':
-			addr = soup_address_ipv6_any ();
-			if (!addr) {
-				fprintf (stderr, "No IPv6 support\n");
-				exit (1);
-			}
+#ifdef HAVE_IPV6
+			addr = soup_address_new_any (AF_INET6);
+#else
+			fprintf (stderr, "No IPv6 support\n");
+			exit (1);
+#endif
 			break;
 
 		case 'p':
@@ -51,7 +52,7 @@ main (int argc, char **argv)
 	}
 
 	if (!addr)
-		addr = soup_address_ipv4_any ();
+		addr = soup_address_new_any (AF_INET);
 
 	listener = soup_socket_server_new (addr, port, ssl);
 	if (!listener) {
@@ -63,7 +64,7 @@ main (int argc, char **argv)
 	while ((client = soup_socket_server_accept (listener))) {
 		addr = soup_socket_get_remote_address (client);
 		printf ("got connection from %s port %d\n",
-			soup_address_get_name_sync (addr),
+			soup_address_get_physical (addr),
 			soup_socket_get_remote_port (client));
 
 		now = time (NULL);

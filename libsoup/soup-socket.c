@@ -17,8 +17,9 @@
 #include <glib.h>
 #include <string.h>
 
-#include "soup-private.h"
 #include "soup-address.h"
+#include "soup-dns.h"
+#include "soup-private.h"
 #include "soup-socket.h"
 #include "soup-ssl.h"
 
@@ -40,7 +41,7 @@ struct _SoupSocketPrivate {
 	SoupSocketConnectFn connect_func;
 	gpointer connect_data;
 	guint connect_source;
-	SoupAddressNewId addr_id;
+	SoupAsyncHandle addr_id;
 };
 
 #define PARENT_TYPE G_TYPE_OBJECT
@@ -67,14 +68,14 @@ finalize (GObject *object)
 	if (sock->priv->connect_source)
 		g_source_remove (sock->priv->connect_source);
 	if (sock->priv->addr_id)
-		soup_address_new_cancel (sock->priv->addr_id);
+		soup_gethostby_cancel (sock->priv->addr_id);
 
 	if (sock->priv->sockfd != -1)
 		close (sock->priv->sockfd);
 	if (sock->priv->local_addr)
-		soup_address_unref (sock->priv->local_addr);
+		g_object_unref (sock->priv->local_addr);
 	if (sock->priv->remote_addr)
-		soup_address_unref (sock->priv->remote_addr);
+		g_object_unref (sock->priv->remote_addr);
 	if (sock->priv->iochannel)
 		g_io_channel_unref (sock->priv->iochannel);
 
@@ -246,7 +247,7 @@ soup_socket_connect_by_addr (SoupSocket *sock,
 	g_return_if_fail (func != NULL);
 
 	sock->priv->remote_addr = addr;
-	soup_address_ref (addr);
+	g_object_ref (addr);
 	sock->priv->remote_port = port;
 	if (ssl)
 		sock->priv->flags |= SOUP_SOCKET_IS_SSL;
@@ -260,8 +261,8 @@ soup_socket_connect_by_addr (SoupSocket *sock,
 }
 
 static void
-soup_socket_connect_addr_cb (SoupAddress *addr,
-			     SoupKnownErrorCode status,
+soup_socket_connect_addr_cb (SoupKnownErrorCode status,
+			     struct hostent *h,
 			     gpointer user_data)
 {
 	SoupSocket *sock = user_data;
@@ -269,8 +270,7 @@ soup_socket_connect_addr_cb (SoupAddress *addr,
 	sock->priv->addr_id = NULL;
 
 	if (status == SOUP_ERROR_OK) {
-		sock->priv->remote_addr = addr;
-		soup_address_ref (addr);
+		sock->priv->remote_addr = soup_address_new_from_hostent (h);
 		async_connect (sock);
 	} else
 		done_connect (sock, SOUP_ERROR_CANT_RESOLVE);
@@ -307,9 +307,9 @@ soup_socket_connect_by_name (SoupSocket *sock,
 	sock->priv->connect_func = func;
 	sock->priv->connect_data = data;
 
-	sock->priv->addr_id = soup_address_new (hostname,
-						soup_socket_connect_addr_cb,
-						sock);
+	sock->priv->addr_id = soup_gethostbyname (hostname,
+						  soup_socket_connect_addr_cb,
+						  sock);
 }
 
 /**
@@ -331,12 +331,12 @@ soup_socket_connect_cancel (SoupSocket *sock)
 		sock->priv->connect_source = 0;
 	}
 	if (sock->priv->addr_id) {
-		soup_address_new_cancel (sock->priv->addr_id);
+		soup_gethostby_cancel (sock->priv->addr_id);
 		sock->priv->addr_id = NULL;
 	}
 
 	if (sock->priv->remote_addr) {
-		soup_address_unref (sock->priv->remote_addr);
+		g_object_unref (sock->priv->remote_addr);
 		sock->priv->remote_addr = NULL;
 	}
 }
@@ -403,7 +403,7 @@ soup_socket_get_local_address (SoupSocket *socket)
 	if (!socket->priv->local_addr)
 		get_local_addr (socket);
 
-	soup_address_ref (socket->priv->local_addr);
+	g_object_ref (socket->priv->local_addr);
 	return socket->priv->local_addr;
 }
 
@@ -441,7 +441,7 @@ soup_socket_get_remote_address (SoupSocket *socket)
 {
 	g_return_val_if_fail (socket != NULL, NULL);
 
-	soup_address_ref (socket->priv->remote_addr);
+	g_object_ref (socket->priv->remote_addr);
 	return socket->priv->remote_addr;
 }
 
@@ -464,8 +464,8 @@ soup_socket_get_remote_port (SoupSocket *socket)
 
 /**
  * soup_socket_server_new:
- * @local_addr: Local address to bind to. (soup_address_ipv4_any() to
- * accept connections on any local IPv4 address)
+ * @local_addr: Local address to bind to. (Use soup_address_any_new() to
+ * accept connections on any local address)
  * @local_port: Port number for the socket (SOUP_SERVER_ANY_PORT if you
  * don't care).
  * @ssl: Whether or not this is an SSL server.

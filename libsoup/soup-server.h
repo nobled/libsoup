@@ -87,7 +87,7 @@ GSList            *soup_server_list_handlers (SoupServer            *serv);
 
 SoupAddress       *soup_server_context_get_client_address (SoupServerContext *context);
 
-char              *soup_server_context_get_client_host    (SoupServerContext *context);
+const char        *soup_server_context_get_client_host    (SoupServerContext *context);
 
 
 void               soup_server_message_start      (SoupMessage *msg);

@@ -14,19 +14,22 @@
 #include <libsoup/soup-error.h>
 #include <libsoup/soup-types.h>
 
-typedef void  (*SoupGetHostByFn)          (SoupKnownErrorCode  status,
-					   struct hostent     *h,
-					   gpointer            user_data);
+typedef void   (*SoupGetHostByFn)          (SoupKnownErrorCode  status,
+					    struct hostent     *h,
+					    gpointer            user_data);
 
-SoupAsyncHandle soup_gethostbyname        (const char         *name, 
-					   SoupGetHostByFn     func,
-					   gpointer            data);
+SoupAsyncHandle  soup_gethostbyname        (const char         *name, 
+					    SoupGetHostByFn     func,
+					    gpointer            data);
 
-SoupAsyncHandle soup_gethostbyaddr        (gpointer            addr,
-					   int                 family,
-					   SoupGetHostByFn     func,
-					   gpointer            data);
+SoupAsyncHandle  soup_gethostbyaddr        (gpointer            addr,
+					    int                 family,
+					    SoupGetHostByFn     func,
+					    gpointer            data);
 
-void            soup_gethostby_cancel     (SoupAsyncHandle     id);
+void             soup_gethostby_cancel     (SoupAsyncHandle     id);
+
+char            *soup_ntop                 (gpointer            addr,
+					    int                 family);
 
 #endif /* SOUP_DNS_H */

@@ -1,5 +1,27 @@
 2003-04-14  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-address.c: Make this a GObject.
+	(soup_address_new_from_hostent): New constructor. With soup-dns,
+	replaces soup_address_new, soup_address_resolve.
+	(soup_address_new_any): Combines old _any_ipv4 and _any_ipv6 funcs
+	(soup_address_get_physical): Renamed from "get_canonical_name"
+
+	* libsoup/soup-dns.c (soup_ntop): Make this non-static
+
+	* libsoup/soup-server.c (soup_server_new):
+	s/soup_address_ipv4_any()/soup_address_new_any(AF_INET)/
+	(read_headers_cb): s/get_canonical_name/get_physical/
+	(soup_server_context_get_client_host): Likewise
+
+	* libsoup/soup-socket.c: Use soup-dns interfaces as needed, use
+	g_object_ref/unref on SoupAddresses
+	* libsoup/soup-socks.c: Likewise
+
+	* tests/timeserver.c (main): Use soup_address_new_any. Don't use
+	soup_address_get_name_sync since it doesn't exist any more.
+
+2003-04-14  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-dns.c: New. Move most of the DNS code here from
 	SoupAddress.
 

@@ -38,9 +38,6 @@
 #define INADDR_NONE -1
 #endif
 
-
-static char * soup_ntop (gpointer addr, int family);
-
 static struct hostent *
 new_hostent (const char *name, int type, int length, gpointer addr)
 {
@@ -125,7 +122,7 @@ new_hostent_from_phys (const char *addr)
 	return NULL;
 }
 
-static char *
+char *
 soup_ntop (gpointer addr, int family)
 {
 	switch (family) {

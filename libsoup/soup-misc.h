@@ -12,8 +12,7 @@
 #define SOUP_MISC_H 1
 
 #include <glib.h>
-#include <libsoup/soup-context.h>
-#include <libsoup/soup-message.h>
+#include <libsoup/soup-types.h>
 #include <libsoup/soup-uri.h>
 
 /* Configuration routines */

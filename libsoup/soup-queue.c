@@ -21,6 +21,7 @@
 
 #include "soup-queue.h"
 #include "soup-auth.h"
+#include "soup-connection.h"
 #include "soup-message.h"
 #include "soup-context.h"
 #include "soup-headers.h"

@@ -33,6 +33,7 @@ extern char **environ;
 #include <stdlib.h>
 #include <glib.h>
 
+#include "soup-address.h"
 #include "soup-server.h"
 #include "soup-headers.h"
 #include "soup-private.h"

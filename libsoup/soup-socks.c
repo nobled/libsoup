@@ -16,6 +16,9 @@
 #include <netinet/in.h>
 
 #include "soup-socks.h"
+#include "soup-address.h"
+#include "soup-error.h"
+#include "soup-socket.h"
 
 typedef struct {
 	SoupSocket          *socket;

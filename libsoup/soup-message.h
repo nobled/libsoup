@@ -12,9 +12,10 @@
 #define SOUP_MESSAGE_H 1
 
 #include <glib.h>
-#include <libsoup/soup-context.h>
 #include <libsoup/soup-error.h>
 #include <libsoup/soup-method.h>
+#include <libsoup/soup-types.h>
+#include <libsoup/soup-uri.h>
 
 typedef enum {
 	SOUP_STATUS_IDLE = 0,
@@ -37,7 +38,6 @@ typedef struct {
 	guint          length;
 } SoupDataBuffer;
 
-typedef struct _SoupMessage        SoupMessage;
 typedef struct _SoupMessagePrivate SoupMessagePrivate;
 
 struct _SoupMessage {

@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "soup-private.h"
+#include "soup-address.h"
 #include "soup-socket.h"
 #include "soup-ssl.h"
 

@@ -9,6 +9,7 @@
  */
 
 #include "soup-auth.h"
+#include "soup-connection.h"
 #include "soup-error.h"
 #include "soup-message.h"
 #include "soup-misc.h"

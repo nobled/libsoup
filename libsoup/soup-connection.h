@@ -8,15 +8,12 @@
 
 #include <glib.h>
 #include <libsoup/soup-error.h>
+#include <libsoup/soup-types.h>
 #include <libsoup/soup-uri.h>
-
-typedef struct _SoupConnection SoupConnection;
 
 typedef void (*SoupConnectCallbackFn) (SoupConnection     *conn, 
 				       SoupKnownErrorCode  err,
 				       gpointer            user_data);
-
-typedef gpointer SoupConnectId;
 
 SoupConnectId  soup_connection_new_via_proxy  (SoupUri               *uri,
 					       SoupUri               *proxy_uri,

@@ -11,16 +11,16 @@
 #ifndef SOUP_CONTEXT_H
 #define SOUP_CONTEXT_H 1
 
-#include <libsoup/soup-connection.h>
-
-typedef struct _SoupContext SoupContext;
+#include <libsoup/soup-error.h>
+#include <libsoup/soup-types.h>
+#include <libsoup/soup-uri.h>
 
 typedef void (*SoupContextConnectFn)       (SoupContext          *ctx, 
 					    SoupKnownErrorCode    err,
 					    SoupConnection       *conn,
 					    gpointer              user_data);
 
-SoupContext   *soup_context_get            (const gchar          *uri);
+SoupContext   *soup_context_get            (const char           *uri);
 
 SoupContext   *soup_context_from_uri       (SoupUri              *suri);
 

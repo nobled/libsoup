@@ -25,6 +25,7 @@
 #include <netinet/in.h>
 
 #include "soup-auth.h"
+#include "soup-connection.h"
 #include "soup-context.h"
 #include "soup-private.h"
 #include "soup-misc.h"

@@ -17,8 +17,7 @@
 #include <sys/socket.h>
 
 #include <libsoup/soup-error.h>
-
-typedef struct _SoupAddress SoupAddress;
+#include <libsoup/soup-types.h>
 
 typedef gpointer SoupAddressNewId;
 

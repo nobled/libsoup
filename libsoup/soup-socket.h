@@ -15,9 +15,8 @@
 #define SOUP_SOCKET_H 1
 
 #include <glib.h>
-#include <libsoup/soup-address.h>
-
-typedef struct _SoupSocket SoupSocket;
+#include <libsoup/soup-error.h>
+#include <libsoup/soup-types.h>
 
 typedef gpointer SoupSocketConnectId;
 

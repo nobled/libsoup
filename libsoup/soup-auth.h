@@ -11,12 +11,10 @@
 #ifndef SOUP_AUTH_H
 #define SOUP_AUTH_H 1
 
-#include <libsoup/soup-context.h>
-#include <libsoup/soup-message.h>
 #include <libsoup/soup-misc.h>
+#include <libsoup/soup-types.h>
 
 typedef   enum _SoupAuthStatus SoupAuthStatus;
-typedef struct _SoupAuth       SoupAuth;
 
 enum _SoupAuthStatus {
 	SOUP_AUTH_STATUS_INVALID = 0,

@@ -14,7 +14,7 @@
 #include <glib.h>
 
 #include <libsoup/soup-error.h>
-#include <libsoup/soup-message.h>
+#include <libsoup/soup-types.h>
 
 void         soup_queue_message        (SoupMessage          *req);
 

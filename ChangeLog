@@ -1,5 +1,14 @@
 2002-11-22  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-types.h: New, typedefs for basic soup structs, to
+	prevent #include loops.
+
+	* libsoup/Makefile.am (libsoupinclude_HEADERS): add soup-types.h
+
+	* update #includes appropriately
+
+2002-11-22  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-uri.c: Update this to match RFC 2396. In
 	particular: Don't parse "parameters" separately from "path", never
 	copy a "fragment" from the base URI, and consider the relative URI

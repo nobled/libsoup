@@ -69,9 +69,4 @@ void                 soup_address_make_sockaddr      (SoupAddress       *ia,
 						      struct sockaddr  **sa,
 						      int               *len);
 
-guint                soup_address_hash               (const gpointer     p);
-
-gint                 soup_address_equal              (const gpointer     p1, 
-						      const gpointer     p2);
-
 #endif /* SOUP_ADDRESS_H */

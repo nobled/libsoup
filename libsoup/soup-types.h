@@ -11,6 +11,8 @@
  */
 
 typedef struct _SoupAddress           SoupAddress;
+typedef struct _SoupAddressPrivate    SoupAddressPrivate;
+typedef struct _SoupAddressClass      SoupAddressClass;
 typedef struct _SoupAuth              SoupAuth;
 typedef struct _SoupConnection        SoupConnection;
 typedef struct _SoupContext           SoupContext;
@@ -19,6 +21,7 @@ typedef struct _SoupSocket            SoupSocket;
 typedef struct _SoupSocketPrivate     SoupSocketPrivate;
 typedef struct _SoupSocketClass       SoupSocketClass;
 
+typedef         void                 *SoupAsyncHandle;
 typedef         void                 *SoupConnectId;
 
 #endif /* SOUP_TYPES_H */

@@ -1,5 +1,23 @@
 2003-04-14  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-dns.c: New. Move most of the DNS code here from
+	SoupAddress.
+
+	* libsoup/soup-address.c: (soup_address_new,
+	soup_address_get_name): Use soup-dns
+	(soup_address_hash, soup_address_equal): Remove since soup-address
+	doesn't hash addresses now.
+	(...) Remove lots of other stuff that's in soup-dns now
+
+	* libsoup/Makefile.am (libsoupinclude_HEADERS): add soup-dns.h
+	(libsoup_2_0_la_SOURCES): and soup-dns.c
+
+	* libsoup/soup-socket.c (done_connect): clear the connect_func
+	before calling it so that if the socket gets finalized from the
+	callback we don't crash.
+
+2003-04-14  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-socket.c: Make SoupSocket a GObject. All fields are
 	now private.
 	(soup_socket_new): Now just returns a (unconnected) socket.

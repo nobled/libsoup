@@ -113,9 +113,12 @@ soup_socket_new (void)
 static void
 done_connect (SoupSocket *sock, SoupKnownErrorCode status)
 {
-	sock->priv->connect_func (sock, status, sock->priv->connect_data);
+	SoupSocketConnectFn connect_func = sock->priv->connect_func;
+	gpointer connect_data = sock->priv->connect_data;
+
 	sock->priv->connect_func = NULL;
 	sock->priv->connect_data = NULL;
+	connect_func (sock, status, connect_data);
 }
 
 static gboolean

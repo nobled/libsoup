@@ -1,3 +1,13 @@
+2002-11-18  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-error.c: Fix spelling of
+	SOUP_ERROR_MOVED_PERMANENTLY and its description.
+
+	* tests/simple-httpd.c: Very simple httpd using soup-server, based
+	somewhat on the old soup-httpd.
+
+	* tests/Makefile.am (noinst_PROGRAMS): build simple-httpd
+
 2002-11-17  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-uri.c: Update with newer code taken from Camel.

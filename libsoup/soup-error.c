@@ -25,8 +25,6 @@ struct {
 	{ SOUP_ERROR_IO,                      "Connection terminated "
 	                                      "unexpectedly" },
 	{ SOUP_ERROR_MALFORMED,               "Message corrupt" },
-	{ SOUP_ERROR_CANT_AUTHENTICATE,       "Authentication failed" },
-	{ SOUP_ERROR_CANT_AUTHENTICATE_PROXY, "Proxy authentication failed" },
 	{ SOUP_ERROR_CANT_RESOLVE,            "Host name lookup failed" },
 	{ SOUP_ERROR_CANT_RESOLVE_PROXY,      "Proxy host name lookup failed" },
 

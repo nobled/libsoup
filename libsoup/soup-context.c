@@ -24,7 +24,7 @@
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 
-#include "soup-auth.h"
+#include "soup-www-auth-context.h"
 #include "soup-connection.h"
 #include "soup-context.h"
 #include "soup-private.h"
@@ -65,7 +65,7 @@ soup_context_get (const gchar *uri)
  * soup_context_uri_hash:
  * @key: a %SoupUri
  *
- * Return value: Hash value of the user, authmech, passwd, and path fields in
+ * Return value: Hash value of the user, passwd, and path fields in
  * @key.
  **/
 static guint
@@ -100,8 +100,8 @@ parts_equal (const char *one, const char *two)
  * @v1: a %SoupUri
  * @v2: a %SoupUri
  *
- * Return value: TRUE if @v1 and @v2 match in user, authmech, passwd, and
- * path. Otherwise, FALSE.
+ * Return value: TRUE if @v1 and @v2 match in user, passwd, and path.
+ * Otherwise, FALSE.
  **/
 static gboolean
 soup_context_uri_equal (gconstpointer v1, gconstpointer v2)
@@ -137,6 +137,18 @@ soup_context_host_equal (gconstpointer v1, gconstpointer v2)
 
 	return (one->port == two->port) &&
 		!g_strcasecmp (one->host, two->host);
+}
+
+static gboolean
+authenticate (SoupAuthContext *ac, SoupAuth *auth, SoupMessage *msg)
+{
+	const SoupUri *uri = soup_message_get_uri (msg);
+
+	if (uri->user && uri->passwd) {
+		soup_auth_authenticate (auth, uri->user, uri->passwd);
+		return TRUE;
+	} else
+		return FALSE;
 }
 
 /**
@@ -175,6 +187,9 @@ soup_context_from_uri (SoupUri *suri)
 		serv->port = suri->port;
 		serv->contexts = g_hash_table_new (soup_context_uri_hash,
 						   soup_context_uri_equal);
+		serv->ac = soup_www_auth_context_new (); /* FIXME: proxy */
+		g_signal_connect (serv->ac, "authenticate",
+				  G_CALLBACK (authenticate), NULL);
 		g_hash_table_insert (soup_hosts, serv, serv);
 	}
 
@@ -207,15 +222,6 @@ soup_context_ref (SoupContext *ctx)
 	ctx->refcnt++;
 }
 
-static gboolean
-remove_auth (gchar *path, SoupAuth *auth)
-{
-	g_free (path);
-	soup_auth_free (auth);
-
-	return TRUE;
-}
-
 /**
  * soup_context_unref:
  * @ctx: a %SoupContext.
@@ -242,17 +248,7 @@ soup_context_unref (SoupContext *ctx)
 			 */
 			g_hash_table_remove (soup_hosts, serv);
 
-			/* 
-			 * Free all cached SoupAuths
-			 */
-			if (serv->valid_auths) {
-				g_hash_table_foreach_remove (
-					serv->valid_auths,
-					(GHRFunc) remove_auth,
-					NULL);
-				g_hash_table_destroy (serv->valid_auths);
-			}
-
+			g_object_unref (serv->ac);
 			g_hash_table_destroy (serv->contexts);
 			g_free (serv->host);
 			g_free (serv);

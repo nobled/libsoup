@@ -37,9 +37,12 @@ gboolean    soup_headers_parse_response     (gchar            *str,
 
 /* HTTP parameterized header parsing */
 
-char       *soup_header_param_decode_token  (char            **in);
+char       *soup_header_param_decode_token  (const char      **in);
 
 GHashTable *soup_header_param_parse_list    (const char       *header);
+
+const char *soup_header_param_get_token     (GHashTable       *tokens,
+					     char             *t);
 
 char       *soup_header_param_copy_token    (GHashTable       *tokens, 
 					     char             *t);

@@ -5,7 +5,9 @@
  * Copyright (C) 2000-2003, Ximian, Inc.
  */
 
-#include "soup-auth.h"
+#include <string.h>
+
+#include "soup-auth-context.h"
 #include "soup-connection.h"
 #include "soup-error.h"
 #include "soup-message.h"
@@ -477,137 +479,17 @@ soup_message_send (SoupMessage *msg)
 	return msg->errorclass;
 }
 
-static void
-maybe_validate_auth (SoupMessage *msg, gpointer user_data)
-{
-	gboolean proxy = GPOINTER_TO_INT (user_data);
-	int auth_failure;
-	SoupContext *ctx;
-	SoupAuth *auth;
-
-	if (proxy) {
-		ctx = soup_get_proxy ();
-		auth_failure = SOUP_ERROR_PROXY_UNAUTHORIZED; /* 407 */
-	}
-	else {
-		ctx = msg->priv->context;
-		auth_failure = SOUP_ERROR_UNAUTHORIZED; /* 401 */
-	}
-
-	auth = soup_auth_lookup (ctx);
-	if (!auth)
-		return;
-
-	if (msg->errorcode == auth_failure) {
-		/* Pass through */
-	}
-	else if (msg->errorclass == SOUP_ERROR_CLASS_SERVER_ERROR) {
-		/* 
-		 * We have no way of knowing whether our auth is any good
-		 * anymore, so just invalidate it and start from the
-		 * beginning next time.
-		 */
-		soup_auth_invalidate (auth, ctx);
-	}
-	else {
-		auth->status = SOUP_AUTH_STATUS_SUCCESSFUL;
-		auth->controlling_msg = NULL;
-	}
-} /* maybe_validate_auth */
-
 static void 
-authorize_handler (SoupMessage *msg, gboolean proxy)
+authorize_handler (SoupMessage *msg, gpointer proxy)
 {
-	const GSList *vals;
-	SoupAuth *auth;
 	SoupContext *ctx;
-	const SoupUri *uri;
 
 	ctx = proxy ? soup_get_proxy () : msg->priv->context;
-	uri = soup_context_get_uri (ctx);
 
-	vals = soup_message_get_header_list (msg->response_headers, 
-					     proxy ? 
-					             "Proxy-Authenticate" : 
-					             "WWW-Authenticate");
-	if (!vals) goto THROW_CANT_AUTHENTICATE;
-
-	auth = soup_auth_lookup (ctx);
-	if (auth) {
-		g_assert (auth->status != SOUP_AUTH_STATUS_INVALID);
-
-		if (auth->status == SOUP_AUTH_STATUS_PENDING) {
-			if (auth->controlling_msg == msg) {
-				auth->status = SOUP_AUTH_STATUS_FAILED;
-				goto THROW_CANT_AUTHENTICATE;
-			}
-			else {
-				soup_message_requeue (msg);
-				return;
-			}
-		}
-		else if (auth->status == SOUP_AUTH_STATUS_FAILED ||
-			 auth->status == SOUP_AUTH_STATUS_SUCCESSFUL) {
-			/*
-			 * We've failed previously, but we'll give it
-			 * another go, or we've been successful
-			 * previously, but it's not working anymore.
-			 *
-			 * Invalidate the auth, so it's removed from the
-			 * hash and try it again as if we never had it
-			 * in the first place.
-			 */
-			soup_auth_invalidate (auth, ctx);
-			soup_message_requeue (msg);
-			return;
-		}
-	}
-
-	if (!auth) {
-		auth = soup_auth_new_from_header_list (uri, vals);
-
-		if (!auth) {
-			soup_message_set_error_full (
-				msg, 
-				proxy ? 
-			                SOUP_ERROR_CANT_AUTHENTICATE_PROXY : 
-			                SOUP_ERROR_CANT_AUTHENTICATE,
-				proxy ? 
-			                "Unknown authentication scheme "
-				        "required by proxy" :
-			                "Unknown authentication scheme "
-				        "required");
-			return;
-		}
-
-		auth->status = SOUP_AUTH_STATUS_PENDING;
-		auth->controlling_msg = msg;
-		soup_message_add_handler (msg, SOUP_HANDLER_PRE_BODY,
-					  maybe_validate_auth,
-					  GINT_TO_POINTER (proxy));
-	}
-
-	if (!uri->user) {
-		soup_auth_free (auth);
-		goto THROW_CANT_AUTHENTICATE;
-	}
-
-	/*
-	 * Initialize with auth data (possibly returned from 
-	 * auth callback).
-	 */
-	soup_auth_initialize (auth, uri);
-	soup_auth_set_context (auth, ctx);
-
-	soup_message_requeue (msg);
-
-        return;
-
- THROW_CANT_AUTHENTICATE:
-	soup_message_set_error (msg, 
-				proxy ? 
-			                SOUP_ERROR_CANT_AUTHENTICATE_PROXY : 
-			                SOUP_ERROR_CANT_AUTHENTICATE);
+	if (!ctx->server->ac)
+		return;
+	if (soup_auth_context_handle_unauthorized (ctx->server->ac, msg))
+		soup_message_requeue (msg);
 }
 
 static void 

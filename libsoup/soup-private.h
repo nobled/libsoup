@@ -43,10 +43,11 @@ extern GHashTable *soup_hosts;           /* KEY: uri->host, VALUE: SoupHost */
 typedef struct {
 	gchar      *host;
 	guint       port;
-	GSList     *connections;        /* CONTAINS: SoupConnection */
-	GHashTable *contexts;           /* KEY: uri->path, VALUE: SoupContext */
-	GHashTable *valid_auths;        /* KEY: uri->path, VALUE: SoupAuth */
+	GSList     *connections;      /* CONTAINS: SoupConnection */
+	GHashTable *contexts;         /* KEY: uri->path, VALUE: SoupContext */
+	SoupAuthContext *ac;
 } SoupHost;
+
 
 #ifdef HAVE_IPV6
 #define soup_sockaddr_max sockaddr_in6

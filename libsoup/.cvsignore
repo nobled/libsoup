@@ -5,3 +5,6 @@
 Makefile
 Makefile.in
 libsoup-ssl-proxy
+soup-marshal.c
+soup-marshal.h
+

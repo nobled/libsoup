@@ -1,5 +1,61 @@
 2003-04-20  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-auth.c: Make this a GObject and an abstract base
+	class. Change the methods around some.
+	(soup_auth_get_protection_space): New method, to get the
+	protection space covered by an auth (so we can handle Digest
+	auth's "domain" directive properly).
+
+	* libsoup/soup-auth-basic.c: Basic auth code
+
+	* libsoup/soup-auth-digest.c: Digest auth code
+
+	* libsoup/soup-auth-context.c: New class that manages SoupAuths.
+	Merges code that used to be in soup-auth.c, soup-message.c, and
+	soup-queue.c and deals with a bunch of cases the old code didn't.
+
+	* libsoup/soup-www-auth-context.c: Implementation for standard
+	http authentication
+
+	* libsoup/soup-proxy-auth-context.c: and proxy authentication
+
+	* libsoup/soup-marshal.list: Add (for SoupAuthContext's
+	authenticate signal)
+
+	* libsoup/Makefile.am: build soup-marshal.[ch], add new files
+
+	* libsoup/soup-context.c (soup_context_from_uri): Create an auth
+	context on each new SoupHost and connect to its "authenticate"
+	signal.
+	(authenticate): Handle the authcontext's "authenticate" signal by
+	looking for auth info on the URI
+	(soup_context_unref): Unref the authcontext
+
+	* libsoup/soup-error.[ch]: Remove SOUP_ERROR_CANT_AUTHENTICATE and
+	SOUP_ERROR_CANT_AUTHENTICATE_PROXY. We will just return
+	SOUP_ERROR_UNAUTHORIZED and SOUP_ERROR_PROXY_UNAUTHORIZED.
+
+	* libsoup/soup-headers.c (soup_header_param_get_token): Returns a
+	(const) token from the param hash without copying it. Saves us
+	some strdup'ing.
+	(soup_header_param_decode_token): Make the input const.
+
+	* libsoup/soup-message.c (authorize_handler): Mostly moved to
+	soup_auth_context_handle_unauthorized. authorize_handler now just
+	calls that and requeues the message if it returns TRUE.
+
+	* libsoup/soup-queue.c (soup_get_request_header): Call
+	soup_auth_context_authorize_message to set Authorization and
+	Proxy-Authorization headers if needed
+
+	* libsoup/soup-server-auth.c: s/SoupAuthType/SoupServerAuthType/
+	everywhere since SoupAuthType isn't used any more. This still
+	needs rewriting.
+
+	* tests/auth-test.c: New program to test the auth code
+
+2003-04-20  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-dns.c: Fix up #includes a bit (so it will compile on
 	OS X). Make socklen_t default to int, not size_t
 

@@ -21,18 +21,18 @@
 #include "soup-misc.h"
 
 typedef struct {
-	const gchar   *scheme;
-	SoupAuthType   type;
-	gint           strength;
+	const char         *scheme;
+	SoupServerAuthType  type;
+	int                 strength;
 } AuthScheme; 
 
 static AuthScheme known_auth_schemes [] = {
-	{ "Basic",  SOUP_AUTH_TYPE_BASIC,  0 },
-	{ "Digest", SOUP_AUTH_TYPE_DIGEST, 3 },
+	{ "Basic",  SOUP_SERVER_AUTH_BASIC,  0 },
+	{ "Digest", SOUP_SERVER_AUTH_DIGEST, 3 },
 	{ NULL }
 };
 
-static SoupAuthType
+static SoupServerAuthType
 soup_auth_get_strongest_header (guint          auth_types,
 				const GSList  *vals, 
 				gchar        **out_hdr)
@@ -172,12 +172,12 @@ soup_server_auth_check_passwd (SoupServerAuth *auth,
 	g_return_val_if_fail (auth != NULL, TRUE);
 
 	switch (auth->type) {
-	case SOUP_AUTH_TYPE_BASIC:
+	case SOUP_SERVER_AUTH_BASIC:
 		if (passwd && auth->basic.passwd)
 			return strcmp (auth->basic.passwd, passwd) == 0;
 		else
 			return passwd == auth->basic.passwd;
-	case SOUP_AUTH_TYPE_DIGEST:
+	case SOUP_SERVER_AUTH_DIGEST:
 		return check_digest_passwd (&auth->digest, passwd);
 	}
 
@@ -190,9 +190,9 @@ soup_server_auth_get_user (SoupServerAuth *auth)
 	g_return_val_if_fail (auth != NULL, NULL);
 
 	switch (auth->type) {
-	case SOUP_AUTH_TYPE_BASIC:
+	case SOUP_SERVER_AUTH_BASIC:
 		return auth->basic.user;
-	case SOUP_AUTH_TYPE_DIGEST:
+	case SOUP_SERVER_AUTH_DIGEST:
 		return auth->digest.user;
 	}
 
@@ -308,7 +308,7 @@ parse_digest (SoupServerAuthContext *auth_ctx,
 	if (!response)
 		goto DIGEST_AUTH_FAIL;
 
-	out_auth->digest.type            = SOUP_AUTH_TYPE_DIGEST;
+	out_auth->digest.type            = SOUP_SERVER_AUTH_DIGEST;
 	out_auth->digest.digest_uri      = uri;
 	out_auth->digest.integrity       = integrity;
 	out_auth->digest.realm           = realm;
@@ -343,7 +343,7 @@ soup_server_auth_new (SoupServerAuthContext *auth_ctx,
 		      SoupMessage           *msg)
 {
 	SoupServerAuth *ret;
-	SoupAuthType type;
+	SoupServerAuthType type;
 	gchar *header = NULL;
 
 	g_return_val_if_fail (auth_ctx != NULL, NULL);
@@ -366,7 +366,7 @@ soup_server_auth_new (SoupServerAuthContext *auth_ctx,
 	ret = g_new0 (SoupServerAuth, 1);
 
 	switch (type) {
-	case SOUP_AUTH_TYPE_BASIC:
+	case SOUP_SERVER_AUTH_BASIC:
 		{
 			gchar *userpass, *colon;
 			gint len;
@@ -381,7 +381,7 @@ soup_server_auth_new (SoupServerAuthContext *auth_ctx,
 				break;
 			}
 
-			ret->basic.type = SOUP_AUTH_TYPE_BASIC;
+			ret->basic.type = SOUP_SERVER_AUTH_BASIC;
 			ret->basic.user = g_strndup (userpass, 
 						     colon - userpass);
 			ret->basic.passwd = g_strdup (colon + 1);
@@ -390,7 +390,7 @@ soup_server_auth_new (SoupServerAuthContext *auth_ctx,
 
 			return ret;
 		}
-	case SOUP_AUTH_TYPE_DIGEST:
+	case SOUP_SERVER_AUTH_DIGEST:
 		if (parse_digest (auth_ctx, header, msg, ret))
 			return ret;
 		break;
@@ -408,11 +408,11 @@ soup_server_auth_free (SoupServerAuth *auth)
 	g_return_if_fail (auth != NULL);
 
 	switch (auth->type) {
-	case SOUP_AUTH_TYPE_BASIC:
+	case SOUP_SERVER_AUTH_BASIC:
 		g_free ((gchar *) auth->basic.user);
 		g_free ((gchar *) auth->basic.passwd);
 		break;
-	case SOUP_AUTH_TYPE_DIGEST:
+	case SOUP_SERVER_AUTH_DIGEST:
 		g_free ((gchar *) auth->digest.realm);
 		g_free ((gchar *) auth->digest.user);
 		g_free ((gchar *) auth->digest.nonce);
@@ -430,7 +430,7 @@ soup_server_auth_context_challenge (SoupServerAuthContext *auth_ctx,
 				    SoupMessage           *msg,
 				    gchar                 *header_name)
 {
-	if (auth_ctx->types & SOUP_AUTH_TYPE_BASIC) {
+	if (auth_ctx->types & SOUP_SERVER_AUTH_BASIC) {
 		gchar *hdr;
 
 		hdr = g_strdup_printf ("Basic realm=\"%s\"", 
@@ -441,7 +441,7 @@ soup_server_auth_context_challenge (SoupServerAuthContext *auth_ctx,
 		g_free (hdr);
 	}
 
-	if (auth_ctx->types & SOUP_AUTH_TYPE_DIGEST) {
+	if (auth_ctx->types & SOUP_SERVER_AUTH_DIGEST) {
 		GString *str;
 
 		str = g_string_new ("Digest ");

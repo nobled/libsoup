@@ -20,7 +20,7 @@
 #include <errno.h>
 
 #include "soup-queue.h"
-#include "soup-auth.h"
+#include "soup-auth-context.h"
 #include "soup-connection.h"
 #include "soup-message.h"
 #include "soup-context.h"
@@ -238,37 +238,11 @@ soup_queue_read_done_cb (const SoupDataBuffer *data,
 	soup_message_run_handlers (req, SOUP_HANDLER_POST_BODY);
 }
 
-static void
-soup_encode_http_auth (SoupMessage *msg, GString *header, gboolean proxy_auth)
-{
-	SoupAuth *auth;
-	SoupContext *ctx;
-	char *token;
-
-	ctx = proxy_auth ? soup_get_proxy () : msg->priv->context;
-	auth = soup_auth_lookup (ctx);
-
-	if (auth) {
-		token = soup_auth_authorize (auth, msg);
-		if (token) {
-			g_string_sprintfa (header, 
-					   "%s: %s\r\n",
-					   proxy_auth ? 
-					   	"Proxy-Authorization" : 
-					   	"Authorization",
-					   token);
-			g_free (token);
-		}
- 	}
-}
-
 struct SoupUsedHeaders {
 	gboolean host;
 	gboolean user_agent;
 	gboolean content_type;
 	gboolean connection;
-	gboolean proxy_auth;
-	gboolean auth;
 
 	GString *out;
 };
@@ -286,14 +260,6 @@ soup_check_used_headers (gchar  *key,
 	case 'U':
 		if (!g_strcasecmp (key+1, "ser-Agent")) 
 			hdrs->user_agent = TRUE;
-		break;
-	case 'A':
-		if (!g_strcasecmp (key+1, "uthorization")) 
-			hdrs->auth = TRUE;
-		break;
-	case 'P':
-		if (!g_strcasecmp (key+1, "roxy-Authorization")) 
-			hdrs->proxy_auth = TRUE;
 		break;
 	case 'C':
 		if (!g_strcasecmp (key+1, "onnection")) 
@@ -329,14 +295,17 @@ soup_get_request_header (SoupMessage *req)
 		FALSE, 
 		FALSE, 
 		FALSE, 
-		FALSE, 
-		FALSE, 
 		NULL
 	};
 
 	header = hdrs.out = g_string_new (NULL);
 	proxy = soup_get_proxy ();
 	suri = soup_message_get_uri (req);
+
+	/* Handle authorization */
+	soup_auth_context_authorize_message (req->priv->context->server->ac, req);
+	if (proxy)
+		soup_auth_context_authorize_message (proxy->server->ac, req);
 
 	if (!g_strcasecmp (req->method, "CONNECT")) 
 		/*
@@ -387,18 +356,6 @@ soup_get_request_header (SoupMessage *req)
 			   hdrs.user_agent ? 
 			           "" : 
 			           "User-Agent: Soup/" VERSION "\r\n");
-
-	/* 
-	 * Proxy-Authorization from the proxy Uri 
-	 */
-	if (!hdrs.proxy_auth && proxy && soup_context_get_uri (proxy)->user)
-		soup_encode_http_auth (req, header, TRUE);
-
-	/* 
-	 * Authorization from the context Uri 
-	 */
-	if (!hdrs.auth)
-		soup_encode_http_auth (req, header, FALSE);
 
 	g_string_append (header, "\r\n");
 

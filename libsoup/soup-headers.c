@@ -215,6 +215,15 @@ soup_headers_parse_response (gchar            *str,
  * HTTP parameterized header parsing
  */
 
+const char *
+soup_header_param_get_token (GHashTable *tokens, char *t)
+{
+	g_return_val_if_fail (tokens, NULL);
+	g_return_val_if_fail (t, NULL);
+
+	return g_hash_table_lookup (tokens, t);
+}
+
 char *
 soup_header_param_copy_token (GHashTable *tokens, char *t)
 {
@@ -230,9 +239,9 @@ soup_header_param_copy_token (GHashTable *tokens, char *t)
 }
 
 static void
-decode_lwsp (char **in)
+decode_lwsp (const char **in)
 {
-	char *inptr = *in;
+	const char *inptr = *in;
 
 	while (isspace (*inptr))
 		inptr++;
@@ -241,16 +250,16 @@ decode_lwsp (char **in)
 }
 
 static char *
-decode_quoted_string (char **in)
+decode_quoted_string (const char **in)
 {
-	char *inptr = *in;
+	const char *inptr = *in;
 	char *out = NULL, *outptr;
 	int outlen;
 	int c;
 
 	decode_lwsp (&inptr);
 	if (*inptr == '"') {
-		char *intmp;
+		const char *intmp;
 		int skip = 0;
 
                 /* first, calc length */
@@ -281,10 +290,10 @@ decode_quoted_string (char **in)
 }
 
 char *
-soup_header_param_decode_token (char **in)
+soup_header_param_decode_token (const char **in)
 {
-	char *inptr = *in;
-	char *start;
+	const char *inptr = *in;
+	const char *start;
 
 	decode_lwsp (&inptr);
 	start = inptr;
@@ -301,9 +310,9 @@ soup_header_param_decode_token (char **in)
 }
 
 static char *
-decode_value (char **in)
+decode_value (const char **in)
 {
-	char *inptr = *in;
+	const char *inptr = *in;
 
 	decode_lwsp (&inptr);
 	if (*inptr == '"')
@@ -315,12 +324,12 @@ decode_value (char **in)
 GHashTable *
 soup_header_param_parse_list (const char *header)
 {
-	char *ptr;
+	const char *ptr;
 	gboolean added = FALSE;
 	GHashTable *params = g_hash_table_new (soup_str_case_hash, 
 					       soup_str_case_equal);
 
-	ptr = (char *) header;
+	ptr = header;
 	while (ptr && *ptr) {
 		char *name;
 		char *value;

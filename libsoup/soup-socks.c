@@ -47,7 +47,7 @@ static void
 socks_data_free (SoupSocksData *sd)
 {
 	if (sd->socket)
-		soup_socket_unref (sd->socket);
+		g_object_unref (sd->socket);
 
 	if (sd->proxy_uri)
 		soup_uri_free (sd->proxy_uri);
@@ -224,7 +224,7 @@ soup_socks_read (GIOChannel* iochannel,
 	return TRUE;
 
  CONNECT_OK:
-	soup_socket_ref (sd->socket);
+	g_object_ref (sd->socket);
 	(*sd->cb) (sd->socket, SOUP_ERROR_OK, sd->user_data);
 	socks_data_free (sd);
 	return FALSE;

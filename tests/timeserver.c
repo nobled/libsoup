@@ -23,6 +23,8 @@ main (int argc, char **argv)
 	gsize wrote;
 	int opt;
 
+	g_type_init ();
+
 	while ((opt = getopt (argc, argv, "6p:s")) != -1) {
 		switch (opt) {
 		case '6':
@@ -71,7 +73,7 @@ main (int argc, char **argv)
 		g_io_channel_write (chan, timebuf, strlen (timebuf), &wrote);
 		g_io_channel_unref (chan);
 
-		soup_socket_unref (client);
+		g_object_unref (client);
 	}
 
 	return 0;

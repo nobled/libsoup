@@ -38,7 +38,7 @@ connection_free (SoupConnection *conn)
 {
 	g_return_if_fail (conn != NULL);
 
-	soup_socket_unref (conn->socket);
+	g_object_unref (conn->socket);
 	g_source_remove (conn->death_tag);
 	g_free (conn);
 }
@@ -65,6 +65,7 @@ soup_connection_from_socket (SoupSocket *socket, SoupProtocol protocol)
 
 	conn = g_new0 (SoupConnection, 1);
 	conn->socket = socket;
+	g_object_ref (conn->socket);
 	conn->keep_alive = TRUE;
 	conn->in_use = TRUE;
 
@@ -83,10 +84,11 @@ soup_connection_from_socket (SoupSocket *socket, SoupProtocol protocol)
 }
 
 struct SoupConnectData {
+	SoupSocket            *socket;
+
 	SoupConnectCallbackFn  cb;
 	gpointer               user_data;
 
-	gpointer               connect_tag;
 	SoupUri               *proxy_uri;
 	SoupUri               *dest_uri;
 };
@@ -158,7 +160,7 @@ soup_connection_new_cb (SoupSocket         *socket,
 		soup_uri_free (proxy_uri);
 		return;
 	} 
-	
+
 	/* Handle HTTPS tunnel setup via proxy CONNECT request. */
 	if (data->proxy_uri &&
 	    data->dest_uri->protocol == SOUP_PROTOCOL_HTTPS) {
@@ -182,6 +184,7 @@ soup_connection_new_cb (SoupSocket         *socket,
 	(*data->cb) (conn, SOUP_ERROR_OK, data->user_data);
 
  DONE:
+	g_object_unref (data->socket);
 	if (data->dest_uri)
 		soup_uri_free (data->dest_uri);
 	if (data->proxy_uri)
@@ -212,7 +215,6 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
 			       SoupConnectCallbackFn cb, gpointer user_data)
 {
 	struct SoupConnectData *data;
-	gpointer connect_tag;
 
 	g_return_val_if_fail (uri != NULL, NULL);
 
@@ -226,18 +228,12 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
 		uri = proxy_uri;
 	}
 
-	connect_tag = soup_socket_connect (uri->host, uri->port,
-					   uri->protocol == SOUP_PROTOCOL_HTTPS,
-					   soup_connection_new_cb, data);
-	/* 
-	 * NOTE: soup_socket_connect can fail immediately and call our
-	 * callback which will delete the state.  
-	 */
-	if (connect_tag) {
-		data->connect_tag = connect_tag;
-		return data;
-	} else
-		return NULL;
+	data->socket = soup_socket_new ();
+	soup_socket_connect_by_name (data->socket, uri->host, uri->port,
+				     uri->protocol == SOUP_PROTOCOL_HTTPS,
+				     soup_connection_new_cb, data);
+
+	return data;
 }
 
 /**
@@ -255,7 +251,8 @@ soup_connection_cancel_connect (SoupConnectId tag)
 
 	g_return_if_fail (data != NULL);
 
-	soup_socket_connect_cancel (data->connect_tag);
+	soup_socket_connect_cancel (data->socket);
+	g_object_unref (data->socket);
 
 	if (data->dest_uri)
 		soup_uri_free (data->dest_uri);

@@ -198,6 +198,8 @@ main (int argc, char **argv)
 {
 	int opt;
 
+	g_type_init ();
+
 	while ((opt = getopt (argc, argv, "r")) != -1) {
 		switch (opt) {
 		case 'r':

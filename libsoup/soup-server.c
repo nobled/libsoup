@@ -160,7 +160,7 @@ soup_server_unref (SoupServer *serv)
 			g_source_remove (serv->accept_tag);
 
 		if (serv->listen_sock)
-			soup_socket_unref (serv->listen_sock);
+			g_object_unref (serv->listen_sock);
 
 		if (serv->cgi_read_chan)
 			g_io_channel_unref (serv->cgi_read_chan);
@@ -262,7 +262,7 @@ destroy_message (SoupMessage *msg)
 		 */
 		if (check_close_connection (msg)) {
 			g_io_channel_close (chan);
-			soup_socket_unref (server_sock);
+			g_object_unref (server_sock);
 		}
 		else {
 			/*
@@ -922,7 +922,7 @@ start_another_request (GIOChannel    *serv_chan,
 	if (!(condition & G_IO_IN) || 
 	    ioctl (fd, FIONREAD, &cnt) < 0 ||
 	    cnt <= 0)
-		soup_socket_unref (data->server_sock);
+		g_object_unref (data->server_sock);
 	else {
 		msg = message_new (data->server, data->server_sock);
 		msg->priv->read_tag = 

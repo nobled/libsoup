@@ -16,6 +16,8 @@ typedef struct _SoupConnection        SoupConnection;
 typedef struct _SoupContext           SoupContext;
 typedef struct _SoupMessage           SoupMessage;
 typedef struct _SoupSocket            SoupSocket;
+typedef struct _SoupSocketPrivate     SoupSocketPrivate;
+typedef struct _SoupSocketClass       SoupSocketClass;
 
 typedef         void                 *SoupConnectId;
 

@@ -1,3 +1,37 @@
+2003-04-14  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-socket.c: Make SoupSocket a GObject. All fields are
+	now private.
+	(soup_socket_new): Now just returns a (unconnected) socket.
+	(soup_socket_connect_by_addr, soup_socket_connect_by_name):
+	Replace the old soup_socket_new and soup_socket_connect calls.
+	Work on an already existing (but not connected) socket. Errors are
+	now always returned async, never immediately.
+	(soup_socket_connect_cancel): Takes an actual SoupSocket now
+	rather than a "connect id"
+	(soup_socket_ref, soup_socket_unref): No longer needed
+
+	* configure.in: Update glib check to include gobject
+
+	* libsoup/soup-private.h (SOUP_MAKE_TYPE): gobject helper, copied
+	from E_MAKE_TYPE in gal.
+
+	* libsoup/soup-server.c: Use g_object_ref/unref on sockets.
+	* libsoup/soup-socks.c: Likewise
+
+	* libsoup/soup-connection.c (connection_free): Use g_object_unref
+	(soup_connection_from_socket): Ref the socket
+	(SoupConnectData): Change the connect_tag to an actual socket.
+	(soup_connection_new_cb): Unref the socket when cleaning up.
+	(soup_connection_new_via_proxy): Update soup_socket_connect call
+	to use soup_socket_new and soup_socket_connect_by_name.
+	(soup_connection_cancel_connect): Update call to
+	soup_socket_connect_cancel.
+
+	* tests/get.c (main): Call g_type_init().
+	* tests/simple-httpd.c (main): Likewise
+	* tests/timeserver.c (main): Likewise
+
 2003-04-11  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-misc.c (soup_set_proxy, soup_get_proxy): Remove.

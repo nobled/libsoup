@@ -104,6 +104,8 @@ main (int argc, char **argv)
 	int ssl_port = SOUP_SERVER_ANY_PORT;
 	SoupServer *server, *ssl_server;
 
+	g_type_init ();
+
 	while ((opt = getopt (argc, argv, "p:s:")) != -1) {
 		switch (opt) {
 		case 'p':

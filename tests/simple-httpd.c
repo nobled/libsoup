@@ -16,9 +16,6 @@
 #include <libsoup/soup-message.h>
 #include <libsoup/soup-server.h>
 
-static SoupServer *server;
-static SoupServer *ssl_server;
-
 static void
 server_callback (SoupServerContext *context, SoupMessage *msg, gpointer data)
 {
@@ -26,7 +23,7 @@ server_callback (SoupServerContext *context, SoupMessage *msg, gpointer data)
 	struct stat st;
 	int fd;
 
-	path = soup_uri_to_string (soup_context_get_uri (msg->context), TRUE);
+	path = soup_uri_to_string (soup_message_get_uri (msg), TRUE);
 	printf ("%s %s HTTP/1.%d\n", msg->method, path,
 		soup_message_get_http_version (msg));
 
@@ -62,7 +59,7 @@ server_callback (SoupServerContext *context, SoupMessage *msg, gpointer data)
 		if (!slash || slash[1]) {
 			char *uri, *redir_uri;
 
-			uri = soup_uri_to_string (soup_context_get_uri (msg->context), FALSE);
+			uri = soup_uri_to_string (soup_message_get_uri (msg), FALSE);
 			redir_uri = g_strdup_printf ("%s/", uri);
 			soup_message_add_header (msg->response_headers,
 						 "Location", redir_uri);
@@ -105,6 +102,7 @@ main (int argc, char **argv)
 	int opt;
 	int port = SOUP_SERVER_ANY_PORT;
 	int ssl_port = SOUP_SERVER_ANY_PORT;
+	SoupServer *server, *ssl_server;
 
 	while ((opt = getopt (argc, argv, "p:s:")) != -1) {
 		switch (opt) {

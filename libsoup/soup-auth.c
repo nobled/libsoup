@@ -152,7 +152,7 @@ compute_response (SoupAuthDigest *digest, SoupMessage *msg)
 	MD5Context ctx;
 	char *url;
 
-	uri = soup_context_get_uri (msg->context);
+	uri = soup_message_get_uri (msg);
 	url = soup_uri_to_string (uri, TRUE);
 
 	/* compute A2 */
@@ -231,7 +231,7 @@ digest_auth_func (SoupAuth *auth, SoupMessage *message)
 	else
 		g_assert_not_reached ();
 
-	uri = soup_context_get_uri (message->context);
+	uri = soup_message_get_uri (message);
 	url = soup_uri_to_string (uri, TRUE);
 
 	nc = g_strdup_printf ("%.8x", digest->nc);

@@ -110,7 +110,7 @@ soup_message_copy (SoupMessage *req)
 {
 	SoupMessage *cpy;
 
-	cpy = soup_message_new (req->context, req->method);
+	cpy = soup_message_new (req->priv->context, req->method);
 
 	cpy->errorcode = req->errorcode;
 	cpy->errorclass = req->errorclass;
@@ -219,8 +219,8 @@ soup_message_cleanup (SoupMessage *req)
 static void
 finalize_message (SoupMessage *req)
 {
-	if (req->context)
-		soup_context_unref (req->context);
+	if (req->priv->context)
+		soup_context_unref (req->priv->context);
 
 	if (req->request.owner == SOUP_BUFFER_SYSTEM_OWNED)
 		g_free (req->request.body);
@@ -559,7 +559,7 @@ requeue_read_error (gboolean body_started, gpointer user_data)
 {
 	RequeueConnectData *data = user_data;
 	SoupMessage *msg = data->msg;
-	SoupContext *dest_ctx = msg->context;
+	SoupContext *dest_ctx = msg->priv->context;
 
 	soup_context_ref (dest_ctx);
 
@@ -673,7 +673,7 @@ maybe_validate_auth (SoupMessage *msg, gpointer user_data)
 		auth_failure = SOUP_ERROR_PROXY_UNAUTHORIZED; /* 407 */
 	}
 	else {
-		ctx = msg->context;
+		ctx = msg->priv->context;
 		auth_failure = SOUP_ERROR_UNAUTHORIZED; /* 401 */
 	}
 
@@ -710,7 +710,7 @@ authorize_handler (SoupMessage *msg, gboolean proxy)
 	    msg->connection->auth->status == SOUP_AUTH_STATUS_SUCCESSFUL)
 		goto THROW_CANT_AUTHENTICATE;
 
-	ctx = proxy ? soup_get_proxy () : msg->context;
+	ctx = proxy ? soup_get_proxy () : msg->priv->context;
 	uri = soup_context_get_uri (ctx);
 
 	vals = soup_message_get_header_list (msg->response_headers, 
@@ -829,7 +829,7 @@ redirect_handler (SoupMessage *msg, gpointer user_data)
 		SoupUri *new_uri;
 		SoupContext *new_ctx;
 
-		old_uri = soup_context_get_uri (msg->context);
+		old_uri = soup_message_get_uri (msg);
 
 		new_uri = soup_uri_new (new_loc);
 		if (!new_uri) 
@@ -1186,13 +1186,13 @@ soup_message_set_context (SoupMessage       *msg,
 {
 	g_return_if_fail (msg != NULL);
 
-	if (msg->context)
-		soup_context_unref (msg->context);
+	if (msg->priv->context)
+		soup_context_unref (msg->priv->context);
 
 	if (new_ctx)
 		soup_context_ref (new_ctx);
 
-	msg->context = new_ctx;
+	msg->priv->context = new_ctx;
 }
 
 SoupContext *
@@ -1200,10 +1200,19 @@ soup_message_get_context (SoupMessage       *msg)
 {
 	g_return_val_if_fail (msg != NULL, NULL);
 
-	if (msg->context)
-		soup_context_ref (msg->context);
+	if (msg->priv->context)
+		soup_context_ref (msg->priv->context);
 
-	return msg->context;
+	return msg->priv->context;
+}
+
+const SoupUri *
+soup_message_get_uri (SoupMessage *msg)
+{
+	g_return_val_if_fail (msg != NULL, NULL);
+	g_return_val_if_fail (msg->priv->context != NULL, NULL);
+
+	return soup_context_get_uri (msg->priv->context);
 }
 
 void

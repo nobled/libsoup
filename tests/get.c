@@ -96,7 +96,7 @@ got_url (SoupMessage *msg, gpointer uri)
 	GPtrArray *hrefs;
 	const char *header;
 
-	name = soup_context_get_uri (msg->context)->path;
+	name = soup_message_get_uri (msg)->path;
 	if (strncmp (base_uri->path, name, strlen (base_uri->path)) != 0) {
 		fprintf (stderr, "  Error: not under %s\n", base_uri->path);
 		goto DONE;

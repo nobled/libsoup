@@ -1,3 +1,23 @@
+2002-11-19  Dan Winship  <danw@ximian.com>
+
+	* libsoup/soup-message.c: Move context into SoupMessagePrivate.
+	Update for that.
+	(soup_message_get_uri): New, to get the URI from a SoupMessage
+	(which is all most people ever wanted the context for)
+
+	* libsoup/soup-auth.c (compute_response, digest_auth_func): Use
+	soup_message_get_uri.
+
+	* libsoup/soup-queue.c: Likewise
+
+	* libsoup/soup-server.c (call_handler, read_done_cb): Likewise.
+
+	* libsoup/soup-server-auth.c (parse_digest): Likewise.
+
+	* tests/get.c (got_url): Likewise.
+
+	* tests/simple-httpd.c (server_callback): Likewise.
+
 2002-11-18  Dan Winship  <danw@ximian.com>
 
 	* libsoup/soup-server.c (struct _SoupServer): Moved here from

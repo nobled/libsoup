@@ -73,6 +73,8 @@ struct _SoupConnection {
 };
 
 struct _SoupMessagePrivate {
+	SoupContext       *context;
+
 	SoupConnectId      connect_tag;
 	guint              read_tag;
 	guint              write_tag;

@@ -710,7 +710,7 @@ call_handler (SoupMessage          *req,
 	if (hand->callback) {
 		SoupServerContext servctx = {
 			req,
-			req->context->uri->path,
+			soup_message_get_uri (req)->path,
 			soup_method_get_id (req->method),
 			auth,
 			server,
@@ -847,7 +847,7 @@ read_done_cb (const SoupDataBuffer *data,
 
 	req->priv->read_tag = 0;
 
-	call_handler (req, data, soup_context_get_uri (req->context)->path);
+	call_handler (req, data, soup_message_get_uri (req)->path);
 
 	channel = soup_socket_get_iochannel (server_sock);
 

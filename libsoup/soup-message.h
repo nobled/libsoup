@@ -43,7 +43,6 @@ typedef struct _SoupMessagePrivate SoupMessagePrivate;
 struct _SoupMessage {
 	SoupMessagePrivate *priv;
 
-	SoupContext        *context;
 	SoupConnection     *connection;
 
 	const gchar        *method;
@@ -123,15 +122,17 @@ typedef enum {
 	SOUP_HTTP_1_1 = 1,
 } SoupHttpVersion;
 
-void           soup_message_set_http_version    (SoupMessage       *msg,
-						 SoupHttpVersion    version);
+void             soup_message_set_http_version    (SoupMessage       *msg,
+						   SoupHttpVersion    version);
 
-SoupHttpVersion soup_message_get_http_version   (SoupMessage       *msg);
+SoupHttpVersion  soup_message_get_http_version    (SoupMessage       *msg);
 
-void           soup_message_set_context         (SoupMessage       *msg,
-						 SoupContext       *new_ctx);
+void             soup_message_set_context         (SoupMessage       *msg,
+						   SoupContext       *new_ctx);
 
-SoupContext   *soup_message_get_context         (SoupMessage       *msg);
+SoupContext     *soup_message_get_context         (SoupMessage       *msg);
+
+const SoupUri   *soup_message_get_uri             (SoupMessage       *msg);
 
 typedef enum {
 	/*

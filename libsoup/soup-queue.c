@@ -273,7 +273,7 @@ soup_encode_http_auth (SoupMessage *msg, GString *header, gboolean proxy_auth)
 	SoupContext *ctx;
 	char *token;
 
-	ctx = proxy_auth ? soup_get_proxy () : msg->context;
+	ctx = proxy_auth ? soup_get_proxy () : msg->priv->context;
 
 	if (msg->connection->auth)
 		auth = msg->connection->auth;
@@ -368,7 +368,7 @@ soup_get_request_header (SoupMessage *req)
 
 	header = hdrs.out = g_string_new (NULL);
 	proxy = soup_get_proxy ();
-	suri = soup_context_get_uri (req->context);
+	suri = soup_message_get_uri (req);
 
 	if (!g_strcasecmp (req->method, "CONNECT")) 
 		/*
@@ -447,34 +447,14 @@ soup_queue_write_done_cb (gpointer user_data)
 }
 
 static void
-start_request (SoupContext *ctx, SoupMessage *req)
+start_request (SoupMessage *req)
 {
 	GIOChannel *channel;
 	gboolean overwrt; 
 
 	channel = soup_connection_get_iochannel (req->connection);
 	if (!channel) {
-		SoupProtocol proto;
-		gchar *phrase;
-
-		proto = soup_context_get_uri (ctx)->protocol;
-
-		if (proto == SOUP_PROTOCOL_HTTPS)
-			phrase = "Unable to create secure data channel";
-		else
-			phrase = "Unable to create data channel";
-
-		if (ctx != req->context)
-			soup_message_set_error_full (
-				req, 
-				SOUP_ERROR_CANT_CONNECT_PROXY,
-				phrase);
-		else 
-			soup_message_set_error_full (
-				req, 
-				SOUP_ERROR_CANT_CONNECT,
-				phrase);
-
+		soup_message_set_error (req, SOUP_ERROR_CANT_CONNECT);
 		soup_message_issue_callback (req);
 		return;
 	}
@@ -518,7 +498,7 @@ soup_queue_connect_cb (SoupContext        *ctx,
 		soup_message_set_error (req, err);
 		soup_message_issue_callback (req);
 	} else
-		start_request (ctx, req);
+		start_request (req);
 
 	return;
 }
@@ -581,13 +561,13 @@ soup_idle_handle_new_requests (gpointer unused)
 
 		if (req->connection && 
 		    soup_connection_is_keep_alive (req->connection))
-			start_request (req->context, req);
+			start_request (req);
 		else {
 			gpointer connect_tag;
 
 			connect_tag = 
 				soup_context_get_connection (
-					req->context,
+					req->priv->context,
 					soup_queue_connect_cb, 
 					req);
 
@@ -616,7 +596,7 @@ soup_queue_message (SoupMessage *req)
 {
 	g_return_if_fail (req != NULL);
 
-	if (!req->context) {
+	if (!req->priv->context) {
 		soup_message_set_error_full (req, 
 					     SOUP_ERROR_CANCELLED,
 					     "Attempted to queue a message "

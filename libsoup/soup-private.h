@@ -52,14 +52,6 @@ typedef struct {
 	GHashTable *valid_auths;        /* KEY: uri->path, VALUE: SoupAuth */
 } SoupHost;
 
-struct _SoupSocket {
-	gint            sockfd;
-	SoupAddress    *addr;
-	guint           port;
-	guint           ref_count;
-	GIOChannel     *iochannel;
-};
-
 #ifdef HAVE_IPV6
 #define soup_sockaddr_max sockaddr_in6
 #else
@@ -73,7 +65,6 @@ struct _SoupContext {
 };
 
 struct _SoupConnection {
-	GIOChannel   *channel;
 	SoupSocket   *socket;
 	SoupAuth     *auth;
 	gboolean      in_use;

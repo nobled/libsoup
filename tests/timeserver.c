@@ -6,51 +6,63 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+
 #include <libsoup/soup.h>
 
 int
 main (int argc, char **argv)
 {
 	SoupSocket *listener, *client;
-	SoupAddress *addr;
-	guint port;
+	SoupAddress *addr = NULL;
+	gboolean ssl = FALSE;
+	guint port = SOUP_SERVER_ANY_PORT;
 	time_t now;
 	char *timebuf;
 	GIOChannel *chan;
 	gsize wrote;
+	int opt;
 
-	if (argc >=2 && !strcmp (argv[1], "-6")) {
-		addr = soup_address_ipv6_any ();
-		if (!addr) {
-			fprintf (stderr, "No IPv6 support\n");
+	while ((opt = getopt (argc, argv, "6p:s")) != -1) {
+		switch (opt) {
+		case '6':
+			addr = soup_address_ipv6_any ();
+			if (!addr) {
+				fprintf (stderr, "No IPv6 support\n");
+				exit (1);
+			}
+			break;
+
+		case 'p':
+			port = atoi (optarg);
+			break;
+
+		case 's':
+			ssl = TRUE;
+			break;
+
+		default:
+			fprintf (stderr, "Usage: %s [-6] [-p port] [-s]\n",
+				 argv[0]);
 			exit (1);
 		}
-		argc--;
-		argv++;
-	} else
-		addr = soup_address_ipv6_any ();
-
-	if (argc > 2) {
-		fprintf (stderr, "Usage: %s [-6] [port]\n", argv[0]);
-		exit (1);
 	}
 
-	if (argc == 2)
-		port = atoi (argv[1]);
-	else
-		port = 0;
-	listener = soup_socket_server_new (addr, port);
+	if (!addr)
+		addr = soup_address_ipv4_any ();
+
+	listener = soup_socket_server_new (addr, port, ssl);
 	if (!listener) {
 		fprintf (stderr, "Could not create listening socket\n");
 		exit (1);
 	}
-	printf ("Listening on port %d\n", soup_socket_get_port (listener));
+	printf ("Listening on port %d\n", soup_socket_get_local_port (listener));
 
 	while ((client = soup_socket_server_accept (listener))) {
-		addr = soup_socket_get_address (client);
+		addr = soup_socket_get_remote_address (client);
 		printf ("got connection from %s port %d\n",
 			soup_address_get_name_sync (addr),
-			soup_socket_get_port (client));
+			soup_socket_get_remote_port (client));
 
 		now = time (NULL);
 		timebuf = ctime (&now);

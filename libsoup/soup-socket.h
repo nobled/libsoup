@@ -25,15 +25,17 @@ typedef void (*SoupSocketConnectFn) (SoupSocket         *socket,
 				     SoupKnownErrorCode  status, 
 				     gpointer            data);
 
-SoupSocketConnectId  soup_socket_connect        (const gchar*        hostname,
-						 const gint          port, 
+SoupSocketConnectId  soup_socket_connect        (const char         *hostname,
+						 guint               port,
+						 gboolean            ssl,
 						 SoupSocketConnectFn func, 
 						 gpointer            data);
 
 void                 soup_socket_connect_cancel (SoupSocketConnectId id);
 
-SoupSocket          *soup_socket_connect_sync   (const gchar        *hostname, 
-						 const gint          port);
+SoupSocket          *soup_socket_connect_sync   (const char         *hostname, 
+						 guint               port,
+						 gboolean            ssl);
 
 
 typedef gpointer SoupSocketNewId;
@@ -42,35 +44,38 @@ typedef void (*SoupSocketNewFn) (SoupSocket         *socket,
 				 SoupKnownErrorCode  status, 
 				 gpointer            data);
 
-SoupSocketNewId     soup_socket_new             (SoupAddress        *addr, 
-						 guint               port,
-						 SoupSocketNewFn     func,
-						 gpointer            data);
+SoupSocketNewId     soup_socket_new                (SoupAddress      *addr, 
+						    guint             port,
+						    gboolean          ssl,
+						    SoupSocketNewFn   func,
+						    gpointer          data);
 
-void                soup_socket_new_cancel      (SoupSocketNewId     id);
+void                soup_socket_new_cancel         (SoupSocketNewId   id);
 
-SoupSocket         *soup_socket_new_sync        (SoupAddress        *addr,
-						 guint               port);
+SoupSocket         *soup_socket_new_sync           (SoupAddress      *addr,
+						    guint             port,
+						    gboolean          ssl);
 
+void                soup_socket_ref                (SoupSocket       *s);
+void                soup_socket_unref              (SoupSocket       *s);
 
-void                soup_socket_ref             (SoupSocket*         s);
+GIOChannel         *soup_socket_get_iochannel      (SoupSocket       *socket);
 
-void                soup_socket_unref           (SoupSocket*         s);
+SoupAddress        *soup_socket_get_local_address  (const SoupSocket *socket);
+guint               soup_socket_get_local_port     (const SoupSocket *socket);
+SoupAddress        *soup_socket_get_remote_address (const SoupSocket *socket);
+guint               soup_socket_get_remote_port    (const SoupSocket *socket);
 
-GIOChannel         *soup_socket_get_iochannel   (SoupSocket*         socket);
-
-SoupAddress        *soup_socket_get_address     (const SoupSocket*   socket);
-
-gint                soup_socket_get_port        (const SoupSocket*   socket);
-
+gboolean            soup_socket_start_ssl          (SoupSocket       *socket);
 
 #define SOUP_SERVER_ANY_PORT 0
 
-SoupSocket         *soup_socket_server_new        (SoupAddress        *local_addr,
-						   guint               local_port);
+SoupSocket         *soup_socket_server_new         (SoupAddress      *local_addr,
+						    guint             local_port,
+						    gboolean          ssl);
 
-SoupSocket         *soup_socket_server_accept     (SoupSocket         *socket);
+SoupSocket         *soup_socket_server_accept      (SoupSocket       *socket);
 
-SoupSocket         *soup_socket_server_try_accept (SoupSocket         *socket);
+SoupSocket         *soup_socket_server_try_accept  (SoupSocket       *socket);
 
 #endif /* SOUP_SOCKET_H */

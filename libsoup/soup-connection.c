@@ -75,12 +75,8 @@ soup_connection_from_socket (SoupSocket *socket, SoupProtocol protocol)
 	setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
 	flags = fcntl (fd, F_GETFL, 0);
 	fcntl (fd, F_SETFL, flags | O_NONBLOCK);
-	if (protocol == SOUP_PROTOCOL_HTTPS)
-		conn->channel = soup_ssl_get_iochannel (chan);
-	else
-		conn->channel = chan;
 
-	conn->death_tag = g_io_add_watch (conn->channel,
+	conn->death_tag = g_io_add_watch (chan,
 					  G_IO_ERR | G_IO_HUP | G_IO_NVAL,
 					  (GIOFunc) connection_death,
 					  conn);
@@ -171,7 +167,7 @@ soup_connection_new_cb (SoupSocket         *socket,
 		/* Synchronously send CONNECT request */
 		conn = soup_connection_from_socket (socket, data->proxy_uri->protocol);
 		if (proxy_https_connect (conn, data->dest_uri)) {
-			conn->channel = soup_ssl_get_iochannel (conn->channel);
+			soup_socket_start_ssl (socket);
 			(*data->cb) (conn,
 				     SOUP_ERROR_OK,
 				     data->user_data);
@@ -233,6 +229,7 @@ soup_connection_new_via_proxy (SoupUri *uri, SoupUri *proxy_uri,
 	}
 
 	connect_tag = soup_socket_connect (uri->host, uri->port,
+					   uri->protocol == SOUP_PROTOCOL_HTTPS,
 					   soup_connection_new_cb, data);
 	/* 
 	 * NOTE: soup_socket_connect can fail immediately and call our
@@ -304,8 +301,7 @@ soup_connection_get_iochannel (SoupConnection *conn)
 {
 	g_return_val_if_fail (conn != NULL, NULL);
 
-	g_io_channel_ref (conn->channel);
-	return conn->channel;
+	return soup_socket_get_iochannel (conn->socket);
 }
 
 /**

@@ -28,7 +28,7 @@
 #ifdef HAVE_NSS
 
 GIOChannel *
-soup_ssl_get_iochannel_real (GIOChannel *sock, SoupSSLType type)
+soup_ssl_get_iochannel (GIOChannel *sock, SoupSSLType type)
 {
 	g_return_val_if_fail (sock != NULL, NULL);
 
@@ -45,8 +45,8 @@ soup_ssl_hup_waitpid (GIOChannel *source, GIOCondition condition, gpointer ppid)
 	return FALSE;
 }
 
-static GIOChannel *
-soup_ssl_get_iochannel_real (GIOChannel *sock, SoupSSLType type)
+GIOChannel *
+soup_ssl_get_iochannel (GIOChannel *sock, SoupSSLType type)
 {
 	GIOChannel *new_chan;
 	int sock_fd;
@@ -138,15 +138,3 @@ soup_ssl_get_iochannel_real (GIOChannel *sock, SoupSSLType type)
 }
 
 #endif /* HAVE_NSS */
-
-GIOChannel *
-soup_ssl_get_iochannel (GIOChannel *sock)
-{
-	return soup_ssl_get_iochannel_real (sock, SOUP_SSL_TYPE_CLIENT);
-}
-
-GIOChannel *
-soup_ssl_get_server_iochannel (GIOChannel *sock)
-{
-	return soup_ssl_get_iochannel_real (sock, SOUP_SSL_TYPE_SERVER);
-}

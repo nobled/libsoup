@@ -18,7 +18,6 @@ typedef enum {
 	SOUP_SSL_TYPE_SERVER
 } SoupSSLType;
 
-GIOChannel *soup_ssl_get_iochannel (GIOChannel *sock);
-GIOChannel *soup_ssl_get_server_iochannel (GIOChannel *sock);
+GIOChannel *soup_ssl_get_iochannel (GIOChannel *sock, SoupSSLType type);
 
 #endif /* SOUP_SSL_H */

@@ -1,5 +1,46 @@
 2002-11-18  Dan Winship  <danw@ximian.com>
 
+	* libsoup/soup-socket.c (struct _SoupSocket): Moved here from
+	soup-private.h.
+	(soup_socket_connect, soup_socket_server_new, soup_socket_new):
+	Take an "ssl" argument saying whether or not to use SSL.
+	(soup_socket_new_cb): Call soup_socket_start_ssl if needed.
+	(server_accept_internal): Likewise.
+	(soup_socket_get_local_address, soup_socket_get_local_port): Get
+	the local address/port, regardless of socket type.
+	(soup_socket_get_remote_address, soup_socket_get_remote_port): Get
+	remote address/port, regardless of socket type.
+	(soup_socket_start_ssl): Call soup_ssl_get_iochannel and wrap our
+	iochannel with the result.
+
+	* libsoup/soup-connection.c (soup_connection_from_socket): Don't
+	need to worry about SSL here.
+	(soup_connection_new_cb): Use soup_socket_start_ssl after CONNECT.
+	(soup_connection_new_via_proxy): Pass the "ssl" arg to
+	soup_socket_connect.
+	(soup_connection_get_iochannel): Just call
+	soup_socket_get_iochannel. We don't have our own iochannel any
+	more.
+
+	* libsoup/soup-server.c (soup_server_new): Pass "ssl" arg to
+	soup_socket_server_new.
+	(read_headers_cb): Use soup_socket_get_local_address and
+	soup_address_get_canonical_name rather than using socket functions
+	(conn_accept): Don't need to handle SSL here any more.
+
+	* libsoup/soup-ssl.c (soup_ssl_get_iochannel): Make this take a
+	SoupSSLType argument so it can be used for either client or
+	server.
+
+	* libsoup/soup-private.h (struct _SoupSocket): Gone. Private to
+	soup-socket.c now.
+	(struct _SoupConnection): Remove "channel" member.
+
+	* tests/timeserver.c: Fix so that it uses IPv4 again if you don't
+	pass "-6", and add a "-s" arg to do SSL.
+
+2002-11-18  Dan Winship  <danw@ximian.com>
+
 	* libsoup/soup-connection.c: New, split SoupConnection stuff out
 	of soup-context.c. (A SoupConnection wraps a SoupSocket and also
 	handles proxies and keepalive-ness.)

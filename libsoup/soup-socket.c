@@ -23,16 +23,30 @@
 
 #include "soup-private.h"
 #include "soup-socket.h"
+#include "soup-ssl.h"
 
 #include <unistd.h>
 #ifndef socklen_t
 #  define socklen_t size_t
 #endif
 
+#define SOUP_SOCKET_IS_SERVER (1<<0)
+#define SOUP_SOCKET_IS_SSL    (1<<1)
+
+struct _SoupSocket {
+	int          sockfd;
+	guint32      flags;
+	SoupAddress *local_addr, *remote_addr;
+	guint        local_port, remote_port;
+	guint        ref_count;
+	GIOChannel  *iochannel;
+};
+
 typedef struct {
 	SoupSocketConnectFn  func;
 	gpointer             data;
 	guint                port;
+	gboolean             ssl;
 
 	gpointer             inetaddr_id;
 	gpointer             tcp_id;
@@ -62,6 +76,7 @@ soup_socket_connect_inetaddr_cb (SoupAddress *inetaddr,
 
 	if (status == SOUP_ERROR_OK) {
 		state->tcp_id = soup_socket_new (inetaddr, state->port,
+						 state->ssl,
 						 soup_socket_connect_tcp_cb,
 						 state);
 		soup_address_unref (inetaddr);
@@ -84,23 +99,25 @@ soup_socket_connect_inetaddr_cb (SoupAddress *inetaddr,
  * soup_socket_connect:
  * @hostname: Name of host to connect to
  * @port: Port to connect to
+ * @ssl: Whether or not to use SSL
  * @func: Callback function
  * @data: User data passed when callback function is called.
  *
- * A quick and easy non-blocking #SoupSocket constructor.  This
+ * A quick and easy non-blocking #SoupSocket constructor. This
  * connects to the specified address and port and then calls the
- * callback with the data.  Use this function when you're a client
+ * callback with the data. Use this function when you're a client
  * connecting to a server and you don't want to block or mess with
- * #SoupAddress's.  It may call the callback before the function
- * returns.  It will call the callback if there is a failure.
+ * #SoupAddress. It may call the callback before the function returns.
+ * It will call the callback if there is a failure.
  *
  * Returns: ID of the connection which can be used with
- * soup_socket_connect_cancel() to cancel it; NULL if it succeeds
- * or fails immediately.
+ * soup_socket_connect_cancel() to cancel it; %NULL if it succeeds or
+ * fails immediately.
  **/
 SoupSocketConnectId
-soup_socket_connect (const gchar*        hostname,
-		     const gint          port,
+soup_socket_connect (const char         *hostname,
+		     guint               port,
+		     gboolean            ssl,
 		     SoupSocketConnectFn func,
 		     gpointer            data)
 {
@@ -113,6 +130,7 @@ soup_socket_connect (const gchar*        hostname,
 	state->func = func;
 	state->data = data;
 	state->port = port;
+	state->ssl  = ssl;
 
 	state->inetaddr_id = soup_address_new (hostname,
 					       soup_socket_connect_inetaddr_cb,
@@ -162,16 +180,19 @@ soup_socket_connect_sync_cb (SoupSocket         *socket,
 }
 
 SoupSocket *
-soup_socket_connect_sync (const gchar *name,
-			  const gint   port)
+soup_socket_connect_sync (const char *name,
+			  guint       port,
+			  gboolean    ssl)
 {
 	SoupSocket *ret = (SoupSocket *) 0xdeadbeef;
 
-	soup_socket_connect (name, port, soup_socket_connect_sync_cb, &ret);
+	soup_socket_connect (name, port, ssl,
+			     soup_socket_connect_sync_cb, &ret);
 
 	while (1) {
 		g_main_iteration (TRUE);
-		if (ret != (SoupSocket *) 0xdeadbeef) return ret;
+		if (ret != (SoupSocket *) 0xdeadbeef)
+			return ret;
 	}
 
 	return ret;
@@ -187,15 +208,16 @@ soup_socket_new_sync_cb (SoupSocket         *socket,
 }
 
 SoupSocket *
-soup_socket_new_sync (SoupAddress *addr, guint port)
+soup_socket_new_sync (SoupAddress *addr, guint port, gboolean ssl)
 {
 	SoupSocket *ret = (SoupSocket *) 0xdeadbeef;
 
-	soup_socket_new (addr, port, soup_socket_new_sync_cb, &ret);
+	soup_socket_new (addr, port, ssl, soup_socket_new_sync_cb, &ret);
 
 	while (1) {
 		g_main_iteration (TRUE);
-		if (ret != (SoupSocket *) 0xdeadbeef) return ret;
+		if (ret != (SoupSocket *) 0xdeadbeef)
+			return ret;
 	}
 
 	return ret;
@@ -231,8 +253,12 @@ soup_socket_unref (SoupSocket* s)
 
 	if (s->ref_count == 0) {
 		close (s->sockfd);
-		if (s->addr) soup_address_unref (s->addr);
-		if (s->iochannel) g_io_channel_unref (s->iochannel);
+		if (s->local_addr)
+			soup_address_unref (s->local_addr);
+		if (s->remote_addr)
+			soup_address_unref (s->remote_addr);
+		if (s->iochannel)
+			g_io_channel_unref (s->iochannel);
 
 		g_free(s);
 	}
@@ -244,20 +270,19 @@ soup_socket_unref (SoupSocket* s)
  *
  * Get the #GIOChannel for the #SoupSocket.
  *
- * For a client socket, the #GIOChannel represents the data stream.
- * Use it like you would any other #GIOChannel.
+ * For a client socket or connected server socket, the #GIOChannel
+ * represents the data stream. Use it like you would any other
+ * #GIOChannel.
  *
- * For a server socket however, the #GIOChannel represents incoming
- * connections.  If you can read from it, there's a connection
- * waiting.
+ * For a listening server socket, the #GIOChannel represents incoming
+ * connections. If you can read from it, there's a connection waiting.
  *
- * There is one channel for every socket.  This function refs the
- * channel before returning it.  You should unref the channel when
- * you are done with it.  However, you should not close the channel -
- * this is done when you delete the socket.
+ * There is one channel for every socket. This function refs the
+ * channel before returning it. You should unref the channel when you
+ * are done with it. However, you should not close the channel - this
+ * is done when you delete the socket.
  *
- * Returns: A #GIOChannel; NULL on failure.
- *
+ * Returns: A #GIOChannel; %NULL on failure.
  **/
 GIOChannel*
 soup_socket_get_iochannel (SoupSocket* socket)
@@ -272,42 +297,92 @@ soup_socket_get_iochannel (SoupSocket* socket)
 	return socket->iochannel;
 }
 
-/**
- * soup_socket_get_address:
- * @socket: #SoupSocket to get address of.
- *
- * Get the address of the socket.  If the socket is connected to a
- * remote machine (as a client or server), the address will be the
- * address of that machine. If it is a listening socket, the address
- * will be %NULL.
- *
- * Returns: #SoupAddress of socket; NULL on failure.
- **/
-SoupAddress *
-soup_socket_get_address (const SoupSocket* socket)
+static void
+get_local_addr (SoupSocket *socket)
 {
-	g_return_val_if_fail (socket != NULL, NULL);
-	g_return_val_if_fail (socket->addr != NULL, NULL);
+	struct soup_sockaddr_max bound_sa;
+	int sa_len;
 
-	soup_address_ref (socket->addr);
-
-	return socket->addr;
+	sa_len = sizeof (bound_sa);
+	getsockname (socket->sockfd, (struct sockaddr *)&bound_sa, &sa_len);
+	socket->local_addr = soup_address_new_from_sockaddr (
+		(struct sockaddr *)&bound_sa, &socket->local_port);
 }
 
 /**
- * soup_socket_get_port:
- * @socket: SoupSocket to get the port number of.
+ * soup_socket_get_local_address:
+ * @socket: #SoupSocket to get local address of.
  *
- * Get the port number the socket is bound to.
+ * Get the local address of the socket.
  *
- * Returns: Port number of the socket.
+ * Returns: #SoupAddress of the local end of the socket; %NULL on
+ * failure.
  **/
-gint
-soup_socket_get_port(const SoupSocket* socket)
+SoupAddress *
+soup_socket_get_local_address (const SoupSocket* socket)
+{
+	g_return_val_if_fail (socket != NULL, NULL);
+
+	if (!socket->local_addr)
+		get_local_addr ((SoupSocket *)socket);
+
+	soup_address_ref (socket->local_addr);
+	return socket->local_addr;
+}
+
+/**
+ * soup_socket_get_local_port:
+ * @socket: SoupSocket to get the local port number of.
+ *
+ * Get the local port number the socket is bound to.
+ *
+ * Returns: Local port number of the socket.
+ **/
+guint
+soup_socket_get_local_port (const SoupSocket* socket)
 {
 	g_return_val_if_fail (socket != NULL, 0);
 
-	return socket->port;
+	if (!socket->local_port)
+		get_local_addr ((SoupSocket *)socket);
+
+	return socket->local_port;
+}
+
+/**
+ * soup_socket_get_remote_address:
+ * @socket: #SoupSocket to get remote address of.
+ *
+ * Get the remote address of the socket. For a listening socket,
+ * this will be %NULL.
+ *
+ * Returns: #SoupAddress of the remote end of the socket; %NULL on
+ * failure.
+ **/
+SoupAddress *
+soup_socket_get_remote_address (const SoupSocket* socket)
+{
+	g_return_val_if_fail (socket != NULL, NULL);
+
+	soup_address_ref (socket->remote_addr);
+	return socket->remote_addr;
+}
+
+/**
+ * soup_socket_get_remote_port:
+ * @socket: SoupSocket to get the remote port number of.
+ *
+ * Get the remote port number the socket is bound to. For a listening
+ * socket, this will be 0.
+ *
+ * Returns: Remote port number of the socket.
+ **/
+guint
+soup_socket_get_remote_port (const SoupSocket* socket)
+{
+	g_return_val_if_fail (socket != NULL, 0);
+
+	return socket->remote_port;
 }
 
 /**
@@ -316,6 +391,7 @@ soup_socket_get_port(const SoupSocket* socket)
  * accept connections on any local IPv4 address)
  * @local_port: Port number for the socket (SOUP_SERVER_ANY_PORT if you
  * don't care).
+ * @ssl: Whether or not this is an SSL server.
  *
  * Create and open a new #SoupSocket listening on the specified
  * address and port. Use this sort of socket when your are a server
@@ -325,11 +401,11 @@ soup_socket_get_port(const SoupSocket* socket)
  * Returns: a new #SoupSocket, or NULL if there was a failure.
  **/
 SoupSocket *
-soup_socket_server_new (SoupAddress *local_addr, guint local_port)
+soup_socket_server_new (SoupAddress *local_addr, guint local_port,
+			gboolean ssl)
 {
-	SoupSocket* s;
+	SoupSocket *s;
 	struct sockaddr *sa = NULL;
-	struct soup_sockaddr_max bound_sa;
 	int sa_len;
 	const int on = 1;
 	gint flags;
@@ -341,6 +417,7 @@ soup_socket_server_new (SoupAddress *local_addr, guint local_port)
 
 	/* Create socket */
 	s = g_new0 (SoupSocket, 1);
+	s->flags = SOUP_SOCKET_IS_SERVER | (ssl ? SOUP_SOCKET_IS_SSL : 0);
 	s->ref_count = 1;
 
 	if ((s->sockfd = socket (sa->sa_family, SOCK_STREAM, 0)) < 0) {
@@ -370,11 +447,6 @@ soup_socket_server_new (SoupAddress *local_addr, guint local_port)
 		goto SETUP_ERROR;
 	g_free (sa);
 
-	sa_len = sizeof (bound_sa);
-	getsockname (s->sockfd, (struct sockaddr *)&bound_sa, &sa_len); 
-	s->addr = soup_address_new_from_sockaddr ((struct sockaddr *)&bound_sa,
-						  &s->port);
-
 	/* Listen */
 	if (listen (s->sockfd, 10) != 0) goto SETUP_ERROR;
 
@@ -395,6 +467,7 @@ typedef struct {
 	gint             sockfd;
 	SoupAddress     *addr;
 	guint            port;
+	gboolean         ssl;
 	SoupSocketNewFn  func;
 	gpointer         data;
 	gint             flags;
@@ -406,33 +479,44 @@ soup_socket_new_cb (GIOChannel* iochannel,
 		    GIOCondition condition,
 		    gpointer data)
 {
-	SoupSocketState* state = (SoupSocketState*) data;
-	SoupSocket* s;
-	gint error = 0;
-	gint len = sizeof (gint);
+	SoupSocketState *state = (SoupSocketState*) data;
+	SoupSocket *s;
+	int error = 0;
+	int len = sizeof (int);
 
 	/* Remove the watch now in case we don't return immediately */
 	g_source_remove (state->connect_watch);
 
-	if (condition & ~(G_IO_IN | G_IO_OUT)) goto ERROR;
+	if (condition & ~(G_IO_IN | G_IO_OUT))
+		goto ERROR;
 
 	errno = 0;
 	if (getsockopt (state->sockfd,
 			SOL_SOCKET,
 			SO_ERROR,
 			&error,
-			&len) != 0) goto ERROR;
+			&len) != 0)
+		goto ERROR;
 
-	if (error) goto ERROR;
+	if (error)
+		goto ERROR;
 
 	if (fcntl (state->sockfd, F_SETFL, state->flags) != 0)
 		goto ERROR;
 
 	s = g_new0 (SoupSocket, 1);
 	s->ref_count = 1;
+	if (state->ssl)
+		s->flags = SOUP_SOCKET_IS_SSL;
 	s->sockfd = state->sockfd;
-	s->addr = state->addr;
-	s->port = state->port;
+
+	if (state->ssl && !soup_socket_start_ssl (s)) {
+		soup_socket_unref (s);
+		goto ERROR;
+	}
+
+	s->remote_addr = state->addr;
+	s->remote_port = state->port;
 
 	(*state->func) (s, SOUP_ERROR_OK, state->data);
 
@@ -452,6 +536,7 @@ soup_socket_new_cb (GIOChannel* iochannel,
  * soup_socket_new:
  * @addr: Address to connect to.
  * @port: Port to connect to
+ * @ssl: Whether or not the connection is SSL
  * @func: Callback function.
  * @data: User data passed when callback function is called.
  *
@@ -467,6 +552,7 @@ soup_socket_new_cb (GIOChannel* iochannel,
 SoupSocketNewId
 soup_socket_new (SoupAddress      *addr,
 		 guint             port,
+		 gboolean          ssl,
 		 SoupSocketNewFn   func,
 		 gpointer          data)
 {
@@ -520,8 +606,18 @@ soup_socket_new (SoupAddress      *addr,
 	if (!errno) {
 		SoupSocket *s = g_new0 (SoupSocket, 1);
 		s->ref_count = 1;
+		if (ssl)
+			s->flags = SOUP_SOCKET_IS_SSL;
 		s->sockfd = sockfd;
-		s->addr = addr;
+
+		if (ssl && !soup_socket_start_ssl (s)) {
+			soup_socket_unref (s);
+			(func) (NULL, SOUP_ERROR_CANT_CONNECT, data);
+			return NULL;
+		}
+
+		s->remote_addr = addr;
+		s->remote_port = port;
 
 		(*func) (s, SOUP_ERROR_OK, data);
 		return NULL;
@@ -534,6 +630,7 @@ soup_socket_new (SoupAddress      *addr,
 	state->sockfd = sockfd;
 	state->addr = addr;
 	state->port = port;
+	state->ssl = ssl;
 	state->func = func;
 	state->data = data;
 	state->flags = flags;
@@ -575,6 +672,7 @@ server_accept_internal (SoupSocket *socket, gboolean block)
 	SoupSocket* s;
 
 	g_return_val_if_fail (socket != NULL, NULL);
+	g_return_val_if_fail (socket->flags & SOUP_SOCKET_IS_SERVER, NULL);
 
  try_again:
 	FD_ZERO (&fdset);
@@ -603,7 +701,8 @@ server_accept_internal (SoupSocket *socket, gboolean block)
 
 	/* Get the flags (should all be 0?) */
 	flags = fcntl (sockfd, F_GETFL, 0);
-	if (flags == -1) return NULL;
+	if (flags == -1)
+		return NULL;
 
 	/* Make the socket non-blocking */
 	if (fcntl (sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
@@ -612,8 +711,14 @@ server_accept_internal (SoupSocket *socket, gboolean block)
 	s = g_new0 (SoupSocket, 1);
 	s->ref_count = 1;
 	s->sockfd = sockfd;
-	s->addr = soup_address_new_from_sockaddr ((struct sockaddr *)&sa,
-						  &s->port);
+	s->flags = socket->flags;
+	if ((s->flags & SOUP_SOCKET_IS_SSL) && !soup_socket_start_ssl (s)) {
+		soup_socket_unref (s);
+		return NULL;
+	}
+
+	s->remote_addr = soup_address_new_from_sockaddr (
+		(struct sockaddr *)&sa, &s->remote_port);
 
 	return s;
 }
@@ -655,4 +760,37 @@ SoupSocket *
 soup_socket_server_try_accept (SoupSocket *socket)
 {
 	return server_accept_internal (socket, FALSE);
+}
+
+/**
+ * soup_socket_start_ssl:
+ * @socket: the socket
+ *
+ * Attempts to start using SSL on @socket.
+ *
+ * Return value: success or failure.
+ **/
+gboolean
+soup_socket_start_ssl (SoupSocket *socket)
+{
+	GIOChannel *ssl_channel;
+	SoupSSLType type;
+
+	if (!socket->iochannel) {
+		soup_socket_get_iochannel (socket);
+		g_io_channel_unref (socket->iochannel);
+	}
+
+	if (socket->flags & SOUP_SOCKET_IS_SERVER)
+		type = SOUP_SSL_TYPE_SERVER;
+	else
+		type = SOUP_SSL_TYPE_CLIENT;
+	ssl_channel = soup_ssl_get_iochannel (socket->iochannel, type);
+	if (!ssl_channel)
+		return FALSE;
+
+	g_io_channel_unref (socket->iochannel);
+	socket->iochannel = ssl_channel;
+
+	return TRUE;
 }

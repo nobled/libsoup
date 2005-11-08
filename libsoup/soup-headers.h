@@ -32,12 +32,12 @@ gboolean    soup_headers_parse_response     (char             *str,
 
 /* HTTP parameterized header parsing */
 
-char       *soup_header_param_decode_token  (char            **in);
+char       *soup_header_param_decode_token  (const char      **in);
 
 GHashTable *soup_header_param_parse_list    (const char       *header);
 
 char       *soup_header_param_copy_token    (GHashTable       *tokens, 
-					     char             *t);
+					     const char       *t);
 
 void        soup_header_param_destroy_hash  (GHashTable       *table);
 

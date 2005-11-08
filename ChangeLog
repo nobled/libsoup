@@ -13,6 +13,8 @@
 
 	* libsoup/libsoup/*.c: fix signedness warnings
 
+	* libsoup/soup-headers.c: Constify a bunch of char * parameters
+
 2005-11-07  Dan Winship  <danw@novell.com>
 
 	* branched libsoup-pre214-branch

@@ -151,7 +151,8 @@ construct (SoupAuth *auth, const char *header)
 {
 	SoupAuthDigestPrivate *priv = SOUP_AUTH_DIGEST_GET_PRIVATE (auth);
 	GHashTable *tokens;
-	char *tmp, *ptr;
+	const char *ptr;
+	char *tmp;
 
 	header += sizeof ("Digest");
 
@@ -173,7 +174,7 @@ construct (SoupAuth *auth, const char *header)
 	while (ptr && *ptr) {
 		char *token;
 
-		token = soup_header_param_decode_token ((char **)&ptr);
+		token = soup_header_param_decode_token (&ptr);
 		if (token)
 			priv->qop_options |= decode_qop (token);
 		g_free (token);

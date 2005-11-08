@@ -1,3 +1,22 @@
+2005-11-07  Dan Winship  <danw@novell.com>
+
+	* libsoup/soup-md5-utils.c (soup_md5_update): make the buffer a
+	gconstpointer rather than a guchar.
+	(soup_md5_final_hex): make the buffer be char[] rather than
+	guchar[].
+
+	* libsoup/soup-socket.c (connect_watch, listen_watch,
+	soup_socket_get_local_address, soup_socket_get_remote_address):
+	Cast "int *"s being used as "socklen_t *"s to "void *" to avoid
+	signedness warnings. (Yes, ideally I'd fix this correctly, but
+	that would requiring testing on windows.)
+
+	* libsoup/libsoup/*.c: fix signedness warnings
+
+2005-11-07  Dan Winship  <danw@novell.com>
+
+	* branched libsoup-pre214-branch
+
 2005-11-01  Dan Winship  <danw@novell.com>
 
 	* docs/reference/libsoup-docs.sgml: tell it to generate an index

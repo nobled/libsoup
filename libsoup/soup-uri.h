@@ -46,9 +46,6 @@ struct SoupUri {
 	char         *query;
 
 	char         *fragment;
-
-	/* Don't use this */
-	gboolean      broken_encoding;
 };
 
 SoupUri  *soup_uri_new_with_base     (const SoupUri *base,
@@ -69,6 +66,7 @@ void      soup_uri_free              (SoupUri       *uri);
 char     *soup_uri_encode            (const char    *part,
 				      const char    *escape_extra);
 void      soup_uri_decode            (char          *part);
+void      soup_uri_normalize         (char          *part);
 
 gboolean  soup_uri_uses_default_port (const SoupUri *uri);
 

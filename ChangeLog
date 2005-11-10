@@ -1,3 +1,28 @@
+2005-11-09  Dan Winship  <danw@novell.com>
+
+	* libsoup/soup-uri.c: Update for RFC 3986 changes, bgo 266516, and
+	general conformance
+	(soup_uri_get_protocol): match protocols case-insensitively
+	(soup_uri_new_with_base): Don't fully %-decode the fragment,
+	query, and path, but do %-decode anything which isn't supposed to
+	be encoded. Recognize IPv6 address literals. Use stricter
+	"../"-stripping rules on the path. Reject URIs with junk between
+	the port number and the path. Allow "http://example.com*" as a
+	URI, to let you do things like "OPTIONS * HTTP/1.1"
+	(soup_uri_to_string): Update for the fact that the host might be
+	an IPv6 literal, and for the fact that path, query, and fragment
+	are now pre-escaped.
+	(soup_uri_equal): compare hostnames case-insensitively
+	(uri_encoded_char): update to match RFC 3986
+	(append_uri_encoded): use uppercase hex letters as recommended by
+	RFC 3986.
+	(soup_uri_normalize): decode only %-escapes that don't belong
+	there.
+
+	* tests/uri-parsing.c: Add new tests from RFC 3986, RFC 2732, RFC
+	2616, bgo 266516, and elsewhere. Update some tests to match new
+	parsing/unparsing rules.
+
 2005-11-07  Dan Winship  <danw@novell.com>
 
 	* libsoup/soup-md5-utils.c (soup_md5_update): make the buffer a

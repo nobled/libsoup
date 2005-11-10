@@ -15,16 +15,6 @@ Known bugs/warts to fix
   try to use them again).
 	* NTLM connections should stay open longer than plain ones
 
-* URI encoding bugs
-	* query component at least, maybe others must be stored
-	  fully-escaped, because only the endpoints know which
-	  chars are and aren't reserved
-	* When fixing this, also consider:
-		* Merging E2kUri with SoupUri
-		* application/x-www-form-urlencoded, which encodes
-		  space as "+" rather than "%20"
-		* SoupUri doesn't currently allow "*" as a URI
-
 
 HTTP Features
 -------------
@@ -110,6 +100,11 @@ General/API stuff
 	  assumptions and exceptions. Might not be possible to
 	  migrate Connector to a generic API
 	* jamesh's HttpResource object
+
+* URI stuff for HTML forms
+	* form data set <-> URI query transform
+	* application/x-www-form-urlencoded encodes
+	  space as "+" rather than "%20"
 
 
 Testing

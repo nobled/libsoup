@@ -64,10 +64,6 @@ General/API stuff
 
 * Documentation (tutorial, hacking, thread safety)
 
-* User-Agent handling: caller should specify a User-Agent string to
-  SoupSession, and soup should automatically append libsoup/#.## to
-  that. (Likewise for Server/Via headers.)
-
 * File-system-like asynchronous mode (eg, you write the request / read
   the response in as many pieces as you want. If you try to read or
   write more than you can, the EAGAIN is returned all they way to the

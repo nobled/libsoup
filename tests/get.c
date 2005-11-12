@@ -3,6 +3,8 @@
  * Copyright (C) 2001-2003, Ximian, Inc.
  */
 
+#include "config.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -255,6 +257,7 @@ main (int argc, char **argv)
 	session = soup_session_async_new_with_options (
 		SOUP_SESSION_SSL_CA_FILE, cafile,
 		SOUP_SESSION_PROXY_URI, proxy,
+		SOUP_SESSION_USER_AGENT, "libsoup-get/" PACKAGE_VERSION,
 		NULL);
 
 	if (recurse) {

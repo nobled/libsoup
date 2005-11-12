@@ -35,6 +35,8 @@ typedef struct {
 	char              *ssl_cert_file, *ssl_key_file;
 	gpointer           ssl_creds;
 
+	char              *server_header;
+
 	GMainLoop         *loop;
 
 	SoupSocket        *listen_sock;
@@ -45,6 +47,8 @@ typedef struct {
 } SoupServerPrivate;
 #define SOUP_SERVER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SOUP_TYPE_SERVER, SoupServerPrivate))
 
+#define SOUP_SERVER_SERVER_HEADER_BASE "libsoup/" PACKAGE_VERSION
+
 enum {
 	PROP_0,
 
@@ -52,6 +56,7 @@ enum {
 	PROP_INTERFACE,
 	PROP_SSL_CERT_FILE,
 	PROP_SSL_KEY_FILE,
+	PROP_SERVER_HEADER,
 
 	LAST_PROP
 };
@@ -67,6 +72,25 @@ soup_server_init (SoupServer *server)
 	SoupServerPrivate *priv = SOUP_SERVER_GET_PRIVATE (server);
 
 	priv->handlers = g_hash_table_new (g_str_hash, g_str_equal);
+}
+
+static GObject *
+constructor (GType type, guint n_properties, GObjectConstructParam *properties)
+{
+	GObject *obj = G_OBJECT_CLASS (soup_server_parent_class)->constructor (type, n_properties, properties);
+	SoupServerPrivate *priv = SOUP_SERVER_GET_PRIVATE (obj);
+
+	if (priv->server_header) {
+		char *full_server_header;
+		full_server_header = g_strconcat (priv->server_header, " ",
+						  SOUP_SERVER_SERVER_HEADER_BASE,
+						  NULL);
+		g_free (priv->server_header);
+		priv->server_header = full_server_header;
+	} else
+		priv->server_header = g_strdup (SOUP_SERVER_SERVER_HEADER_BASE);
+
+	return obj;
 }
 
 static void
@@ -105,6 +129,8 @@ finalize (GObject *object)
 	if (priv->ssl_creds)
 		soup_ssl_free_server_credentials (priv->ssl_creds);
 
+	g_free (priv->server_header);
+
 	if (priv->listen_sock)
 		g_object_unref (priv->listen_sock);
 
@@ -136,6 +162,7 @@ soup_server_class_init (SoupServerClass *server_class)
 	g_type_class_add_private (server_class, sizeof (SoupServerPrivate));
 
 	/* virtual method override */
+	object_class->constructor = constructor;
 	object_class->finalize = finalize;
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
@@ -169,6 +196,13 @@ soup_server_class_init (SoupServerClass *server_class)
 				     "File containing server SSL key",
 				     NULL,
 				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	g_object_class_install_property (
+		object_class, PROP_SERVER_HEADER,
+		g_param_spec_string (SOUP_SERVER_SERVER_HEADER,
+				     "Server header",
+				     "Server header",
+				     NULL,
+				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 }
 
 
@@ -197,6 +231,10 @@ set_property (GObject *object, guint prop_id,
 		priv->ssl_key_file =
 			g_strdup (g_value_get_string (value));
 		break;
+	case PROP_SERVER_HEADER:
+		g_free (priv->server_header);
+		priv->server_header = g_value_dup_string (value);
+		break;
 	default:
 		break;
 	}
@@ -213,13 +251,16 @@ get_property (GObject *object, guint prop_id,
 		g_value_set_uint (value, priv->port);
 		break;
 	case PROP_INTERFACE:
-		g_value_set_object (value, g_object_ref (priv->interface));
+		g_value_set_object (value, priv->interface);
 		break;
 	case PROP_SSL_CERT_FILE:
-		g_value_set_string (value, g_strdup (priv->ssl_cert_file));
+		g_value_set_string (value, priv->ssl_cert_file);
 		break;
 	case PROP_SSL_KEY_FILE:
-		g_value_set_string (value, g_strdup (priv->ssl_key_file));
+		g_value_set_string (value, priv->ssl_key_file);
+		break;
+	case PROP_SERVER_HEADER:
+		g_value_set_string (value, priv->server_header);
 		break;
 	default:
 		break;
@@ -326,19 +367,6 @@ request_finished (SoupMessage *msg, gpointer sock)
 	g_object_unref (msg);
 }
 
-static inline void
-set_response_error (SoupMessage *req, guint code, char *phrase, char *body)
-{
-	if (phrase)
-		soup_message_set_status_full (req, code, phrase);
-	else
-		soup_message_set_status (req, code);
-
-	req->response.owner = SOUP_BUFFER_STATIC;
-	req->response.body = body;
-	req->response.length = body ? strlen (req->response.body) : 0;
-}
-
 
 static void
 call_handler (SoupMessage *req, SoupSocket *sock)
@@ -352,10 +380,9 @@ call_handler (SoupMessage *req, SoupSocket *sock)
 
 	server = soup_server_message_get_server (SOUP_SERVER_MESSAGE (req));
 	handler_path = soup_message_get_uri (req)->path;
-
 	hand = soup_server_get_handler (server, handler_path);
 	if (!hand) {
-		set_response_error (req, SOUP_STATUS_NOT_FOUND, NULL, NULL);
+		soup_message_set_status (req, SOUP_STATUS_NOT_FOUND);
 		return;
 	}
 
@@ -419,10 +446,16 @@ call_handler (SoupMessage *req, SoupSocket *sock)
 static void
 start_request (SoupServer *server, SoupSocket *server_sock)
 {
+	SoupServerPrivate *priv = SOUP_SERVER_GET_PRIVATE (server);
 	SoupMessage *msg;
 
 	/* Listen for another request on this connection */
 	msg = (SoupMessage *)soup_server_message_new (server);
+
+	if (priv->server_header) {
+		soup_message_add_header (msg->response_headers, "Server",
+					 priv->server_header);
+	}
 
 	g_signal_connect (msg, "got_body", G_CALLBACK (call_handler), server_sock);
 	g_signal_connect (msg, "finished", G_CALLBACK (request_finished), server_sock);

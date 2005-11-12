@@ -41,6 +41,8 @@ typedef struct {
 	char *ssl_ca_file;
 	gpointer ssl_creds;
 
+	char *user_agent;
+
 	GSList *filters;
 
 	GHashTable *hosts; /* SoupUri -> SoupSessionHost */
@@ -72,6 +74,8 @@ static void cancel_message  (SoupSession *session, SoupMessage *msg);
 #define SOUP_SESSION_MAX_CONNS_DEFAULT 10
 #define SOUP_SESSION_MAX_CONNS_PER_HOST_DEFAULT 4
 
+#define SOUP_SESSION_USER_AGENT_BASE "libsoup/" PACKAGE_VERSION
+
 static void filter_iface_init (SoupMessageFilterClass *filter_class);
 
 G_DEFINE_TYPE_EXTENDED (SoupSession, soup_session, G_TYPE_OBJECT, 0,
@@ -94,6 +98,7 @@ enum {
 	PROP_MAX_CONNS_PER_HOST,
 	PROP_USE_NTLM,
 	PROP_SSL_CA_FILE,
+	PROP_USER_AGENT,
 
 	LAST_PROP
 };
@@ -118,6 +123,25 @@ soup_session_init (SoupSession *session)
 	priv->max_conns_per_host = SOUP_SESSION_MAX_CONNS_PER_HOST_DEFAULT;
 }
 
+static GObject *
+constructor (GType type, guint n_properties, GObjectConstructParam *properties)
+{
+	GObject *obj = G_OBJECT_CLASS (soup_session_parent_class)->constructor (type, n_properties, properties);
+	SoupSessionPrivate *priv = SOUP_SESSION_GET_PRIVATE (obj);
+
+	if (priv->user_agent) {
+		char *full_user_agent;
+		full_user_agent = g_strconcat (priv->user_agent, " ",
+					       SOUP_SESSION_USER_AGENT_BASE,
+					       NULL);
+		g_free (priv->user_agent);
+		priv->user_agent = full_user_agent;
+	} else
+		priv->user_agent = g_strdup (SOUP_SESSION_USER_AGENT_BASE);
+
+	return obj;
+}
+
 static gboolean
 foreach_free_host (gpointer key, gpointer host, gpointer data)
 {
@@ -131,6 +155,11 @@ cleanup_hosts (SoupSessionPrivate *priv)
 	g_mutex_lock (priv->host_lock);
 	g_hash_table_foreach_remove (priv->hosts, foreach_free_host, NULL);
 	g_mutex_unlock (priv->host_lock);
+
+	if (priv->proxy_host) {
+		free_host (priv->proxy_host);
+		priv->proxy_host = NULL;
+	}
 }
 
 static void
@@ -165,6 +194,11 @@ finalize (GObject *object)
 	g_hash_table_destroy (priv->hosts);
 	g_hash_table_destroy (priv->conns);
 
+	if (priv->proxy_uri)
+		soup_uri_free (priv->proxy_uri);
+	g_free (priv->ssl_ca_file);
+	g_free (priv->user_agent);
+
 	G_OBJECT_CLASS (soup_session_parent_class)->finalize (object);
 }
 
@@ -181,6 +215,7 @@ soup_session_class_init (SoupSessionClass *session_class)
 	session_class->cancel_message = cancel_message;
 
 	/* virtual method override */
+	object_class->constructor = constructor;
 	object_class->dispose = dispose;
 	object_class->finalize = finalize;
 	object_class->set_property = set_property;
@@ -307,6 +342,13 @@ soup_session_class_init (SoupSessionClass *session_class)
 				     "File containing SSL CA certificates",
 				     NULL,
 				     G_PARAM_READWRITE));
+	g_object_class_install_property (
+		object_class, PROP_USER_AGENT,
+		g_param_spec_string (SOUP_SESSION_USER_AGENT,
+				     "User-Agent string",
+				     "User-Agent string",
+				     NULL,
+				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 }
 
 static void
@@ -340,6 +382,7 @@ safe_str_equal (const char *a, const char *b)
 
 	return strcmp (a, b) == 0;
 }
+
 
 static void
 set_property (GObject *object, guint prop_id,
@@ -398,6 +441,10 @@ set_property (GObject *object, guint prop_id,
 		}
 
 		break;
+	case PROP_USER_AGENT:
+		g_free (priv->user_agent);
+		priv->user_agent = g_value_dup_string (value);
+		break;
 	default:
 		break;
 	}
@@ -427,6 +474,9 @@ get_property (GObject *object, guint prop_id,
 		break;
 	case PROP_SSL_CA_FILE:
 		g_value_set_string (value, priv->ssl_ca_file);
+		break;
+	case PROP_USER_AGENT:
+		g_value_set_string (value, priv->user_agent);
 		break;
 	default:
 		break;
@@ -915,6 +965,12 @@ setup_message (SoupMessageFilter *filter, SoupMessage *msg)
 			msg, SOUP_STATUS_PROXY_UNAUTHORIZED,
 			SOUP_HANDLER_POST_BODY,
 			authorize_handler, session);
+	}
+
+	if (!soup_message_get_header (msg->request_headers, "User-Agent") &&
+	    priv->user_agent) {
+		soup_message_add_header (msg->request_headers, "User-Agent",
+					 priv->user_agent);
 	}
 }
 

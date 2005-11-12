@@ -3,6 +3,8 @@
  * Copyright (C) 2001-2003, Ximian, Inc.
  */
 
+#include "config.h"
+
 #include <ctype.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -153,6 +155,7 @@ main (int argc, char **argv)
 	}
 
 	server = soup_server_new (SOUP_SERVER_PORT, port,
+				  SOUP_SERVER_SERVER_HEADER, "simple-httpd/" PACKAGE_VERSION,
 				  NULL);
 	if (!server) {
 		fprintf (stderr, "Unable to bind to server port %d\n", port);

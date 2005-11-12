@@ -1,3 +1,28 @@
+2005-11-12  Dan Winship  <danw@novell.com>
+
+	* libsoup/soup-session.c: add a "user-agent" property,
+	defaulting to "libsoup/VERSION"
+	(constructor): if "user-agent" is set at construct time,
+	prepend it to the default rather than overriding it.
+	(setup_message): set the User-Agent request header on the request
+	(if it's not already set).
+
+	* libsoup/soup-server.c: add a "server-header" property,
+	defaulting to "libsoup/VERSION"
+	(constructor): if "server-header" is set at construct time,
+	prepend it to the default rather than overriding it.
+	(start_request): set the Server response header on the request.
+	(get_property): fix leaks
+
+	* libsoup/soup-message-server-io.c (parse_request_headers): fix
+	the parsing of the Host header to assume it already includes the
+	port (this wasn't a problem before, because SoupUri was just
+	ignoring the second port number when parse_request_headers
+	generated a url like "http://localhost:9999:9999/").
+
+	* tests/get.c: 
+	* tests/simple-httpd.c: set the User-Agent/Server headers
+
 2005-11-09  Dan Winship  <danw@novell.com>
 
 	* libsoup/soup-uri.c: Update for RFC 3986 changes, bgo 266516, and

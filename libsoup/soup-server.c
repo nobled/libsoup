@@ -44,6 +44,8 @@ typedef struct {
 
 	GHashTable        *handlers; /* KEY: path, VALUE: SoupServerHandler */
 	SoupServerHandler *default_handler;
+	
+	GMainContext      *async_context;
 } SoupServerPrivate;
 #define SOUP_SERVER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SOUP_TYPE_SERVER, SoupServerPrivate))
 
@@ -57,6 +59,7 @@ enum {
 	PROP_SSL_CERT_FILE,
 	PROP_SSL_KEY_FILE,
 	PROP_SERVER_HEADER,
+	PROP_ASYNC_CONTEXT,
 
 	LAST_PROP
 };
@@ -150,6 +153,8 @@ finalize (GObject *object)
 
 	if (priv->loop)
 		g_main_loop_unref (priv->loop);
+	if (priv->async_context)
+		g_main_context_unref (priv->async_context);
 
 	G_OBJECT_CLASS (soup_server_parent_class)->finalize (object);
 }
@@ -203,6 +208,12 @@ soup_server_class_init (SoupServerClass *server_class)
 				     "Server header",
 				     NULL,
 				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+	g_object_class_install_property (
+		object_class, PROP_ASYNC_CONTEXT,
+		g_param_spec_pointer (SOUP_SERVER_ASYNC_CONTEXT,
+				      "Async GMainContext",
+				      "The GMainContext to dispatch async I/O in",
+				      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
 
@@ -235,6 +246,11 @@ set_property (GObject *object, guint prop_id,
 		g_free (priv->server_header);
 		priv->server_header = g_value_dup_string (value);
 		break;
+	case PROP_ASYNC_CONTEXT:
+		priv->async_context = g_value_get_pointer (value);
+		if (priv->async_context)
+			g_main_context_ref (priv->async_context);
+		break;
 	default:
 		break;
 	}
@@ -261,6 +277,9 @@ get_property (GObject *object, guint prop_id,
 		break;
 	case PROP_SERVER_HEADER:
 		g_value_set_string (value, priv->server_header);
+		break;
+	case PROP_ASYNC_CONTEXT:
+		g_value_set_pointer (value, priv->async_context ? g_main_context_ref (priv->async_context) : NULL);
 		break;
 	default:
 		break;
@@ -300,10 +319,10 @@ soup_server_new (const char *optname1, ...)
 	}
 
 	priv->listen_sock =
-		soup_socket_server_new (priv->interface,
-					priv->ssl_creds,
-					NULL, NULL);
-	if (!priv->listen_sock) {
+		soup_socket_new (SOUP_SOCKET_SSL_CREDENTIALS, priv->ssl_creds,
+				 SOUP_SOCKET_ASYNC_CONTEXT, priv->async_context,
+				 NULL);
+	if (!soup_socket_listen (priv->listen_sock, priv->interface)) {
 		g_object_unref (server);
 		return NULL;
 	}
@@ -519,7 +538,7 @@ soup_server_run (SoupServer *server)
 	priv = SOUP_SERVER_GET_PRIVATE (server);
 
 	if (!priv->loop) {
-		priv->loop = g_main_loop_new (NULL, TRUE);
+		priv->loop = g_main_loop_new (priv->async_context, TRUE);
 		soup_server_run_async (server);
 	}
 
@@ -535,7 +554,9 @@ soup_server_quit (SoupServer *server)
 	g_return_if_fail (SOUP_IS_SERVER (server));
 	priv = SOUP_SERVER_GET_PRIVATE (server);
 
-	g_main_loop_quit (priv->loop);
+	if (priv->loop)
+		g_main_loop_quit (priv->loop);
+
 	g_object_unref (server);
 }
 

@@ -56,6 +56,8 @@ typedef struct {
 	 * Must not emit signals or destroy objects while holding it.
 	 */
 	GMutex *host_lock;
+
+	GMainContext *async_context;
 } SoupSessionPrivate;
 #define SOUP_SESSION_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SOUP_TYPE_SESSION, SoupSessionPrivate))
 
@@ -99,6 +101,7 @@ enum {
 	PROP_USE_NTLM,
 	PROP_SSL_CA_FILE,
 	PROP_USER_AGENT,
+	PROP_ASYNC_CONTEXT,
 
 	LAST_PROP
 };
@@ -198,6 +201,9 @@ finalize (GObject *object)
 		soup_uri_free (priv->proxy_uri);
 	g_free (priv->ssl_ca_file);
 	g_free (priv->user_agent);
+
+	if (priv->async_context)
+		g_main_context_unref (priv->async_context);
 
 	G_OBJECT_CLASS (soup_session_parent_class)->finalize (object);
 }
@@ -349,6 +355,12 @@ soup_session_class_init (SoupSessionClass *session_class)
 				     "User-Agent string",
 				     NULL,
 				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+	g_object_class_install_property (
+		object_class, PROP_ASYNC_CONTEXT,
+		g_param_spec_pointer (SOUP_SESSION_ASYNC_CONTEXT,
+				      "Async GMainContext",
+				      "The GMainContext to dispatch async I/O in",
+				      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
 static void
@@ -445,6 +457,11 @@ set_property (GObject *object, guint prop_id,
 		g_free (priv->user_agent);
 		priv->user_agent = g_value_dup_string (value);
 		break;
+	case PROP_ASYNC_CONTEXT:
+		priv->async_context = g_value_get_pointer (value);
+		if (priv->async_context)
+			g_main_context_ref (priv->async_context);
+		break;
 	default:
 		break;
 	}
@@ -477,6 +494,9 @@ get_property (GObject *object, guint prop_id,
 		break;
 	case PROP_USER_AGENT:
 		g_value_set_string (value, priv->user_agent);
+		break;
+	case PROP_ASYNC_CONTEXT:
+		g_value_set_pointer (value, priv->async_context ? g_main_context_ref (priv->async_context) : NULL);
 		break;
 	default:
 		break;
@@ -1198,6 +1218,7 @@ soup_session_get_connection (SoupSession *session, SoupMessage *msg,
 		SOUP_CONNECTION_PROXY_URI, priv->proxy_uri,
 		SOUP_CONNECTION_SSL_CREDENTIALS, priv->ssl_creds,
 		SOUP_CONNECTION_MESSAGE_FILTER, session,
+		SOUP_CONNECTION_ASYNC_CONTEXT, priv->async_context,
 		NULL);
 	g_signal_connect (conn, "connect_result",
 			  G_CALLBACK (connect_result),

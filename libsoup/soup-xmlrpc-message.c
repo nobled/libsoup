@@ -267,6 +267,7 @@ soup_xmlrpc_message_start_member (SoupXmlrpcMessage *msg, const char *name)
 	priv = SOUP_XMLRPC_MESSAGE_GET_PRIVATE (msg);
 
 	priv->last_node = xmlNewChild (priv->last_node, NULL, (xmlChar *)"member", NULL);
+	xmlNewChild (priv->last_node, NULL, (xmlChar *)"name", (xmlChar *)name);
 }
 
 void

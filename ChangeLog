@@ -1,3 +1,15 @@
+2005-11-18  Dan Winship  <danw@novell.com>
+
+	* libsoup/soup-auth-digest.c:
+	* libsoup/soup-auth.c:
+	* libsoup/soup-message-client-io.c:
+	* libsoup/soup-message-server-io.c:
+	* libsoup/soup-message.c:
+	* libsoup/soup-method.c:
+	* libsoup/soup-server-auth.c:
+	* tests/get.c: replace locale-ish strcasecmps with
+	g_ascii_strcasecmp
+
 2005-11-17  Dan Winship  <danw@novell.com>
 
 	[from HEAD]

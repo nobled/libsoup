@@ -1,3 +1,18 @@
+2005-12-21  Dan Winship  <danw@novell.com>
+
+	* libsoup/soup-socket.c: Remove the "connect_result" signal. Make
+	local_address and remote_address into (construct-only) properties.
+	(soup_socket_connect_async, soup_socket_connect_sync): Replace
+	soup_socket_connect. _async takes a callback+user_data (like the
+	old soup_socket_client_new_async), but doesn't implement the
+	callback in terms of a connect_result signal.
+	(soup_socket_client_new_async, soup_socket_client_new_sync): Gone.
+	(Unused since the async_context addition anyway). Replaced by the
+	new construct properties and connect methods.
+
+	* libsoup/soup-connection.c: 
+	* libsoup/soup-server.c: Update for SoupSocket changes
+
 2005-11-18  Dan Winship  <danw@novell.com>
 
 	* libsoup/soup-auth-digest.c:

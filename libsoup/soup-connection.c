@@ -524,6 +524,7 @@ soup_connection_connect_async (SoupConnection *conn,
 			       gpointer user_data)
 {
 	SoupConnectionPrivate *priv;
+	SoupAddress *addr;
 
 	g_return_if_fail (SOUP_IS_CONNECTION (conn));
 	priv = SOUP_CONNECTION_GET_PRIVATE (conn);
@@ -534,14 +535,14 @@ soup_connection_connect_async (SoupConnection *conn,
 					  G_CALLBACK (callback), user_data);
 	}
 
+	addr = soup_address_new (priv->conn_uri->host, priv->conn_uri->port);
 	priv->socket =
-		soup_socket_new (SOUP_SOCKET_SSL_CREDENTIALS, priv->ssl_creds,
+		soup_socket_new (SOUP_SOCKET_REMOTE_ADDRESS, addr,
+				 SOUP_SOCKET_SSL_CREDENTIALS, priv->ssl_creds,
 				 SOUP_SOCKET_ASYNC_CONTEXT, priv->async_context,
 				 NULL);
-	soup_socket_connect (priv->socket, soup_address_new (priv->conn_uri->host,
-							     priv->conn_uri->port));
-	soup_signal_connect_once (priv->socket, "connect_result",
-				  G_CALLBACK (socket_connect_result), conn);
+	g_object_unref (addr);
+	soup_socket_connect_async (priv->socket, socket_connect_result, conn);
 	g_signal_connect (priv->socket, "disconnected",
 			  G_CALLBACK (socket_disconnected), conn);
 }
@@ -558,18 +559,23 @@ guint
 soup_connection_connect_sync (SoupConnection *conn)
 {
 	SoupConnectionPrivate *priv;
+	SoupAddress *addr;
 	guint status;
 
 	g_return_val_if_fail (SOUP_IS_CONNECTION (conn), SOUP_STATUS_MALFORMED);
 	priv = SOUP_CONNECTION_GET_PRIVATE (conn);
 	g_return_val_if_fail (priv->socket == NULL, SOUP_STATUS_MALFORMED);
 
+	addr = soup_address_new (priv->conn_uri->host, priv->conn_uri->port);
 	priv->socket =
-		soup_socket_client_new_sync (priv->conn_uri->host,
-					     priv->conn_uri->port,
-					     priv->ssl_creds,
-					     &status);
+		soup_socket_new (SOUP_SOCKET_REMOTE_ADDRESS, addr,
+				 SOUP_SOCKET_SSL_CREDENTIALS, priv->ssl_creds,
+				 SOUP_SOCKET_ASYNC_CONTEXT, priv->async_context,
+				 SOUP_SOCKET_FLAG_NONBLOCKING, FALSE,
+				 NULL);
+	g_object_unref (addr);
 
+	status = soup_socket_connect_sync (priv->socket);
 	if (!SOUP_STATUS_IS_SUCCESSFUL (status))
 		goto fail;
 

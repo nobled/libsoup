@@ -1,0 +1,37 @@
+<gapi-parser-input>
+  <api filename="libsoup-api.raw">
+    <library name="libsoup.dll">
+      <namespace name="Soup">
+        <directory path="../libsoup">
+	  <exclude>soup-auth.c</exclude>
+	  <exclude>soup-auth.h</exclude>
+	  <exclude>soup-auth-basic.c</exclude>
+	  <exclude>soup-auth-basic.h</exclude>
+	  <exclude>soup-auth-digest.c</exclude>
+	  <exclude>soup-auth-digest.h</exclude>
+	  <exclude>soup-connection.c</exclude>
+	  <exclude>soup-connection.h</exclude>
+	  <exclude>soup-connection-ntlm.c</exclude>
+	  <exclude>soup-connection-ntlm.h</exclude>
+	  <exclude>soup-dns.c</exclude>
+	  <exclude>soup-dns.h</exclude>
+	  <exclude>soup-message-queue.c</exclude>
+	  <exclude>soup-message-queue.h</exclude>
+	  <exclude>soup-misc.c</exclude>
+	  <exclude>soup-misc.h</exclude>
+	  <exclude>soup-soap-message.c</exclude>
+	  <exclude>soup-soap-message.h</exclude>
+	  <exclude>soup-soap-response.c</exclude>
+	  <exclude>soup-soap-response.h</exclude>
+	  <exclude>soup-socket.c</exclude>
+	  <exclude>soup-socket.h</exclude>
+	  <exclude>soup-ssl.h</exclude>
+	  <exclude>soup-xmlrpc-message.c</exclude>
+	  <exclude>soup-xmlrpc-message.h</exclude>
+	  <exclude>soup-xmlrpc-response.c</exclude>
+	  <exclude>soup-xmlrpc-response.h</exclude>
+	</directory>
+      </namespace>
+    </library>
+  </api>
+</gapi-parser-input>

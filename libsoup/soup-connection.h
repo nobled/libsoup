@@ -31,12 +31,8 @@ typedef struct {
 	void (*connect_result) (SoupConnection *, guint);
 	void (*disconnected)   (SoupConnection *);
 
-	void (*authenticate)   (SoupConnection *, SoupMessage *,
-				const char *auth_type, const char *auth_realm,
-				char **username, char **password);
-	void (*reauthenticate) (SoupConnection *, SoupMessage *,
-				const char *auth_type, const char *auth_realm,
-				char **username, char **password);
+	void (*authenticate)   (SoupConnection *, SoupMessage *, const char *auth_type, const char *auth_realm, char **username, char **password);
+	void (*reauthenticate) (SoupConnection *, SoupMessage *, const char *auth_type, const char *auth_realm, char **username, char **password);
 
 	/* methods */
 	void (*send_request) (SoupConnection *, SoupMessage *);

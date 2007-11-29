@@ -30,17 +30,11 @@ typedef struct {
 	GObjectClass parent_class;
 
 	/* signals */
-	void (*authenticate)   (SoupSession *, SoupMessage *,
-				const char *auth_type, const char *auth_realm,
-				char **username, char **password);
-	void (*reauthenticate) (SoupSession *, SoupMessage *,
-				const char *auth_type, const char *auth_realm,
-				char **username, char **password);
+	void (*authenticate)   (SoupSession *, SoupMessage *, const char *auth_type, const char *auth_realm, char **username, char **password);
+	void (*reauthenticate) (SoupSession *, SoupMessage *, const char *auth_type, const char *auth_realm, char **username, char **password);
 
 	/* methods */
-	void  (*queue_message)   (SoupSession *session, SoupMessage *msg,
-				  SoupMessageCallbackFn callback,
-				  gpointer user_data);
+	void  (*queue_message)   (SoupSession *session, SoupMessage *msg, SoupMessageCallbackFn callback, gpointer user_data);
 	void  (*requeue_message) (SoupSession *session, SoupMessage *msg);
 	guint (*send_message)    (SoupSession *session, SoupMessage *msg);
 

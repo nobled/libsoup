@@ -289,6 +289,7 @@ AC_OUTPUT([
 	Makefile
 	libsoup-zip
 	libsoup/Makefile
+	mono/Makefile
 	python/Makefile
 	tests/Makefile
 	tests/httpd.conf

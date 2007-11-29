@@ -1,3 +1,13 @@
+2007-11-29  Dan Winship  <danw@gnome.org>
+
+	* mono/: initial doesn't-even-compile-yet C# bindings
+
+	* configure.in: 
+	* Makefile.am (SUBDIRS): add mono
+
+	* libsoup/soup-connection.h:
+	* libsoup/soup-session.h: work around bnc 344853
+
 2007-11-28  Dan Winship  <danw@gnome.org>
 
 	* python/: initial almost-totally-unusable python bindings

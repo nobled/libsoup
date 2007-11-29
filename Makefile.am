@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 AUTOMAKE_OPTIONS = 1.6
 
-SUBDIRS = libsoup python tests docs
+SUBDIRS = libsoup mono python tests docs
 
 EXTRA_DIST = libsoup.pc.in gtk-doc.make libsoup-zip.in
 

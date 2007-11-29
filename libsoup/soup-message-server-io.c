@@ -38,7 +38,9 @@ parse_request_headers (SoupMessage *msg, char *headers, guint headers_len,
 					 &priv->http_version))
 		return SOUP_STATUS_BAD_REQUEST;
 
-	msg->method = g_intern_string (req_method);
+	g_object_set (G_OBJECT (msg),
+		      SOUP_MESSAGE_METHOD, req_method,
+		      NULL);
 	g_free (req_method);
 
 	expect = soup_message_get_header (msg->request_headers, "Expect");

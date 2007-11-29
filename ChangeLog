@@ -1,5 +1,14 @@
 2007-11-29  Dan Winship  <danw@gnome.org>
 
+	* libsoup/soup-message.c: use GObject properties for SoupMessage
+	fields.
+
+	* libsoup/soup-message-server-io.c: 
+	* libsoup/soup-soap-message.c: 
+	* libsoup/soup-xmlrpc-message.c: update for that
+
+2007-11-29  Dan Winship  <danw@gnome.org>
+
 	* mono/: initial doesn't-even-compile-yet C# bindings
 
 	* configure.in: 

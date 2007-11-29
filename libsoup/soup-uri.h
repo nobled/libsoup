@@ -53,6 +53,9 @@ struct SoupUri {
 	gboolean      broken_encoding;
 };
 
+GType     soup_uri_get_type          (void);
+#define SOUP_TYPE_URI (soup_uri_get_type ())
+
 SoupUri  *soup_uri_new_with_base     (const SoupUri *base,
 				      const char    *uri_string);
 SoupUri  *soup_uri_new               (const char    *uri_string);

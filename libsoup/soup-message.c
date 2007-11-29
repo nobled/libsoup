@@ -303,10 +303,11 @@ soup_message_class_init (SoupMessageClass *message_class)
 				     G_PARAM_READWRITE));
 	g_object_class_install_property (
 		object_class, PROP_URI,
-		g_param_spec_pointer (SOUP_MESSAGE_URI,
-				      "URI",
-				      "The message's Request-URI",
-				      G_PARAM_READWRITE));
+		g_param_spec_boxed (SOUP_MESSAGE_URI,
+				    "URI",
+				    "The message's Request-URI",
+				    SOUP_TYPE_URI,
+				    G_PARAM_READWRITE));
 	g_object_class_install_property (
 		object_class, PROP_HTTP_VERSION,
 		g_param_spec_enum (SOUP_MESSAGE_HTTP_VERSION,
@@ -350,7 +351,7 @@ set_property (GObject *object, guint prop_id,
 		msg->method = g_intern_string (g_value_get_string (value));
 		break;
 	case PROP_URI:
-		soup_message_set_uri (msg, g_value_get_pointer (value));
+		soup_message_set_uri (msg, g_value_get_boxed (value));
 		break;
 	case PROP_HTTP_VERSION:
 		soup_message_set_http_version (msg, g_value_get_enum (value));
@@ -382,10 +383,7 @@ get_property (GObject *object, guint prop_id,
 		g_value_set_string (value, msg->method);
 		break;
 	case PROP_URI:
-		if (priv->uri)
-			g_value_set_pointer (value, soup_uri_copy (priv->uri));
-		else
-			g_value_set_pointer (value, NULL);
+		g_value_set_boxed (value, priv->uri);
 		break;
 	case PROP_HTTP_VERSION:
 		g_value_set_enum (value, priv->http_version);

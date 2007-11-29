@@ -532,3 +532,17 @@ soup_uri_uses_default_port (const SoupUri *uri)
 {
 	return uri->port == soup_protocol_default_port (uri->protocol);
 }
+
+GType
+soup_uri_get_type (void)
+{
+	static GType type = 0;
+
+	if (type == 0) {
+		type = g_boxed_type_register_static (
+			g_intern_static_string ("SoupUri"),
+			(GBoxedCopyFunc)soup_uri_copy,
+			(GBoxedFreeFunc)soup_uri_free);
+	}
+	return type;
+}

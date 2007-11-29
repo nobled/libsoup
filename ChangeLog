@@ -1,5 +1,15 @@
 2007-11-29  Dan Winship  <danw@gnome.org>
 
+	* libsoup/soup-message.c:
+	* libsoup/soup-session.c: Make SoupMessage's uri property and
+	SoupSession's proxy_uri property use a boxed pspec
+
+	* libsoup/soup-uri.c: make SoupUri a boxed type
+
+	* python/libsoup.defs (Uri): add boxed SoupUri
+
+2007-11-29  Dan Winship  <danw@gnome.org>
+
 	* libsoup/soup-message.c: use GObject properties for SoupMessage
 	fields.
 

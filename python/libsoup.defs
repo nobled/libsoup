@@ -2190,6 +2190,25 @@
 
 ;; From soup-uri.h
 
+(define-boxed Uri
+  (in-module "Soup")
+  (c-name "SoupUri")
+  (gtype-id "SOUP_TYPE_URI")
+  (copy-func "soup_uri_copy")
+  (release-func "soup_uri_free")
+  (fields
+    '("guint" "protocol")
+    '("char*" "user")
+    '("char*" "passwd")
+    '("char*" "host")
+    '("guint" "port")
+    '("char*" "path")
+    '("char*" "query")
+    '("char*" "fragment")
+    '("gboolean" "broken_encoding")
+  )
+)
+
 (define-method new_with_base
   (of-object "SoupUri")
   (c-name "soup_uri_new_with_base")

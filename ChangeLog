@@ -1,5 +1,17 @@
 2007-11-28  Dan Winship  <danw@gnome.org>
 
+	* libsoup/soup-message.c (soup_message_new)
+	(soup_message_new_from_uri): intern the method string rather
+	than expecting the passed-in string to remain good forever.
+
+	* libsoup/soup-server-message.c: 
+	* libsoup/soup-xmlrpc-message.c (soup_xmlrpc_message_new_from_uri): 
+	* libsoup/soup-soap-message.c (soup_soap_message_new_from_uri): 
+	* libsoup/soup-message-server-io.c (parse_request_headers): Update
+	for that
+
+2007-11-28  Dan Winship  <danw@gnome.org>
+
 	* libsoup/Makefile.am: Use glib-mkenums to build soup-enum-types.c
 	and soup-enum-types.h
 

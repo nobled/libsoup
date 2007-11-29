@@ -27,16 +27,19 @@ parse_request_headers (SoupMessage *msg, char *headers, guint headers_len,
 {
 	SoupMessagePrivate *priv = SOUP_MESSAGE_GET_PRIVATE (msg);
 	SoupUri *uri;
-	char *req_path = NULL, *url;
+	char *req_method, *req_path, *url;
 	const char *expect, *req_host;
 	SoupServer *server;
 
 	if (!soup_headers_parse_request (headers, headers_len,
 					 msg->request_headers,
-					 (char **) &msg->method,
+					 &req_method,
 					 &req_path,
 					 &priv->http_version))
 		return SOUP_STATUS_BAD_REQUEST;
+
+	msg->method = g_intern_string (req_method);
+	g_free (req_method);
 
 	expect = soup_message_get_header (msg->request_headers, "Expect");
 	if (expect && !strcmp (expect, "100-continue"))

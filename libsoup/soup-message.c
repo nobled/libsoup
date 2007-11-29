@@ -300,7 +300,7 @@ soup_message_new (const char *method, const char *uri_string)
 	}
 
 	msg = g_object_new (SOUP_TYPE_MESSAGE, NULL);
-	msg->method = method ? method : SOUP_METHOD_GET;
+	msg->method = g_intern_string (method ? method : SOUP_METHOD_GET);
 	SOUP_MESSAGE_GET_PRIVATE (msg)->uri = uri;
 
 	return msg;
@@ -321,7 +321,7 @@ soup_message_new_from_uri (const char *method, const SoupUri *uri)
 	SoupMessage *msg;
 
 	msg = g_object_new (SOUP_TYPE_MESSAGE, NULL);
-	msg->method = method ? method : SOUP_METHOD_GET;
+	msg->method = g_intern_string (method ? method : SOUP_METHOD_GET);
 	SOUP_MESSAGE_GET_PRIVATE (msg)->uri = soup_uri_copy (uri);
 
 	return msg;

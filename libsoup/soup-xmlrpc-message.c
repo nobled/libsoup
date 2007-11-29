@@ -84,7 +84,7 @@ soup_xmlrpc_message_new_from_uri (const SoupUri *uri)
 	SoupXmlrpcMessage *msg;
 
 	msg = g_object_new (SOUP_TYPE_XMLRPC_MESSAGE, NULL);
-	SOUP_MESSAGE (msg)->method = SOUP_METHOD_POST;
+	SOUP_MESSAGE (msg)->method = g_intern_string (SOUP_METHOD_POST);
 	soup_message_set_uri (SOUP_MESSAGE (msg), uri);
 
 	return msg;

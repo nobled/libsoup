@@ -1,0 +1,2599 @@
+;; -*- scheme -*-
+; object definitions ...
+
+(define-object Address
+  (in-module "Soup")
+  (parent "GObject")
+  (c-name "SoupAddress")
+  (gtype-id "SOUP_TYPE_ADDRESS")
+)
+
+(define-object Connection
+  (in-module "Soup")
+  (parent "GObject")
+  (c-name "SoupConnection")
+  (gtype-id "SOUP_TYPE_CONNECTION")
+)
+
+(define-object Message
+  (in-module "Soup")
+  (parent "GObject")
+  (c-name "SoupMessage")
+  (gtype-id "SOUP_TYPE_MESSAGE")
+)
+
+(define-object Server
+  (in-module "Soup")
+  (parent "GObject")
+  (c-name "SoupServer")
+  (gtype-id "SOUP_TYPE_SERVER")
+)
+
+(define-object ServerMessage
+  (in-module "Soup")
+  (parent "SoupMessage")
+  (c-name "SoupServerMessage")
+  (gtype-id "SOUP_TYPE_SERVER_MESSAGE")
+)
+
+(define-object Session
+  (in-module "Soup")
+  (parent "GObject")
+  (c-name "SoupSession")
+  (gtype-id "SOUP_TYPE_SESSION")
+)
+
+(define-object SessionAsync
+  (in-module "Soup")
+  (parent "SoupSession")
+  (c-name "SoupSessionAsync")
+  (gtype-id "SOUP_TYPE_SESSION_ASYNC")
+)
+
+(define-object SessionSync
+  (in-module "Soup")
+  (parent "SoupSession")
+  (c-name "SoupSessionSync")
+  (gtype-id "SOUP_TYPE_SESSION_SYNC")
+)
+
+(define-object SoapMessage
+  (in-module "Soup")
+  (parent "SoupMessage")
+  (c-name "SoupSoapMessage")
+  (gtype-id "SOUP_TYPE_SOAP_MESSAGE")
+)
+
+(define-object Socket
+  (in-module "Soup")
+  (parent "GObject")
+  (c-name "SoupSocket")
+  (gtype-id "SOUP_TYPE_SOCKET")
+)
+
+(define-object XmlrpcMessage
+  (in-module "Soup")
+  (parent "SoupMessage")
+  (c-name "SoupXmlrpcMessage")
+  (gtype-id "SOUP_TYPE_XMLRPC_MESSAGE")
+)
+
+;; Enumerations and flags ...
+
+(define-enum AddressFamily
+  (in-module "Soup")
+  (c-name "SoupAddressFamily")
+  (gtype-id "SOUP_TYPE_ADDRESS_FAMILY")
+  (values
+    '("4" "SOUP_ADDRESS_FAMILY_IPV4")
+    '("6" "SOUP_ADDRESS_FAMILY_IPV6")
+  )
+)
+
+(define-enum AddressFamily
+  (in-module "Soup")
+  (c-name "SoupAddressFamily")
+  (gtype-id "SOUP_TYPE_ADDRESS_FAMILY")
+  (values
+    '("4" "SOUP_ADDRESS_FAMILY_IPV4")
+    '("6" "SOUP_ADDRESS_FAMILY_IPV6")
+  )
+)
+
+(define-enum MessageStatus
+  (in-module "Soup")
+  (c-name "SoupMessageStatus")
+  (gtype-id "SOUP_TYPE_MESSAGE_STATUS")
+  (values
+    '("idle" "SOUP_MESSAGE_STATUS_IDLE")
+    '("queued" "SOUP_MESSAGE_STATUS_QUEUED")
+    '("connecting" "SOUP_MESSAGE_STATUS_CONNECTING")
+    '("running" "SOUP_MESSAGE_STATUS_RUNNING")
+    '("finished" "SOUP_MESSAGE_STATUS_FINISHED")
+  )
+)
+
+(define-enum TransferEncoding
+  (in-module "Soup")
+  (c-name "SoupTransferEncoding")
+  (gtype-id "SOUP_TYPE_TRANSFER_ENCODING")
+  (values
+    '("unknown" "SOUP_TRANSFER_UNKNOWN")
+    '("chunked" "SOUP_TRANSFER_CHUNKED")
+    '("content-length" "SOUP_TRANSFER_CONTENT_LENGTH")
+    '("byteranges" "SOUP_TRANSFER_BYTERANGES")
+    '("none" "SOUP_TRANSFER_NONE")
+    '("eof" "SOUP_TRANSFER_EOF")
+  )
+)
+
+(define-enum Ownership
+  (in-module "Soup")
+  (c-name "SoupOwnership")
+  (gtype-id "SOUP_TYPE_OWNERSHIP")
+  (values
+    '("system-owned" "SOUP_BUFFER_SYSTEM_OWNED")
+    '("user-owned" "SOUP_BUFFER_USER_OWNED")
+    '("static" "SOUP_BUFFER_STATIC")
+  )
+)
+
+(define-enum HttpVersion
+  (in-module "Soup")
+  (c-name "SoupHttpVersion")
+  (gtype-id "SOUP_TYPE_HTTP_VERSION")
+  (values
+    '("0" "SOUP_HTTP_1_0")
+    '("1" "SOUP_HTTP_1_1")
+  )
+)
+
+(define-flags MessageFlags
+  (in-module "Soup")
+  (c-name "SoupMessageFlags")
+  (gtype-id "SOUP_TYPE_MESSAGE_FLAGS")
+  (values
+    '("no-redirect" "SOUP_MESSAGE_NO_REDIRECT")
+    '("overwrite-chunks" "SOUP_MESSAGE_OVERWRITE_CHUNKS")
+    '("expect-continue" "SOUP_MESSAGE_EXPECT_CONTINUE")
+  )
+)
+
+(define-enum HandlerPhase
+  (in-module "Soup")
+  (c-name "SoupHandlerPhase")
+  (gtype-id "SOUP_TYPE_HANDLER_PHASE")
+  (values
+    '("post-request" "SOUP_HANDLER_POST_REQUEST")
+    '("pre-body" "SOUP_HANDLER_PRE_BODY")
+    '("body-chunk" "SOUP_HANDLER_BODY_CHUNK")
+    '("post-body" "SOUP_HANDLER_POST_BODY")
+  )
+)
+
+(define-enum MethodId
+  (in-module "Soup")
+  (c-name "SoupMethodId")
+  (gtype-id "SOUP_TYPE_METHOD_ID")
+  (values
+    '("unknown" "SOUP_METHOD_ID_UNKNOWN")
+    '("post" "SOUP_METHOD_ID_POST")
+    '("get" "SOUP_METHOD_ID_GET")
+    '("head" "SOUP_METHOD_ID_HEAD")
+    '("options" "SOUP_METHOD_ID_OPTIONS")
+    '("put" "SOUP_METHOD_ID_PUT")
+    '("move" "SOUP_METHOD_ID_MOVE")
+    '("copy" "SOUP_METHOD_ID_COPY")
+    '("delete" "SOUP_METHOD_ID_DELETE")
+    '("trace" "SOUP_METHOD_ID_TRACE")
+    '("connect" "SOUP_METHOD_ID_CONNECT")
+    '("mkcol" "SOUP_METHOD_ID_MKCOL")
+    '("proppatch" "SOUP_METHOD_ID_PROPPATCH")
+    '("propfind" "SOUP_METHOD_ID_PROPFIND")
+    '("patch" "SOUP_METHOD_ID_PATCH")
+    '("lock" "SOUP_METHOD_ID_LOCK")
+    '("unlock" "SOUP_METHOD_ID_UNLOCK")
+  )
+)
+
+(define-enum AuthType
+  (in-module "Soup")
+  (c-name "SoupAuthType")
+  (gtype-id "SOUP_TYPE_AUTH_TYPE")
+  (values
+    '("basic" "SOUP_AUTH_TYPE_BASIC")
+    '("digest" "SOUP_AUTH_TYPE_DIGEST")
+  )
+)
+
+(define-flags DigestAlgorithm
+  (in-module "Soup")
+  (c-name "SoupDigestAlgorithm")
+  (gtype-id "SOUP_TYPE_DIGEST_ALGORITHM")
+  (values
+    '("5" "SOUP_ALGORITHM_MD5")
+    '("5-sess" "SOUP_ALGORITHM_MD5_SESS")
+  )
+)
+
+(define-enum SocketIOStatus
+  (in-module "Soup")
+  (c-name "SoupSocketIOStatus")
+  (gtype-id "SOUP_TYPE_SOCKET_IO_STATUS")
+  (values
+    '("ok" "SOUP_SOCKET_OK")
+    '("would-block" "SOUP_SOCKET_WOULD_BLOCK")
+    '("eof" "SOUP_SOCKET_EOF")
+    '("error" "SOUP_SOCKET_ERROR")
+  )
+)
+
+(define-enum StatusClass
+  (in-module "Soup")
+  (c-name "SoupStatusClass")
+  (gtype-id "SOUP_TYPE_STATUS_CLASS")
+  (values
+    '("transport-error" "SOUP_STATUS_CLASS_TRANSPORT_ERROR")
+    '("informational" "SOUP_STATUS_CLASS_INFORMATIONAL")
+    '("success" "SOUP_STATUS_CLASS_SUCCESS")
+    '("redirect" "SOUP_STATUS_CLASS_REDIRECT")
+    '("client-error" "SOUP_STATUS_CLASS_CLIENT_ERROR")
+    '("server-error" "SOUP_STATUS_CLASS_SERVER_ERROR")
+  )
+)
+
+(define-enum KnownStatusCode
+  (in-module "Soup")
+  (c-name "SoupKnownStatusCode")
+  (gtype-id "SOUP_TYPE_KNOWN_STATUS_CODE")
+  (values
+    '("none" "SOUP_STATUS_NONE")
+    '("cancelled" "SOUP_STATUS_CANCELLED")
+    '("cant-resolve" "SOUP_STATUS_CANT_RESOLVE")
+    '("cant-resolve-proxy" "SOUP_STATUS_CANT_RESOLVE_PROXY")
+    '("cant-connect" "SOUP_STATUS_CANT_CONNECT")
+    '("cant-connect-proxy" "SOUP_STATUS_CANT_CONNECT_PROXY")
+    '("ssl-failed" "SOUP_STATUS_SSL_FAILED")
+    '("io-error" "SOUP_STATUS_IO_ERROR")
+    '("malformed" "SOUP_STATUS_MALFORMED")
+    '("try-again" "SOUP_STATUS_TRY_AGAIN")
+    '("continue" "SOUP_STATUS_CONTINUE")
+    '("switching-protocols" "SOUP_STATUS_SWITCHING_PROTOCOLS")
+    '("processing" "SOUP_STATUS_PROCESSING")
+    '("ok" "SOUP_STATUS_OK")
+    '("created" "SOUP_STATUS_CREATED")
+    '("accepted" "SOUP_STATUS_ACCEPTED")
+    '("non-authoritative" "SOUP_STATUS_NON_AUTHORITATIVE")
+    '("no-content" "SOUP_STATUS_NO_CONTENT")
+    '("reset-content" "SOUP_STATUS_RESET_CONTENT")
+    '("partial-content" "SOUP_STATUS_PARTIAL_CONTENT")
+    '("multi-status" "SOUP_STATUS_MULTI_STATUS")
+    '("multiple-choices" "SOUP_STATUS_MULTIPLE_CHOICES")
+    '("moved-permanently" "SOUP_STATUS_MOVED_PERMANENTLY")
+    '("found" "SOUP_STATUS_FOUND")
+    '("moved-temporarily" "SOUP_STATUS_MOVED_TEMPORARILY")
+    '("see-other" "SOUP_STATUS_SEE_OTHER")
+    '("not-modified" "SOUP_STATUS_NOT_MODIFIED")
+    '("use-proxy" "SOUP_STATUS_USE_PROXY")
+    '("not-appearing-in-this-protocol" "SOUP_STATUS_NOT_APPEARING_IN_THIS_PROTOCOL")
+    '("temporary-redirect" "SOUP_STATUS_TEMPORARY_REDIRECT")
+    '("bad-request" "SOUP_STATUS_BAD_REQUEST")
+    '("unauthorized" "SOUP_STATUS_UNAUTHORIZED")
+    '("payment-required" "SOUP_STATUS_PAYMENT_REQUIRED")
+    '("forbidden" "SOUP_STATUS_FORBIDDEN")
+    '("not-found" "SOUP_STATUS_NOT_FOUND")
+    '("method-not-allowed" "SOUP_STATUS_METHOD_NOT_ALLOWED")
+    '("not-acceptable" "SOUP_STATUS_NOT_ACCEPTABLE")
+    '("proxy-authentication-required" "SOUP_STATUS_PROXY_AUTHENTICATION_REQUIRED")
+    '("proxy-unauthorized" "SOUP_STATUS_PROXY_UNAUTHORIZED")
+    '("request-timeout" "SOUP_STATUS_REQUEST_TIMEOUT")
+    '("conflict" "SOUP_STATUS_CONFLICT")
+    '("gone" "SOUP_STATUS_GONE")
+    '("length-required" "SOUP_STATUS_LENGTH_REQUIRED")
+    '("precondition-failed" "SOUP_STATUS_PRECONDITION_FAILED")
+    '("request-entity-too-large" "SOUP_STATUS_REQUEST_ENTITY_TOO_LARGE")
+    '("request-uri-too-long" "SOUP_STATUS_REQUEST_URI_TOO_LONG")
+    '("unsupported-media-type" "SOUP_STATUS_UNSUPPORTED_MEDIA_TYPE")
+    '("requested-range-not-satisfiable" "SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE")
+    '("invalid-range" "SOUP_STATUS_INVALID_RANGE")
+    '("expectation-failed" "SOUP_STATUS_EXPECTATION_FAILED")
+    '("unprocessable-entity" "SOUP_STATUS_UNPROCESSABLE_ENTITY")
+    '("locked" "SOUP_STATUS_LOCKED")
+    '("failed-dependency" "SOUP_STATUS_FAILED_DEPENDENCY")
+    '("internal-server-error" "SOUP_STATUS_INTERNAL_SERVER_ERROR")
+    '("not-implemented" "SOUP_STATUS_NOT_IMPLEMENTED")
+    '("bad-gateway" "SOUP_STATUS_BAD_GATEWAY")
+    '("service-unavailable" "SOUP_STATUS_SERVICE_UNAVAILABLE")
+    '("gateway-timeout" "SOUP_STATUS_GATEWAY_TIMEOUT")
+    '("http-version-not-supported" "SOUP_STATUS_HTTP_VERSION_NOT_SUPPORTED")
+    '("insufficient-storage" "SOUP_STATUS_INSUFFICIENT_STORAGE")
+    '("not-extended" "SOUP_STATUS_NOT_EXTENDED")
+  )
+)
+
+(define-enum XmlrpcValueType
+  (in-module "Soup")
+  (c-name "SoupXmlrpcValueType")
+  (gtype-id "SOUP_TYPE_XMLRPC_VALUE_TYPE")
+  (values
+    '("bad" "SOUP_XMLRPC_VALUE_TYPE_BAD")
+    '("int" "SOUP_XMLRPC_VALUE_TYPE_INT")
+    '("boolean" "SOUP_XMLRPC_VALUE_TYPE_BOOLEAN")
+    '("string" "SOUP_XMLRPC_VALUE_TYPE_STRING")
+    '("double" "SOUP_XMLRPC_VALUE_TYPE_DOUBLE")
+    '("datetime" "SOUP_XMLRPC_VALUE_TYPE_DATETIME")
+    '("base64" "SOUP_XMLRPC_VALUE_TYPE_BASE64")
+    '("struct" "SOUP_XMLRPC_VALUE_TYPE_STRUCT")
+    '("array" "SOUP_XMLRPC_VALUE_TYPE_ARRAY")
+  )
+)
+
+
+;; From soup-address.h
+
+(define-function soup_address_get_type
+  (c-name "soup_address_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_address_new
+  (c-name "soup_address_new")
+  (is-constructor-of "SoupAddress")
+  (return-type "SoupAddress*")
+  (parameters
+    '("const-char*" "name")
+    '("guint" "port")
+  )
+)
+
+(define-function soup_address_new_from_sockaddr
+  (c-name "soup_address_new_from_sockaddr")
+  (return-type "SoupAddress*")
+  (parameters
+    '("struct-sockaddr*" "sa")
+    '("int" "len")
+  )
+)
+
+(define-function soup_address_new_any
+  (c-name "soup_address_new_any")
+  (return-type "SoupAddress*")
+  (parameters
+    '("SoupAddressFamily" "family")
+    '("guint" "port")
+  )
+)
+
+(define-method resolve_async
+  (of-object "SoupAddress")
+  (c-name "soup_address_resolve_async")
+  (return-type "none")
+  (parameters
+    '("SoupAddressCallback" "callback")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method resolve_async_full
+  (of-object "SoupAddress")
+  (c-name "soup_address_resolve_async_full")
+  (return-type "none")
+  (parameters
+    '("GMainContext*" "async_context")
+    '("SoupAddressCallback" "callback")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method resolve_sync
+  (of-object "SoupAddress")
+  (c-name "soup_address_resolve_sync")
+  (return-type "guint")
+)
+
+(define-method get_name
+  (of-object "SoupAddress")
+  (c-name "soup_address_get_name")
+  (return-type "const-char*")
+)
+
+(define-method get_physical
+  (of-object "SoupAddress")
+  (c-name "soup_address_get_physical")
+  (return-type "const-char*")
+)
+
+(define-method get_port
+  (of-object "SoupAddress")
+  (c-name "soup_address_get_port")
+  (return-type "guint")
+)
+
+
+
+;; From soup-connection.h
+
+(define-function soup_connection_get_type
+  (c-name "soup_connection_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_connection_new
+  (c-name "soup_connection_new")
+  (is-constructor-of "SoupConnection")
+  (return-type "SoupConnection*")
+  (parameters
+    '("const-char*" "propname1")
+  )
+  (varargs #t)
+)
+
+(define-method connect_async
+  (of-object "SoupConnection")
+  (c-name "soup_connection_connect_async")
+  (return-type "none")
+  (parameters
+    '("SoupConnectionCallback" "callback")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method connect_sync
+  (of-object "SoupConnection")
+  (c-name "soup_connection_connect_sync")
+  (return-type "guint")
+)
+
+(define-method disconnect
+  (of-object "SoupConnection")
+  (c-name "soup_connection_disconnect")
+  (return-type "none")
+)
+
+(define-method is_in_use
+  (of-object "SoupConnection")
+  (c-name "soup_connection_is_in_use")
+  (return-type "gboolean")
+)
+
+(define-method last_used
+  (of-object "SoupConnection")
+  (c-name "soup_connection_last_used")
+  (return-type "time_t")
+)
+
+(define-method send_request
+  (of-object "SoupConnection")
+  (c-name "soup_connection_send_request")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "req")
+  )
+)
+
+(define-method reserve
+  (of-object "SoupConnection")
+  (c-name "soup_connection_reserve")
+  (return-type "none")
+)
+
+(define-method release
+  (of-object "SoupConnection")
+  (c-name "soup_connection_release")
+  (return-type "none")
+)
+
+(define-method authenticate
+  (of-object "SoupConnection")
+  (c-name "soup_connection_authenticate")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+    '("const-char*" "auth_type")
+    '("const-char*" "auth_realm")
+    '("char**" "username")
+    '("char**" "password")
+  )
+)
+
+(define-method reauthenticate
+  (of-object "SoupConnection")
+  (c-name "soup_connection_reauthenticate")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+    '("const-char*" "auth_type")
+    '("const-char*" "auth_realm")
+    '("char**" "username")
+    '("char**" "password")
+  )
+)
+
+
+
+;; From soup-date.h
+
+(define-function soup_mktime_utc
+  (c-name "soup_mktime_utc")
+  (return-type "time_t")
+  (parameters
+    '("struct-tm*" "tm")
+  )
+)
+
+(define-function soup_gmtime
+  (c-name "soup_gmtime")
+  (return-type "none")
+  (parameters
+    '("const-time_t*" "when")
+    '("struct-tm*" "tm")
+  )
+)
+
+(define-function soup_date_parse
+  (c-name "soup_date_parse")
+  (return-type "time_t")
+  (parameters
+    '("const-char*" "timestamp")
+  )
+)
+
+(define-function soup_date_generate
+  (c-name "soup_date_generate")
+  (return-type "char*")
+  (parameters
+    '("time_t" "when")
+  )
+)
+
+(define-function soup_date_iso8601_parse
+  (c-name "soup_date_iso8601_parse")
+  (return-type "time_t")
+  (parameters
+    '("const-char*" "timestamp")
+  )
+)
+
+
+
+;; From soup-headers.h
+
+(define-function soup_headers_parse_request
+  (c-name "soup_headers_parse_request")
+  (return-type "gboolean")
+  (parameters
+    '("const-char*" "str")
+    '("int" "len")
+    '("GHashTable*" "dest")
+    '("char**" "req_method")
+    '("char**" "req_path")
+    '("SoupHttpVersion*" "ver")
+  )
+)
+
+(define-function soup_headers_parse_status_line
+  (c-name "soup_headers_parse_status_line")
+  (return-type "gboolean")
+  (parameters
+    '("const-char*" "status_line")
+    '("SoupHttpVersion*" "ver")
+    '("guint*" "status_code")
+    '("char**" "reason_phrase")
+  )
+)
+
+(define-function soup_headers_parse_response
+  (c-name "soup_headers_parse_response")
+  (return-type "gboolean")
+  (parameters
+    '("const-char*" "str")
+    '("int" "len")
+    '("GHashTable*" "dest")
+    '("SoupHttpVersion*" "ver")
+    '("guint*" "status_code")
+    '("char**" "reason_phrase")
+  )
+)
+
+(define-function soup_header_param_decode_token
+  (c-name "soup_header_param_decode_token")
+  (return-type "char*")
+  (parameters
+    '("char**" "in")
+  )
+)
+
+(define-function soup_header_param_parse_list
+  (c-name "soup_header_param_parse_list")
+  (return-type "GHashTable*")
+  (parameters
+    '("const-char*" "header")
+  )
+)
+
+(define-function soup_header_param_copy_token
+  (c-name "soup_header_param_copy_token")
+  (return-type "char*")
+  (parameters
+    '("GHashTable*" "tokens")
+    '("char*" "t")
+  )
+)
+
+(define-function soup_header_param_destroy_hash
+  (c-name "soup_header_param_destroy_hash")
+  (return-type "none")
+  (parameters
+    '("GHashTable*" "table")
+  )
+)
+
+
+
+;; From soup-message.h
+
+(define-function soup_message_get_type
+  (c-name "soup_message_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_message_new
+  (c-name "soup_message_new")
+  (is-constructor-of "SoupMessage")
+  (return-type "SoupMessage*")
+  (parameters
+    '("const-char*" "method")
+    '("const-char*" "uri_string")
+  )
+)
+
+(define-function soup_message_new_from_uri
+  (c-name "soup_message_new_from_uri")
+  (return-type "SoupMessage*")
+  (parameters
+    '("const-char*" "method")
+    '("const-SoupUri*" "uri")
+  )
+)
+
+(define-method set_request
+  (of-object "SoupMessage")
+  (c-name "soup_message_set_request")
+  (return-type "none")
+  (parameters
+    '("const-char*" "content_type")
+    '("SoupOwnership" "req_owner")
+    '("char*" "req_body")
+    '("gulong" "req_length")
+  )
+)
+
+(define-method set_response
+  (of-object "SoupMessage")
+  (c-name "soup_message_set_response")
+  (return-type "none")
+  (parameters
+    '("const-char*" "content_type")
+    '("SoupOwnership" "resp_owner")
+    '("char*" "resp_body")
+    '("gulong" "resp_length")
+  )
+)
+
+(define-function soup_message_add_header
+  (c-name "soup_message_add_header")
+  (return-type "none")
+  (parameters
+    '("GHashTable*" "hash")
+    '("const-char*" "name")
+    '("const-char*" "value")
+  )
+)
+
+(define-function soup_message_get_header
+  (c-name "soup_message_get_header")
+  (return-type "const-char*")
+  (parameters
+    '("GHashTable*" "hash")
+    '("const-char*" "name")
+  )
+)
+
+(define-function soup_message_get_header_list
+  (c-name "soup_message_get_header_list")
+  (return-type "const-GSList*")
+  (parameters
+    '("GHashTable*" "hash")
+    '("const-char*" "name")
+  )
+)
+
+(define-function soup_message_foreach_header
+  (c-name "soup_message_foreach_header")
+  (return-type "none")
+  (parameters
+    '("GHashTable*" "hash")
+    '("GHFunc" "func")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-function soup_message_remove_header
+  (c-name "soup_message_remove_header")
+  (return-type "none")
+  (parameters
+    '("GHashTable*" "hash")
+    '("const-char*" "name")
+  )
+)
+
+(define-function soup_message_clear_headers
+  (c-name "soup_message_clear_headers")
+  (return-type "none")
+  (parameters
+    '("GHashTable*" "hash")
+  )
+)
+
+(define-method set_http_version
+  (of-object "SoupMessage")
+  (c-name "soup_message_set_http_version")
+  (return-type "none")
+  (parameters
+    '("SoupHttpVersion" "version")
+  )
+)
+
+(define-method get_http_version
+  (of-object "SoupMessage")
+  (c-name "soup_message_get_http_version")
+  (return-type "SoupHttpVersion")
+)
+
+(define-method is_keepalive
+  (of-object "SoupMessage")
+  (c-name "soup_message_is_keepalive")
+  (return-type "gboolean")
+)
+
+(define-method get_uri
+  (of-object "SoupMessage")
+  (c-name "soup_message_get_uri")
+  (return-type "const-SoupUri*")
+)
+
+(define-method set_uri
+  (of-object "SoupMessage")
+  (c-name "soup_message_set_uri")
+  (return-type "none")
+  (parameters
+    '("const-SoupUri*" "uri")
+  )
+)
+
+(define-method get_request_encoding
+  (of-object "SoupMessage")
+  (c-name "soup_message_get_request_encoding")
+  (return-type "SoupTransferEncoding")
+  (parameters
+    '("guint*" "content_length")
+  )
+)
+
+(define-method get_response_encoding
+  (of-object "SoupMessage")
+  (c-name "soup_message_get_response_encoding")
+  (return-type "SoupTransferEncoding")
+  (parameters
+    '("guint*" "content_length")
+  )
+)
+
+(define-method set_flags
+  (of-object "SoupMessage")
+  (c-name "soup_message_set_flags")
+  (return-type "none")
+  (parameters
+    '("guint" "flags")
+  )
+)
+
+(define-method get_flags
+  (of-object "SoupMessage")
+  (c-name "soup_message_get_flags")
+  (return-type "guint")
+)
+
+(define-method add_handler
+  (of-object "SoupMessage")
+  (c-name "soup_message_add_handler")
+  (return-type "none")
+  (parameters
+    '("SoupHandlerPhase" "phase")
+    '("SoupMessageCallbackFn" "handler_cb")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method add_header_handler
+  (of-object "SoupMessage")
+  (c-name "soup_message_add_header_handler")
+  (return-type "none")
+  (parameters
+    '("const-char*" "header")
+    '("SoupHandlerPhase" "phase")
+    '("SoupMessageCallbackFn" "handler_cb")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method add_status_code_handler
+  (of-object "SoupMessage")
+  (c-name "soup_message_add_status_code_handler")
+  (return-type "none")
+  (parameters
+    '("guint" "status_code")
+    '("SoupHandlerPhase" "phase")
+    '("SoupMessageCallbackFn" "handler_cb")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method add_status_class_handler
+  (of-object "SoupMessage")
+  (c-name "soup_message_add_status_class_handler")
+  (return-type "none")
+  (parameters
+    '("SoupStatusClass" "status_class")
+    '("SoupHandlerPhase" "phase")
+    '("SoupMessageCallbackFn" "handler_cb")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method remove_handler
+  (of-object "SoupMessage")
+  (c-name "soup_message_remove_handler")
+  (return-type "none")
+  (parameters
+    '("SoupHandlerPhase" "phase")
+    '("SoupMessageCallbackFn" "handler_cb")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method set_status
+  (of-object "SoupMessage")
+  (c-name "soup_message_set_status")
+  (return-type "none")
+  (parameters
+    '("guint" "status_code")
+  )
+)
+
+(define-method set_status_full
+  (of-object "SoupMessage")
+  (c-name "soup_message_set_status_full")
+  (return-type "none")
+  (parameters
+    '("guint" "status_code")
+    '("const-char*" "reason_phrase")
+  )
+)
+
+(define-method add_chunk
+  (of-object "SoupMessage")
+  (c-name "soup_message_add_chunk")
+  (return-type "none")
+  (parameters
+    '("SoupOwnership" "owner")
+    '("const-char*" "body")
+    '("guint" "length")
+  )
+)
+
+(define-method add_final_chunk
+  (of-object "SoupMessage")
+  (c-name "soup_message_add_final_chunk")
+  (return-type "none")
+)
+
+(define-method pop_chunk
+  (of-object "SoupMessage")
+  (c-name "soup_message_pop_chunk")
+  (return-type "SoupDataBuffer*")
+)
+
+(define-method send_request
+  (of-object "SoupMessage")
+  (c-name "soup_message_send_request")
+  (return-type "none")
+  (parameters
+    '("SoupSocket*" "sock")
+    '("gboolean" "is_via_proxy")
+  )
+)
+
+(define-method read_request
+  (of-object "SoupMessage")
+  (c-name "soup_message_read_request")
+  (return-type "none")
+  (parameters
+    '("SoupSocket*" "sock")
+  )
+)
+
+(define-method io_stop
+  (of-object "SoupMessage")
+  (c-name "soup_message_io_stop")
+  (return-type "none")
+)
+
+(define-method io_pause
+  (of-object "SoupMessage")
+  (c-name "soup_message_io_pause")
+  (return-type "none")
+)
+
+(define-method io_unpause
+  (of-object "SoupMessage")
+  (c-name "soup_message_io_unpause")
+  (return-type "none")
+)
+
+(define-method io_in_progress
+  (of-object "SoupMessage")
+  (c-name "soup_message_io_in_progress")
+  (return-type "gboolean")
+)
+
+(define-method wrote_informational
+  (of-object "SoupMessage")
+  (c-name "soup_message_wrote_informational")
+  (return-type "none")
+)
+
+(define-method wrote_headers
+  (of-object "SoupMessage")
+  (c-name "soup_message_wrote_headers")
+  (return-type "none")
+)
+
+(define-method wrote_chunk
+  (of-object "SoupMessage")
+  (c-name "soup_message_wrote_chunk")
+  (return-type "none")
+)
+
+(define-method wrote_body
+  (of-object "SoupMessage")
+  (c-name "soup_message_wrote_body")
+  (return-type "none")
+)
+
+(define-method got_informational
+  (of-object "SoupMessage")
+  (c-name "soup_message_got_informational")
+  (return-type "none")
+)
+
+(define-method got_headers
+  (of-object "SoupMessage")
+  (c-name "soup_message_got_headers")
+  (return-type "none")
+)
+
+(define-method got_chunk
+  (of-object "SoupMessage")
+  (c-name "soup_message_got_chunk")
+  (return-type "none")
+)
+
+(define-method got_body
+  (of-object "SoupMessage")
+  (c-name "soup_message_got_body")
+  (return-type "none")
+)
+
+(define-method restarted
+  (of-object "SoupMessage")
+  (c-name "soup_message_restarted")
+  (return-type "none")
+)
+
+(define-method finished
+  (of-object "SoupMessage")
+  (c-name "soup_message_finished")
+  (return-type "none")
+)
+
+
+
+;; From soup-message-filter.h
+
+(define-function soup_message_filter_get_type
+  (c-name "soup_message_filter_get_type")
+  (return-type "GType")
+)
+
+(define-method setup_message
+  (of-object "SoupMessageFilter")
+  (c-name "soup_message_filter_setup_message")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+  )
+)
+
+
+
+;; From soup-message-queue.h
+
+(define-function soup_message_queue_new
+  (c-name "soup_message_queue_new")
+  (is-constructor-of "SoupMessageQueue")
+  (return-type "SoupMessageQueue*")
+)
+
+(define-method append
+  (of-object "SoupMessageQueue")
+  (c-name "soup_message_queue_append")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+  )
+)
+
+(define-method first
+  (of-object "SoupMessageQueue")
+  (c-name "soup_message_queue_first")
+  (return-type "SoupMessage*")
+  (parameters
+    '("SoupMessageQueueIter*" "iter")
+  )
+)
+
+(define-method next
+  (of-object "SoupMessageQueue")
+  (c-name "soup_message_queue_next")
+  (return-type "SoupMessage*")
+  (parameters
+    '("SoupMessageQueueIter*" "iter")
+  )
+)
+
+(define-method remove
+  (of-object "SoupMessageQueue")
+  (c-name "soup_message_queue_remove")
+  (return-type "SoupMessage*")
+  (parameters
+    '("SoupMessageQueueIter*" "iter")
+  )
+)
+
+(define-method free_iter
+  (of-object "SoupMessageQueue")
+  (c-name "soup_message_queue_free_iter")
+  (return-type "none")
+  (parameters
+    '("SoupMessageQueueIter*" "iter")
+  )
+)
+
+(define-method destroy
+  (of-object "SoupMessageQueue")
+  (c-name "soup_message_queue_destroy")
+  (return-type "none")
+)
+
+(define-method remove_message
+  (of-object "SoupMessageQueue")
+  (c-name "soup_message_queue_remove_message")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+  )
+)
+
+
+
+;; From soup-method.h
+
+(define-function soup_method_get_id
+  (c-name "soup_method_get_id")
+  (return-type "SoupMethodId")
+  (parameters
+    '("const-char*" "method")
+  )
+)
+
+
+
+;; From soup-misc.h
+
+(define-function soup_base64_encode
+  (c-name "soup_base64_encode")
+  (return-type "char*")
+  (parameters
+    '("const-char*" "text")
+    '("int" "len")
+  )
+)
+
+(define-function soup_base64_encode_close
+  (c-name "soup_base64_encode_close")
+  (return-type "int")
+  (parameters
+    '("const-guchar*" "in")
+    '("int" "inlen")
+    '("gboolean" "break_lines")
+    '("guchar*" "out")
+    '("int*" "state")
+    '("int*" "save")
+  )
+)
+
+(define-function soup_base64_encode_step
+  (c-name "soup_base64_encode_step")
+  (return-type "int")
+  (parameters
+    '("const-guchar*" "in")
+    '("int" "len")
+    '("gboolean" "break_lines")
+    '("guchar*" "out")
+    '("int*" "state")
+    '("int*" "save")
+  )
+)
+
+(define-function soup_base64_decode
+  (c-name "soup_base64_decode")
+  (return-type "char*")
+  (parameters
+    '("const-gchar*" "text")
+    '("int*" "out_len")
+  )
+)
+
+(define-function soup_base64_decode_step
+  (c-name "soup_base64_decode_step")
+  (return-type "int")
+  (parameters
+    '("const-guchar*" "in")
+    '("int" "len")
+    '("guchar*" "out")
+    '("int*" "state")
+    '("guint*" "save")
+  )
+)
+
+(define-function soup_add_io_watch
+  (c-name "soup_add_io_watch")
+  (return-type "GSource*")
+  (parameters
+    '("GMainContext*" "async_context")
+    '("GIOChannel*" "chan")
+    '("GIOCondition" "condition")
+    '("GIOFunc" "function")
+    '("gpointer" "data")
+  )
+)
+
+(define-function soup_add_idle
+  (c-name "soup_add_idle")
+  (return-type "GSource*")
+  (parameters
+    '("GMainContext*" "async_context")
+    '("GSourceFunc" "function")
+    '("gpointer" "data")
+  )
+)
+
+(define-function soup_add_timeout
+  (c-name "soup_add_timeout")
+  (return-type "GSource*")
+  (parameters
+    '("GMainContext*" "async_context")
+    '("guint" "interval")
+    '("GSourceFunc" "function")
+    '("gpointer" "data")
+  )
+)
+
+(define-function soup_signal_connect_once
+  (c-name "soup_signal_connect_once")
+  (return-type "guint")
+  (parameters
+    '("gpointer" "instance")
+    '("const-char*" "detailed_signal")
+    '("GCallback" "c_handler")
+    '("gpointer" "data")
+  )
+)
+
+(define-function soup_str_case_hash
+  (c-name "soup_str_case_hash")
+  (return-type "guint")
+  (parameters
+    '("gconstpointer" "key")
+  )
+)
+
+(define-function soup_str_case_equal
+  (c-name "soup_str_case_equal")
+  (return-type "gboolean")
+  (parameters
+    '("gconstpointer" "v1")
+    '("gconstpointer" "v2")
+  )
+)
+
+(define-function soup_xml_real_node
+  (c-name "soup_xml_real_node")
+  (return-type "xmlNode*")
+  (parameters
+    '("xmlNode*" "node")
+  )
+)
+
+
+
+;; From soup-portability.h
+
+
+
+;; From soup-server-auth.h
+
+(define-method challenge
+  (of-object "SoupServerAuthContext")
+  (c-name "soup_server_auth_context_challenge")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+    '("gchar*" "header_name")
+  )
+)
+
+(define-function soup_server_auth_new
+  (c-name "soup_server_auth_new")
+  (is-constructor-of "SoupServerAuth")
+  (return-type "SoupServerAuth*")
+  (parameters
+    '("SoupServerAuthContext*" "auth_ctx")
+    '("const-GSList*" "auth_hdrs")
+    '("SoupMessage*" "msg")
+  )
+)
+
+(define-method free
+  (of-object "SoupServerAuth")
+  (c-name "soup_server_auth_free")
+  (return-type "none")
+)
+
+(define-method get_user
+  (of-object "SoupServerAuth")
+  (c-name "soup_server_auth_get_user")
+  (return-type "const-gchar*")
+)
+
+(define-method check_passwd
+  (of-object "SoupServerAuth")
+  (c-name "soup_server_auth_check_passwd")
+  (return-type "gboolean")
+  (parameters
+    '("gchar*" "passwd")
+  )
+)
+
+
+
+;; From soup-server-message.h
+
+(define-function soup_server_message_get_type
+  (c-name "soup_server_message_get_type")
+  (return-type "GType")
+)
+
+(define-method message_new
+  (of-object "SoupServer")
+  (c-name "soup_server_message_new")
+  (return-type "SoupServerMessage*")
+)
+
+(define-method get_server
+  (of-object "SoupServerMessage")
+  (c-name "soup_server_message_get_server")
+  (return-type "SoupServer*")
+)
+
+(define-method set_encoding
+  (of-object "SoupServerMessage")
+  (c-name "soup_server_message_set_encoding")
+  (return-type "none")
+  (parameters
+    '("SoupTransferEncoding" "encoding")
+  )
+)
+
+(define-method get_encoding
+  (of-object "SoupServerMessage")
+  (c-name "soup_server_message_get_encoding")
+  (return-type "SoupTransferEncoding")
+)
+
+(define-method start
+  (of-object "SoupServerMessage")
+  (c-name "soup_server_message_start")
+  (return-type "none")
+)
+
+(define-method is_started
+  (of-object "SoupServerMessage")
+  (c-name "soup_server_message_is_started")
+  (return-type "gboolean")
+)
+
+(define-method finish
+  (of-object "SoupServerMessage")
+  (c-name "soup_server_message_finish")
+  (return-type "none")
+)
+
+(define-method is_finished
+  (of-object "SoupServerMessage")
+  (c-name "soup_server_message_is_finished")
+  (return-type "gboolean")
+)
+
+
+
+;; From soup-server.h
+
+(define-function soup_server_get_type
+  (c-name "soup_server_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_server_new
+  (c-name "soup_server_new")
+  (is-constructor-of "SoupServer")
+  (return-type "SoupServer*")
+  (parameters
+    '("const-char*" "optname1")
+  )
+  (varargs #t)
+)
+
+(define-method get_protocol
+  (of-object "SoupServer")
+  (c-name "soup_server_get_protocol")
+  (return-type "SoupProtocol")
+)
+
+(define-method get_port
+  (of-object "SoupServer")
+  (c-name "soup_server_get_port")
+  (return-type "guint")
+)
+
+(define-method get_listener
+  (of-object "SoupServer")
+  (c-name "soup_server_get_listener")
+  (return-type "SoupSocket*")
+)
+
+(define-method run
+  (of-object "SoupServer")
+  (c-name "soup_server_run")
+  (return-type "none")
+)
+
+(define-method run_async
+  (of-object "SoupServer")
+  (c-name "soup_server_run_async")
+  (return-type "none")
+)
+
+(define-method quit
+  (of-object "SoupServer")
+  (c-name "soup_server_quit")
+  (return-type "none")
+)
+
+(define-method get_async_context
+  (of-object "SoupServer")
+  (c-name "soup_server_get_async_context")
+  (return-type "GMainContext*")
+)
+
+(define-method add_handler
+  (of-object "SoupServer")
+  (c-name "soup_server_add_handler")
+  (return-type "none")
+  (parameters
+    '("const-char*" "path")
+    '("SoupServerAuthContext*" "auth_ctx")
+    '("SoupServerCallbackFn" "callback")
+    '("SoupServerUnregisterFn" "unreg")
+    '("gpointer" "data")
+  )
+)
+
+(define-method remove_handler
+  (of-object "SoupServer")
+  (c-name "soup_server_remove_handler")
+  (return-type "none")
+  (parameters
+    '("const-char*" "path")
+  )
+)
+
+(define-method get_handler
+  (of-object "SoupServer")
+  (c-name "soup_server_get_handler")
+  (return-type "SoupServerHandler*")
+  (parameters
+    '("const-char*" "path")
+  )
+)
+
+(define-method list_handlers
+  (of-object "SoupServer")
+  (c-name "soup_server_list_handlers")
+  (return-type "GSList*")
+)
+
+(define-method get_client_address
+  (of-object "SoupServerContext")
+  (c-name "soup_server_context_get_client_address")
+  (return-type "SoupAddress*")
+)
+
+(define-method get_client_host
+  (of-object "SoupServerContext")
+  (c-name "soup_server_context_get_client_host")
+  (return-type "const-char*")
+)
+
+
+
+;; From soup-session.h
+
+(define-function soup_session_get_type
+  (c-name "soup_session_get_type")
+  (return-type "GType")
+)
+
+(define-method add_filter
+  (of-object "SoupSession")
+  (c-name "soup_session_add_filter")
+  (return-type "none")
+  (parameters
+    '("SoupMessageFilter*" "filter")
+  )
+)
+
+(define-method remove_filter
+  (of-object "SoupSession")
+  (c-name "soup_session_remove_filter")
+  (return-type "none")
+  (parameters
+    '("SoupMessageFilter*" "filter")
+  )
+)
+
+(define-method get_async_context
+  (of-object "SoupSession")
+  (c-name "soup_session_get_async_context")
+  (return-type "GMainContext*")
+)
+
+(define-method queue_message
+  (of-object "SoupSession")
+  (c-name "soup_session_queue_message")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+    '("SoupMessageCallbackFn" "callback")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method requeue_message
+  (of-object "SoupSession")
+  (c-name "soup_session_requeue_message")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+  )
+)
+
+(define-method send_message
+  (of-object "SoupSession")
+  (c-name "soup_session_send_message")
+  (return-type "guint")
+  (parameters
+    '("SoupMessage*" "msg")
+  )
+)
+
+(define-method cancel_message
+  (of-object "SoupSession")
+  (c-name "soup_session_cancel_message")
+  (return-type "none")
+  (parameters
+    '("SoupMessage*" "msg")
+  )
+)
+
+(define-method abort
+  (of-object "SoupSession")
+  (c-name "soup_session_abort")
+  (return-type "none")
+)
+
+(define-method get_connection
+  (of-object "SoupSession")
+  (c-name "soup_session_get_connection")
+  (return-type "SoupConnection*")
+  (parameters
+    '("SoupMessage*" "msg")
+    '("gboolean*" "try_pruning")
+    '("gboolean*" "is_new")
+  )
+)
+
+(define-method try_prune_connection
+  (of-object "SoupSession")
+  (c-name "soup_session_try_prune_connection")
+  (return-type "gboolean")
+)
+
+
+
+;; From soup-session-async.h
+
+(define-function soup_session_async_get_type
+  (c-name "soup_session_async_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_session_async_new
+  (c-name "soup_session_async_new")
+  (is-constructor-of "SoupSessionAsync")
+  (return-type "SoupSession*")
+)
+
+(define-function soup_session_async_new_with_options
+  (c-name "soup_session_async_new_with_options")
+  (return-type "SoupSession*")
+  (parameters
+    '("const-char*" "optname1")
+  )
+  (varargs #t)
+)
+
+
+
+;; From soup-session-sync.h
+
+(define-function soup_session_sync_get_type
+  (c-name "soup_session_sync_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_session_sync_new
+  (c-name "soup_session_sync_new")
+  (is-constructor-of "SoupSessionSync")
+  (return-type "SoupSession*")
+)
+
+(define-function soup_session_sync_new_with_options
+  (c-name "soup_session_sync_new_with_options")
+  (return-type "SoupSession*")
+  (parameters
+    '("const-char*" "optname1")
+  )
+  (varargs #t)
+)
+
+
+
+;; From soup-soap-message.h
+
+(define-function soup_soap_message_get_type
+  (c-name "soup_soap_message_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_soap_message_new
+  (c-name "soup_soap_message_new")
+  (is-constructor-of "SoupSoapMessage")
+  (return-type "SoupSoapMessage*")
+  (parameters
+    '("const-char*" "method")
+    '("const-char*" "uri_string")
+    '("gboolean" "standalone")
+    '("const-char*" "xml_encoding")
+    '("const-char*" "env_prefix")
+    '("const-char*" "env_uri")
+  )
+)
+
+(define-function soup_soap_message_new_from_uri
+  (c-name "soup_soap_message_new_from_uri")
+  (return-type "SoupSoapMessage*")
+  (parameters
+    '("const-char*" "method")
+    '("const-SoupUri*" "uri")
+    '("gboolean" "standalone")
+    '("const-char*" "xml_encoding")
+    '("const-char*" "env_prefix")
+    '("const-char*" "env_uri")
+  )
+)
+
+(define-method start_envelope
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_start_envelope")
+  (return-type "none")
+)
+
+(define-method end_envelope
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_end_envelope")
+  (return-type "none")
+)
+
+(define-method start_body
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_start_body")
+  (return-type "none")
+)
+
+(define-method end_body
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_end_body")
+  (return-type "none")
+)
+
+(define-method start_element
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_start_element")
+  (return-type "none")
+  (parameters
+    '("const-char*" "name")
+    '("const-char*" "prefix")
+    '("const-char*" "ns_uri")
+  )
+)
+
+(define-method end_element
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_end_element")
+  (return-type "none")
+)
+
+(define-method start_fault
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_start_fault")
+  (return-type "none")
+  (parameters
+    '("const-char*" "faultcode")
+    '("const-char*" "faultstring")
+    '("const-char*" "faultfactor")
+  )
+)
+
+(define-method end_fault
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_end_fault")
+  (return-type "none")
+)
+
+(define-method start_fault_detail
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_start_fault_detail")
+  (return-type "none")
+)
+
+(define-method end_fault_detail
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_end_fault_detail")
+  (return-type "none")
+)
+
+(define-method start_header
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_start_header")
+  (return-type "none")
+)
+
+(define-method end_header
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_end_header")
+  (return-type "none")
+)
+
+(define-method start_header_element
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_start_header_element")
+  (return-type "none")
+  (parameters
+    '("const-char*" "name")
+    '("gboolean" "must_understand")
+    '("const-char*" "actor_uri")
+    '("const-char*" "prefix")
+    '("const-char*" "ns_uri")
+  )
+)
+
+(define-method end_header_element
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_end_header_element")
+  (return-type "none")
+)
+
+(define-method write_int
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_write_int")
+  (return-type "none")
+  (parameters
+    '("glong" "i")
+  )
+)
+
+(define-method write_double
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_write_double")
+  (return-type "none")
+  (parameters
+    '("double" "d")
+  )
+)
+
+(define-method write_base64
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_write_base64")
+  (return-type "none")
+  (parameters
+    '("const-char*" "string")
+    '("int" "len")
+  )
+)
+
+(define-method write_time
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_write_time")
+  (return-type "none")
+  (parameters
+    '("const-time_t*" "timeval")
+  )
+)
+
+(define-method write_string
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_write_string")
+  (return-type "none")
+  (parameters
+    '("const-char*" "string")
+  )
+)
+
+(define-method write_buffer
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_write_buffer")
+  (return-type "none")
+  (parameters
+    '("const-char*" "buffer")
+    '("int" "len")
+  )
+)
+
+(define-method set_element_type
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_set_element_type")
+  (return-type "none")
+  (parameters
+    '("const-char*" "xsi_type")
+  )
+)
+
+(define-method set_null
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_set_null")
+  (return-type "none")
+)
+
+(define-method add_attribute
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_add_attribute")
+  (return-type "none")
+  (parameters
+    '("const-char*" "name")
+    '("const-char*" "value")
+    '("const-char*" "prefix")
+    '("const-char*" "ns_uri")
+  )
+)
+
+(define-method add_namespace
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_add_namespace")
+  (return-type "none")
+  (parameters
+    '("const-char*" "prefix")
+    '("const-char*" "ns_uri")
+  )
+)
+
+(define-method set_default_namespace
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_set_default_namespace")
+  (return-type "none")
+  (parameters
+    '("const-char*" "ns_uri")
+  )
+)
+
+(define-method set_encoding_style
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_set_encoding_style")
+  (return-type "none")
+  (parameters
+    '("const-char*" "enc_style")
+  )
+)
+
+(define-method reset
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_reset")
+  (return-type "none")
+)
+
+(define-method persist
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_persist")
+  (return-type "none")
+)
+
+(define-method get_namespace_prefix
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_get_namespace_prefix")
+  (return-type "const-char*")
+  (parameters
+    '("const-char*" "ns_uri")
+  )
+)
+
+(define-method get_xml_doc
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_get_xml_doc")
+  (return-type "xmlDocPtr")
+)
+
+(define-method parse_response
+  (of-object "SoupSoapMessage")
+  (c-name "soup_soap_message_parse_response")
+  (return-type "SoupSoapResponse*")
+)
+
+
+
+;; From soup-soap-response.h
+
+(define-function soup_soap_response_get_type
+  (c-name "soup_soap_response_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_soap_response_new
+  (c-name "soup_soap_response_new")
+  (is-constructor-of "SoupSoapResponse")
+  (return-type "SoupSoapResponse*")
+)
+
+(define-function soup_soap_response_new_from_string
+  (c-name "soup_soap_response_new_from_string")
+  (return-type "SoupSoapResponse*")
+  (parameters
+    '("const-char*" "xmlstr")
+  )
+)
+
+(define-method from_string
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_from_string")
+  (return-type "gboolean")
+  (parameters
+    '("const-char*" "xmlstr")
+  )
+)
+
+(define-method get_method_name
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_get_method_name")
+  (return-type "const-char*")
+)
+
+(define-method set_method_name
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_set_method_name")
+  (return-type "none")
+  (parameters
+    '("const-char*" "method_name")
+  )
+)
+
+(define-method get_name
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_name")
+  (return-type "const-char*")
+)
+
+(define-method get_int_value
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_int_value")
+  (return-type "int")
+)
+
+(define-method get_string_value
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_string_value")
+  (return-type "char*")
+)
+
+(define-method get_first_child
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_first_child")
+  (return-type "SoupSoapParameter*")
+)
+
+(define-method get_first_child_by_name
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_first_child_by_name")
+  (return-type "SoupSoapParameter*")
+  (parameters
+    '("const-char*" "name")
+  )
+)
+
+(define-method get_next_child
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_next_child")
+  (return-type "SoupSoapParameter*")
+)
+
+(define-method get_next_child_by_name
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_next_child_by_name")
+  (return-type "SoupSoapParameter*")
+  (parameters
+    '("const-char*" "name")
+  )
+)
+
+(define-method get_property
+  (of-object "SoupSoapParameter")
+  (c-name "soup_soap_parameter_get_property")
+  (return-type "char*")
+  (parameters
+    '("const-char*" "prop_name")
+  )
+)
+
+(define-method get_parameters
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_get_parameters")
+  (return-type "const-GList*")
+)
+
+(define-method get_first_parameter
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_get_first_parameter")
+  (return-type "SoupSoapParameter*")
+)
+
+(define-method get_first_parameter_by_name
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_get_first_parameter_by_name")
+  (return-type "SoupSoapParameter*")
+  (parameters
+    '("const-char*" "name")
+  )
+)
+
+(define-method get_next_parameter
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_get_next_parameter")
+  (return-type "SoupSoapParameter*")
+  (parameters
+    '("SoupSoapParameter*" "from")
+  )
+)
+
+(define-method get_next_parameter_by_name
+  (of-object "SoupSoapResponse")
+  (c-name "soup_soap_response_get_next_parameter_by_name")
+  (return-type "SoupSoapParameter*")
+  (parameters
+    '("SoupSoapParameter*" "from")
+    '("const-char*" "name")
+  )
+)
+
+
+
+;; From soup-socket.h
+
+(define-function soup_socket_get_type
+  (c-name "soup_socket_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_socket_new
+  (c-name "soup_socket_new")
+  (is-constructor-of "SoupSocket")
+  (return-type "SoupSocket*")
+  (parameters
+    '("const-char*" "optname1")
+  )
+  (varargs #t)
+)
+
+(define-method connect
+  (of-object "SoupSocket")
+  (c-name "soup_socket_connect")
+  (return-type "guint")
+  (parameters
+    '("SoupAddress*" "remote_addr")
+  )
+)
+
+(define-method listen
+  (of-object "SoupSocket")
+  (c-name "soup_socket_listen")
+  (return-type "gboolean")
+  (parameters
+    '("SoupAddress*" "local_addr")
+  )
+)
+
+(define-method start_ssl
+  (of-object "SoupSocket")
+  (c-name "soup_socket_start_ssl")
+  (return-type "gboolean")
+)
+
+(define-method start_proxy_ssl
+  (of-object "SoupSocket")
+  (c-name "soup_socket_start_proxy_ssl")
+  (return-type "gboolean")
+  (parameters
+    '("const-char*" "ssl_host")
+  )
+)
+
+(define-method disconnect
+  (of-object "SoupSocket")
+  (c-name "soup_socket_disconnect")
+  (return-type "none")
+)
+
+(define-method is_connected
+  (of-object "SoupSocket")
+  (c-name "soup_socket_is_connected")
+  (return-type "gboolean")
+)
+
+(define-function soup_socket_client_new_async
+  (c-name "soup_socket_client_new_async")
+  (return-type "SoupSocket*")
+  (parameters
+    '("const-char*" "hostname")
+    '("guint" "port")
+    '("gpointer" "ssl_creds")
+    '("SoupSocketCallback" "callback")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-function soup_socket_client_new_sync
+  (c-name "soup_socket_client_new_sync")
+  (return-type "SoupSocket*")
+  (parameters
+    '("const-char*" "hostname")
+    '("guint" "port")
+    '("gpointer" "ssl_creds")
+    '("guint*" "status_ret")
+  )
+)
+
+(define-function soup_socket_server_new
+  (c-name "soup_socket_server_new")
+  (is-constructor-of "SoupSocketServer")
+  (return-type "SoupSocket*")
+  (parameters
+    '("SoupAddress*" "local_addr")
+    '("gpointer" "ssl_creds")
+    '("SoupSocketListenerCallback" "callback")
+    '("gpointer" "user_data")
+  )
+)
+
+(define-method get_local_address
+  (of-object "SoupSocket")
+  (c-name "soup_socket_get_local_address")
+  (return-type "SoupAddress*")
+)
+
+(define-method get_remote_address
+  (of-object "SoupSocket")
+  (c-name "soup_socket_get_remote_address")
+  (return-type "SoupAddress*")
+)
+
+(define-method read
+  (of-object "SoupSocket")
+  (c-name "soup_socket_read")
+  (return-type "SoupSocketIOStatus")
+  (parameters
+    '("gpointer" "buffer")
+    '("gsize" "len")
+    '("gsize*" "nread")
+  )
+)
+
+(define-method read_until
+  (of-object "SoupSocket")
+  (c-name "soup_socket_read_until")
+  (return-type "SoupSocketIOStatus")
+  (parameters
+    '("gpointer" "buffer")
+    '("gsize" "len")
+    '("gconstpointer" "boundary")
+    '("gsize" "boundary_len")
+    '("gsize*" "nread")
+    '("gboolean*" "got_boundary")
+  )
+)
+
+(define-method write
+  (of-object "SoupSocket")
+  (c-name "soup_socket_write")
+  (return-type "SoupSocketIOStatus")
+  (parameters
+    '("gconstpointer" "buffer")
+    '("gsize" "len")
+    '("gsize*" "nwrote")
+  )
+)
+
+
+
+;; From soup-status.h
+
+(define-function soup_status_get_phrase
+  (c-name "soup_status_get_phrase")
+  (return-type "const-char*")
+  (parameters
+    '("guint" "status_code")
+  )
+)
+
+
+
+;; From soup-types.h
+
+
+
+;; From soup-uri.h
+
+(define-method new_with_base
+  (of-object "SoupUri")
+  (c-name "soup_uri_new_with_base")
+  (return-type "SoupUri*")
+  (parameters
+    '("const-char*" "uri_string")
+  )
+)
+
+(define-function soup_uri_new
+  (c-name "soup_uri_new")
+  (is-constructor-of "SoupUri")
+  (return-type "SoupUri*")
+  (parameters
+    '("const-char*" "uri_string")
+  )
+)
+
+(define-method to_string
+  (of-object "SoupUri")
+  (c-name "soup_uri_to_string")
+  (return-type "char*")
+  (parameters
+    '("gboolean" "just_path")
+  )
+)
+
+(define-method copy
+  (of-object "SoupUri")
+  (c-name "soup_uri_copy")
+  (return-type "SoupUri*")
+)
+
+(define-method copy_root
+  (of-object "SoupUri")
+  (c-name "soup_uri_copy_root")
+  (return-type "SoupUri*")
+)
+
+(define-method equal
+  (of-object "SoupUri")
+  (c-name "soup_uri_equal")
+  (return-type "gboolean")
+  (parameters
+    '("const-SoupUri*" "uri2")
+  )
+)
+
+(define-method free
+  (of-object "SoupUri")
+  (c-name "soup_uri_free")
+  (return-type "none")
+)
+
+(define-function soup_uri_encode
+  (c-name "soup_uri_encode")
+  (return-type "char*")
+  (parameters
+    '("const-char*" "part")
+    '("const-char*" "escape_extra")
+  )
+)
+
+(define-function soup_uri_decode
+  (c-name "soup_uri_decode")
+  (return-type "none")
+  (parameters
+    '("char*" "part")
+  )
+)
+
+(define-method uses_default_port
+  (of-object "SoupUri")
+  (c-name "soup_uri_uses_default_port")
+  (return-type "gboolean")
+)
+
+
+
+;; From soup-xmlrpc-message.h
+
+(define-function soup_xmlrpc_message_get_type
+  (c-name "soup_xmlrpc_message_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_xmlrpc_message_new
+  (c-name "soup_xmlrpc_message_new")
+  (is-constructor-of "SoupXmlrpcMessage")
+  (return-type "SoupXmlrpcMessage*")
+  (parameters
+    '("const-char*" "uri_string")
+  )
+)
+
+(define-function soup_xmlrpc_message_new_from_uri
+  (c-name "soup_xmlrpc_message_new_from_uri")
+  (return-type "SoupXmlrpcMessage*")
+  (parameters
+    '("const-SoupUri*" "uri")
+  )
+)
+
+(define-method start_call
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_start_call")
+  (return-type "none")
+  (parameters
+    '("const-char*" "method_name")
+  )
+)
+
+(define-method end_call
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_end_call")
+  (return-type "none")
+)
+
+(define-method start_param
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_start_param")
+  (return-type "none")
+)
+
+(define-method end_param
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_end_param")
+  (return-type "none")
+)
+
+(define-method write_int
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_write_int")
+  (return-type "none")
+  (parameters
+    '("long" "i")
+  )
+)
+
+(define-method write_boolean
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_write_boolean")
+  (return-type "none")
+  (parameters
+    '("gboolean" "b")
+  )
+)
+
+(define-method write_string
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_write_string")
+  (return-type "none")
+  (parameters
+    '("const-char*" "str")
+  )
+)
+
+(define-method write_double
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_write_double")
+  (return-type "none")
+  (parameters
+    '("double" "d")
+  )
+)
+
+(define-method write_datetime
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_write_datetime")
+  (return-type "none")
+  (parameters
+    '("const-time_t" "timeval")
+  )
+)
+
+(define-method write_base64
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_write_base64")
+  (return-type "none")
+  (parameters
+    '("gconstpointer" "buf")
+    '("int" "len")
+  )
+)
+
+(define-method start_struct
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_start_struct")
+  (return-type "none")
+)
+
+(define-method end_struct
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_end_struct")
+  (return-type "none")
+)
+
+(define-method start_member
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_start_member")
+  (return-type "none")
+  (parameters
+    '("const-char*" "name")
+  )
+)
+
+(define-method end_member
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_end_member")
+  (return-type "none")
+)
+
+(define-method start_array
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_start_array")
+  (return-type "none")
+)
+
+(define-method end_array
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_end_array")
+  (return-type "none")
+)
+
+(define-method from_string
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_from_string")
+  (return-type "gboolean")
+  (parameters
+    '("const-char*" "xmlstr")
+  )
+)
+
+(define-method to_string
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_to_string")
+  (return-type "xmlChar*")
+)
+
+(define-method persist
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_persist")
+  (return-type "none")
+)
+
+(define-method parse_response
+  (of-object "SoupXmlrpcMessage")
+  (c-name "soup_xmlrpc_message_parse_response")
+  (return-type "SoupXmlrpcResponse*")
+)
+
+
+
+;; From soup-xmlrpc-response.h
+
+(define-function soup_xmlrpc_response_get_type
+  (c-name "soup_xmlrpc_response_get_type")
+  (return-type "GType")
+)
+
+(define-function soup_xmlrpc_response_new
+  (c-name "soup_xmlrpc_response_new")
+  (is-constructor-of "SoupXmlrpcResponse")
+  (return-type "SoupXmlrpcResponse*")
+)
+
+(define-function soup_xmlrpc_response_new_from_string
+  (c-name "soup_xmlrpc_response_new_from_string")
+  (return-type "SoupXmlrpcResponse*")
+  (parameters
+    '("const-char*" "xmlstr")
+  )
+)
+
+(define-method from_string
+  (of-object "SoupXmlrpcResponse")
+  (c-name "soup_xmlrpc_response_from_string")
+  (return-type "gboolean")
+  (parameters
+    '("const-char*" "xmlstr")
+  )
+)
+
+(define-method to_string
+  (of-object "SoupXmlrpcResponse")
+  (c-name "soup_xmlrpc_response_to_string")
+  (return-type "xmlChar*")
+)
+
+(define-method is_fault
+  (of-object "SoupXmlrpcResponse")
+  (c-name "soup_xmlrpc_response_is_fault")
+  (return-type "gboolean")
+)
+
+(define-method get_value
+  (of-object "SoupXmlrpcResponse")
+  (c-name "soup_xmlrpc_response_get_value")
+  (return-type "SoupXmlrpcValue*")
+)
+
+(define-method get_type
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_type")
+  (return-type "SoupXmlrpcValueType")
+)
+
+(define-method get_int
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_int")
+  (return-type "gboolean")
+  (parameters
+    '("long*" "i")
+  )
+)
+
+(define-method get_double
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_double")
+  (return-type "gboolean")
+  (parameters
+    '("double*" "b")
+  )
+)
+
+(define-method get_boolean
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_boolean")
+  (return-type "gboolean")
+  (parameters
+    '("gboolean*" "b")
+  )
+)
+
+(define-method get_string
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_string")
+  (return-type "gboolean")
+  (parameters
+    '("char**" "str")
+  )
+)
+
+(define-method get_datetime
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_datetime")
+  (return-type "gboolean")
+  (parameters
+    '("time_t*" "timeval")
+  )
+)
+
+(define-method get_base64
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_base64")
+  (return-type "gboolean")
+  (parameters
+    '("GByteArray**" "data")
+  )
+)
+
+(define-method get_struct
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_get_struct")
+  (return-type "gboolean")
+  (parameters
+    '("GHashTable**" "table")
+  )
+)
+
+(define-method array_get_iterator
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_array_get_iterator")
+  (return-type "gboolean")
+  (parameters
+    '("SoupXmlrpcValueArrayIterator**" "iter")
+  )
+)
+
+(define-method prev
+  (of-object "SoupXmlrpcValueArrayIterator")
+  (c-name "soup_xmlrpc_value_array_iterator_prev")
+  (return-type "SoupXmlrpcValueArrayIterator*")
+)
+
+(define-method next
+  (of-object "SoupXmlrpcValueArrayIterator")
+  (c-name "soup_xmlrpc_value_array_iterator_next")
+  (return-type "SoupXmlrpcValueArrayIterator*")
+)
+
+(define-method get_value
+  (of-object "SoupXmlrpcValueArrayIterator")
+  (c-name "soup_xmlrpc_value_array_iterator_get_value")
+  (return-type "gboolean")
+  (parameters
+    '("SoupXmlrpcValue**" "value")
+  )
+)
+
+(define-method dump
+  (of-object "SoupXmlrpcValue")
+  (c-name "soup_xmlrpc_value_dump")
+  (return-type "none")
+)
+
+

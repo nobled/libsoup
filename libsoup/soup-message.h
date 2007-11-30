@@ -7,6 +7,7 @@
 #define SOUP_MESSAGE_H 1
 
 #include <libsoup/soup-types.h>
+#include <libsoup/soup-message-headers.h>
 #include <libsoup/soup-method.h>
 
 G_BEGIN_DECLS
@@ -128,10 +129,10 @@ struct SoupMessage {
 	const char         *reason_phrase;
 
 	SoupDataBuffer      request;
-	GHashTable         *request_headers;
+	SoupMessageHeaders *request_headers;
 
 	SoupDataBuffer      response;
-	GHashTable         *response_headers;
+	SoupMessageHeaders *response_headers;
 
 	SoupMessageStatus   status;
 };
@@ -187,24 +188,26 @@ void           soup_message_set_response        (SoupMessage       *msg,
 						 char              *resp_body,
 						 gulong             resp_length);
 
-void           soup_message_add_header          (GHashTable        *hash,
-						 const char        *name,
-						 const char        *value);
+#ifndef LIBSOUP_DISABLE_DEPRECATED
+void           soup_message_add_header          (SoupMessageHeaders *hdrs,
+						 const char         *name,
+						 const char         *value);
 
-const char    *soup_message_get_header          (GHashTable        *hash,
-						 const char        *name);
+const char    *soup_message_get_header          (SoupMessageHeaders *hdrs,
+						 const char         *name);
 
-const GSList  *soup_message_get_header_list     (GHashTable        *hash,
-						 const char        *name);
+const GSList  *soup_message_get_header_list     (SoupMessageHeaders *hdrs,
+						 const char         *name);
 
-void           soup_message_foreach_header      (GHashTable        *hash,
-						 GHFunc             func,
-						 gpointer           user_data);
+void           soup_message_foreach_header      (SoupMessageHeaders *hdrs,
+						 GHFunc              func,
+						 gpointer            user_data);
 
-void           soup_message_remove_header       (GHashTable        *hash,
-						 const char        *name);
+void           soup_message_remove_header       (SoupMessageHeaders *hdrs,
+						 const char         *name);
 
-void           soup_message_clear_headers       (GHashTable        *hash);
+void           soup_message_clear_headers       (SoupMessageHeaders *hdrs);
+#endif /* LIBSOUP_DISABLE_DEPRECATED */
 
 /**
  * SoupHttpVersion:

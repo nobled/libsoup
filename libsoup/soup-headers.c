@@ -14,14 +14,11 @@
 #include "soup-misc.h"
 
 static gboolean
-soup_headers_parse (const char *str, 
-		    int         len, 
-		    GHashTable *dest)
+soup_headers_parse (const char *str, int len, SoupMessageHeaders *dest)
 {
 	const char *end = str + len;
 	const char *name_start, *name_end, *value_start, *value_end;
 	char *name, *value, *eol, *sol;
-	GSList *hdrs;
 
 	/* Technically, the grammar does allow NUL bytes in the
 	 * headers, but this is probably a bug, and if it's not, we
@@ -91,12 +88,7 @@ soup_headers_parse (const char *str,
 			eol--;
 		*eol = '\0';
 
-		hdrs = g_hash_table_lookup (dest, name);
-		hdrs = g_slist_append (hdrs, value);
-		if (!hdrs->next)
-			g_hash_table_insert (dest, name, hdrs);
-		else
-			g_free (name);
+		soup_message_headers_append (dest, name, value);
         }
 
 	return TRUE;
@@ -106,7 +98,7 @@ soup_headers_parse (const char *str,
  * soup_headers_parse_request:
  * @str: the header string (including the trailing blank line)
  * @len: length of @str up to (but not including) the terminating blank line.
- * @dest: #GHashTable to store the header values in
+ * @req_headers: #SoupMessageHeaders to store the header values in
  * @req_method: if non-%NULL, will be filled in with the request method
  * @req_path: if non-%NULL, will be filled in with the request path
  * @ver: if non-%NULL, will be filled in with the HTTP version
@@ -119,12 +111,12 @@ soup_headers_parse (const char *str,
  * Return value: success or failure.
  **/
 gboolean
-soup_headers_parse_request (const char       *str, 
-			    int               len, 
-			    GHashTable       *dest, 
-			    char            **req_method,
-			    char            **req_path,
-			    SoupHttpVersion  *ver) 
+soup_headers_parse_request (const char          *str, 
+			    int                  len, 
+			    SoupMessageHeaders  *req_headers,
+			    char               **req_method,
+			    char               **req_path,
+			    SoupHttpVersion     *ver) 
 {
 	const char *method, *method_end, *path, *path_end, *version, *headers;
 	int minor_version;
@@ -183,7 +175,7 @@ soup_headers_parse_request (const char       *str,
 	if (headers >= str + len || *headers != '\n')
 		return FALSE;
 
-	if (!soup_headers_parse (str, len, dest)) 
+	if (!soup_headers_parse (str, len, req_headers)) 
 		return FALSE;
 
 	if (req_method)
@@ -258,7 +250,7 @@ soup_headers_parse_status_line (const char       *status_line,
  * soup_headers_parse_response:
  * @str: the header string (including the trailing blank line)
  * @len: length of @str up to (but not including) the terminating blank line.
- * @dest: #GHashTable to store the header values in
+ * @headers: #SoupMessageheaders to store the header values in
  * @ver: if non-%NULL, will be filled in with the HTTP version
  * @status_code: if non-%NULL, will be filled in with the status code
  * @reason_phrase: if non-%NULL, will be filled in with the reason
@@ -272,17 +264,17 @@ soup_headers_parse_status_line (const char       *status_line,
  * Return value: success or failure.
  **/
 gboolean
-soup_headers_parse_response (const char       *str, 
-			     int               len, 
-			     GHashTable       *dest,
-			     SoupHttpVersion  *ver,
-			     guint            *status_code,
-			     char            **reason_phrase)
+soup_headers_parse_response (const char          *str, 
+			     int                  len, 
+			     SoupMessageHeaders  *headers,
+			     SoupHttpVersion     *ver,
+			     guint               *status_code,
+			     char               **reason_phrase)
 {
 	if (!str || !*str)
 		return FALSE;
 
-	if (!soup_headers_parse (str, len, dest)) 
+	if (!soup_headers_parse (str, len, headers)) 
 		return FALSE;
 
 	if (!soup_headers_parse_status_line (str, 

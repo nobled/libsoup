@@ -452,23 +452,26 @@ struct ResponseTest {
 static const int num_resptests = G_N_ELEMENTS (resptests);
 
 static void
-print_header (gpointer key, gpointer value, gpointer data)
+print_header (const char *name, const char *value, gpointer data)
 {
-	GSList *values = value;
-	dprintf ("              '%s': '%s'\n",
-		 (char *)key, (char*)values->data);
+	dprintf ("              '%s': '%s'\n", name, value);
 }
 
 static void
-free_headers (gpointer value)
+count_header (const char *name, const char *value, gpointer data)
 {
-	GSList *headers = value;
+	int *count = data;
 
-	/* We know that there are no duplicate headers in any of the
-	 * test cases, so...
-	 */
-	g_free (headers->data);
-	g_slist_free (headers);
+	*count = *count + 1;
+}
+
+static int
+count_headers (SoupMessageHeaders *hdrs)
+{
+	int count = 0;
+
+	soup_message_headers_foreach (hdrs, count_header, &count);
+	return count;
 }
 
 static int
@@ -476,9 +479,9 @@ do_request_tests (void)
 {
 	int i, len, h, errors = 0;
 	char *method, *path;
-	GSList *values;
+	const char *value;
 	SoupHttpVersion version;
-	GHashTable *headers;
+	SoupMessageHeaders *headers;
 
 	dprintf ("Request tests\n");
 	for (i = 0; i < 1; i++) {
@@ -487,8 +490,7 @@ do_request_tests (void)
 		dprintf ("%2d. %s (%s): ", i + 1, reqtests[i].description,
 			 reqtests[i].method ? "should parse" : "should NOT parse");
 
-		headers = g_hash_table_new_full (g_str_hash, g_str_equal,
-						 g_free, free_headers);
+		headers = soup_message_headers_new ();
 		method = path = NULL;
 
 		if (reqtests[i].length == -1)
@@ -506,12 +508,12 @@ do_request_tests (void)
 				ok = FALSE;
 
 			for (h = 0; reqtests[i].headers[h].name; h++) {
-				values = g_hash_table_lookup (headers, reqtests[i].headers[h].name);
-				if (!values || values->next ||
-				    strcmp (reqtests[i].headers[h].value, values->data) != 0)
+				value = soup_message_headers_find (headers, reqtests[i].headers[h].name);
+				if (!value || soup_message_headers_find_nth (headers, reqtests[i].headers[h].name, 1) ||
+				    strcmp (reqtests[i].headers[h].value, value) != 0)
 					ok = FALSE;
 			}
-			if (g_hash_table_size (headers) != h)
+			if (count_headers (headers) != h)
 				ok = FALSE;
 		} else {
 			if (reqtests[i].method)
@@ -537,14 +539,14 @@ do_request_tests (void)
 			if (method) {
 				dprintf ("         got: '%s' '%s' 'HTTP/1.%d'\n",
 					method, path, version);
-				g_hash_table_foreach (headers, print_header, NULL);
+				soup_message_headers_foreach (headers, print_header, NULL);
 			} else
 				dprintf ("         got: parse error\n");
 		}
 
 		g_free (method);
 		g_free (path);
-		g_hash_table_destroy (headers);
+		soup_message_headers_free (headers);
 	}
 	dprintf ("\n");
 
@@ -557,9 +559,9 @@ do_response_tests (void)
 	int i, len, h, errors = 0;
 	guint status_code;
 	char *reason_phrase;
-	GSList *values;
+	const char *value;
 	SoupHttpVersion version;
-	GHashTable *headers;
+	SoupMessageHeaders *headers;
 
 	dprintf ("Response tests\n");
 	for (i = 0; i < num_resptests; i++) {
@@ -568,8 +570,7 @@ do_response_tests (void)
 		dprintf ("%2d. %s (%s): ", i + 1, resptests[i].description,
 			 resptests[i].reason_phrase ? "should parse" : "should NOT parse");
 
-		headers = g_hash_table_new_full (g_str_hash, g_str_equal,
-						 g_free, free_headers);
+		headers = soup_message_headers_new ();
 		reason_phrase = NULL;
 
 		if (resptests[i].length == -1)
@@ -587,12 +588,12 @@ do_response_tests (void)
 				ok = FALSE;
 
 			for (h = 0; resptests[i].headers[h].name; h++) {
-				values = g_hash_table_lookup (headers, resptests[i].headers[h].name);
-				if (!values || values->next ||
-				    strcmp (resptests[i].headers[h].value, values->data) != 0)
+				value = soup_message_headers_find (headers, resptests[i].headers[h].name);
+				if (!value || soup_message_headers_find_nth (headers, resptests[i].headers[h].name, 1) ||
+				    strcmp (resptests[i].headers[h].value, value) != 0)
 					ok = FALSE;
 			}
-			if (g_hash_table_size (headers) != h)
+			if (count_headers (headers) != h)
 				ok = FALSE;
 		} else {
 			if (resptests[i].reason_phrase)
@@ -619,13 +620,13 @@ do_response_tests (void)
 			if (reason_phrase) {
 				dprintf ("         got: 'HTTP/1.%d' '%03d' '%s'\n",
 					 version, status_code, reason_phrase);
-				g_hash_table_foreach (headers, print_header, NULL);
+				soup_message_headers_foreach (headers, print_header, NULL);
 			} else
 				dprintf ("         got: parse error\n");
 		}
 
 		g_free (reason_phrase);
-		g_hash_table_destroy (headers);
+		soup_message_headers_free (headers);
 	}
 	dprintf ("\n");
 

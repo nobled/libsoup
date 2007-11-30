@@ -17,6 +17,7 @@ extern "C" {
 #include <libsoup/soup-headers.h>
 #include <libsoup/soup-message.h>
 #include <libsoup/soup-message-filter.h>
+#include <libsoup/soup-message-headers.h>
 #include <libsoup/soup-message-queue.h>
 #include <libsoup/soup-method.h>
 #include <libsoup/soup-misc.h>

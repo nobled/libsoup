@@ -1,5 +1,19 @@
 2007-11-29  Dan Winship  <danw@gnome.org>
 
+	* libsoup/soup-message-headers.c: new opaque type for message
+	headers. Currently still a GHashTable underneath, for
+	backward-compatibility, but that will change in the future.
+
+	* libsoup/soup-message.c: Use SoupMessageHeaders. Deprecate the
+	old header methods
+
+	* ...: use SoupMessageHeaders
+
+	* python/libsoup.defs: update for SoupMessageHeaders, add fields
+	to SoupMessage
+
+2007-11-29  Dan Winship  <danw@gnome.org>
+
 	* libsoup/soup-message.c:
 	* libsoup/soup-session.c: Make SoupMessage's uri property and
 	SoupSession's proxy_uri property use a boxed pspec

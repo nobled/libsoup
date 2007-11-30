@@ -13,24 +13,24 @@ G_BEGIN_DECLS
 
 /* HTTP Header Parsing */
 
-gboolean    soup_headers_parse_request      (const char       *str, 
-					     int               len, 
-					     GHashTable       *dest, 
-					     char            **req_method,
-					     char            **req_path,
-					     SoupHttpVersion  *ver);
+gboolean    soup_headers_parse_request      (const char          *str,
+					     int                  len,
+					     SoupMessageHeaders  *req_headers,
+					     char               **req_method,
+					     char               **req_path,
+					     SoupHttpVersion     *ver);
 
-gboolean    soup_headers_parse_status_line  (const char        *status_line,
-					     SoupHttpVersion  *ver,
-					     guint            *status_code,
-					     char            **reason_phrase);
+gboolean    soup_headers_parse_status_line  (const char          *status_line,
+					     SoupHttpVersion     *ver,
+					     guint               *status_code,
+					     char               **reason_phrase);
 
-gboolean    soup_headers_parse_response     (const char       *str, 
-					     int               len, 
-					     GHashTable       *dest,
-					     SoupHttpVersion  *ver,
-					     guint            *status_code,
-					     char            **reason_phrase);
+gboolean    soup_headers_parse_response     (const char          *str, 
+					     int                  len, 
+					     SoupMessageHeaders  *headers,
+					     SoupHttpVersion     *ver,
+					     guint               *status_code,
+					     char               **reason_phrase);
 
 /* HTTP parameterized header parsing */
 

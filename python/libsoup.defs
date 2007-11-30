@@ -20,6 +20,10 @@
   (parent "GObject")
   (c-name "SoupMessage")
   (gtype-id "SOUP_TYPE_MESSAGE")
+  (fields
+    '("SoupMessageHeaders*" "request_headers")
+    '("SoupMessageHeaders*" "response_headers")
+  )
 )
 
 (define-object Server
@@ -564,7 +568,7 @@
   (parameters
     '("const-char*" "str")
     '("int" "len")
-    '("GHashTable*" "dest")
+    '("SoupMessageHeaders*" "dest")
     '("char**" "req_method")
     '("char**" "req_path")
     '("SoupHttpVersion*" "ver")
@@ -588,7 +592,7 @@
   (parameters
     '("const-char*" "str")
     '("int" "len")
-    '("GHashTable*" "dest")
+    '("SoupMessageHeaders*" "dest")
     '("SoupHttpVersion*" "ver")
     '("guint*" "status_code")
     '("char**" "reason_phrase")
@@ -677,61 +681,6 @@
     '("SoupOwnership" "resp_owner")
     '("char*" "resp_body")
     '("gulong" "resp_length")
-  )
-)
-
-(define-function soup_message_add_header
-  (c-name "soup_message_add_header")
-  (return-type "none")
-  (parameters
-    '("GHashTable*" "hash")
-    '("const-char*" "name")
-    '("const-char*" "value")
-  )
-)
-
-(define-function soup_message_get_header
-  (c-name "soup_message_get_header")
-  (return-type "const-char*")
-  (parameters
-    '("GHashTable*" "hash")
-    '("const-char*" "name")
-  )
-)
-
-(define-function soup_message_get_header_list
-  (c-name "soup_message_get_header_list")
-  (return-type "const-GSList*")
-  (parameters
-    '("GHashTable*" "hash")
-    '("const-char*" "name")
-  )
-)
-
-(define-function soup_message_foreach_header
-  (c-name "soup_message_foreach_header")
-  (return-type "none")
-  (parameters
-    '("GHashTable*" "hash")
-    '("GHFunc" "func")
-    '("gpointer" "user_data")
-  )
-)
-
-(define-function soup_message_remove_header
-  (c-name "soup_message_remove_header")
-  (return-type "none")
-  (parameters
-    '("GHashTable*" "hash")
-    '("const-char*" "name")
-  )
-)
-
-(define-function soup_message_clear_headers
-  (c-name "soup_message_clear_headers")
-  (return-type "none")
-  (parameters
-    '("GHashTable*" "hash")
   )
 )
 
@@ -1025,6 +974,82 @@
   )
 )
 
+
+
+;; From soup-message-headers.h
+
+(define-pointer MessageHeaders
+  (in-module "Soup")
+  (c-name "SoupMessageHeaders")
+  (gtype-id "SOUP_TYPE_MESSAGE_HEADERS")
+)
+
+(define-function soup_message_headers_new
+  (c-name "soup_message_headers_new")
+  (is-constructor-of "SoupMessageHeaders")
+  (return-type "SoupMessageHeaders*")
+)
+
+(define-method free
+  (of-object "SoupMessageHeaders")
+  (c-name "soup_message_headers_free")
+  (return-type "none")
+)
+
+(define-method append
+  (of-object "SoupMessageHeaders")
+  (c-name "soup_message_headers_append")
+  (return-type "none")
+  (parameters
+    '("const-char*" "name")
+    '("const-char*" "value")
+  )
+)
+
+(define-method replace
+  (of-object "SoupMessageHeaders")
+  (c-name "soup_message_headers_replace")
+  (return-type "none")
+  (parameters
+    '("const-char*" "name")
+    '("const-char*" "value")
+  )
+)
+
+(define-method remove
+  (of-object "SoupMessageHeaders")
+  (c-name "soup_message_headers_remove")
+  (return-type "none")
+  (parameters
+    '("const-char*" "name")
+  )
+)
+
+(define-method clear
+  (of-object "SoupMessageHeaders")
+  (c-name "soup_message_headers_clear")
+  (return-type "none")
+)
+
+(define-method find_nth
+  (of-object "SoupMessageHeaders")
+  (c-name "soup_message_headers_find_nth")
+  (return-type "const-char*")
+  (parameters
+    '("const-char*" "name")
+    '("int" "index")
+  )
+)
+
+(define-method foreach
+  (of-object "SoupMessageHeaders")
+  (c-name "soup_message_headers_foreach")
+  (return-type "none")
+  (parameters
+    '("SoupMessageHeadersForeachFunc" "func")
+    '("gpointer" "user_data")
+  )
+)
 
 
 ;; From soup-message-queue.h
@@ -2614,5 +2639,3 @@
   (c-name "soup_xmlrpc_value_dump")
   (return-type "none")
 )
-
-

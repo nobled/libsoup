@@ -48,6 +48,11 @@ get_url (const char *url)
 
 		printf ("%s %s HTTP/1.%d\n\n", method, path,
 			soup_message_get_http_version (msg));
+		soup_message_headers_iter_init (&iter, msg->request_headers);
+		while (soup_message_headers_iter_next (&iter, &hname, &value))
+			printf ("%s: %s\r\n", hname, value);
+		printf ("\n");
+
 		printf ("HTTP/1.%d %d %s\n",
 			soup_message_get_http_version (msg),
 			msg->status_code, msg->reason_phrase);
@@ -83,7 +88,7 @@ usage (void)
 int
 main (int argc, char **argv)
 {
-	const char *cafile = NULL, *url;
+	const char *cafile = NULL, *cookiefile = NULL, *url;
 	SoupURI *proxy = NULL, *parsed;
 	gboolean synchronous = FALSE;
 	int opt;
@@ -93,10 +98,14 @@ main (int argc, char **argv)
 
 	method = SOUP_METHOD_GET;
 
-	while ((opt = getopt (argc, argv, "c:dhp:s")) != -1) {
+	while ((opt = getopt (argc, argv, "c:C:dhp:s")) != -1) {
 		switch (opt) {
 		case 'c':
 			cafile = optarg;
+			break;
+
+		case 'C':
+			cookiefile = optarg;
 			break;
 
 		case 'd':
@@ -145,6 +154,7 @@ main (int argc, char **argv)
 #ifdef HAVE_GNOME
 			SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_GNOME_FEATURES_2_26,
 #endif
+			SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_CONTENT_DECODER,
 			SOUP_SESSION_USER_AGENT, "get ",
 			NULL);
 	} else {
@@ -153,6 +163,7 @@ main (int argc, char **argv)
 #ifdef HAVE_GNOME
 			SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_GNOME_FEATURES_2_26,
 #endif
+			SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_CONTENT_DECODER,
 			SOUP_SESSION_USER_AGENT, "get ",
 			NULL);
 	}
@@ -165,6 +176,22 @@ main (int argc, char **argv)
 		g_object_set (G_OBJECT (session), 
 			      SOUP_SESSION_PROXY_URI, proxy,
 			      NULL);
+	}
+
+	if (cookiefile) {
+		SoupCookieJar *jar;
+
+#ifdef HAVE_GNOME
+		if (g_str_has_suffix (cookiefile, ".sqlite"))
+			jar = soup_cookie_jar_sqlite_new (cookiefile, TRUE);
+		else
+#endif
+			jar = soup_cookie_jar_text_new (cookiefile, TRUE);
+
+		if (jar) {
+			soup_session_add_feature (session, SOUP_SESSION_FEATURE (jar));
+			g_object_unref (jar);
+		}
 	}
 
 	if (!synchronous)

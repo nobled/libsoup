@@ -56,6 +56,7 @@ soup_headers =			\
 	soup-auth-domain.h	\
 	soup-auth-domain-basic.h  \
 	soup-auth-domain-digest.h \
+	soup-content-decoder.h  \
 	soup-content-sniffer.h  \
 	soup-cookie.h		\
 	soup-cookie-jar.h	\
@@ -120,8 +121,17 @@ libsoup_2_4_la_SOURCES =		\
 	soup-auth-manager.c		\
 	soup-auth-manager-ntlm.h	\
 	soup-auth-manager-ntlm.c	\
+	soup-coding.h			\
+	soup-coding.c			\
+	soup-coding-deflate.h		\
+	soup-coding-deflate.c		\
+	soup-coding-gzip.h		\
+	soup-coding-gzip.c		\
+	soup-coding-zlib.h		\
+	soup-coding-zlib.c		\
 	soup-connection.h		\
 	soup-connection.c		\
+	soup-content-decoder.c		\
 	soup-content-sniffer.c		\
 	soup-cookie.c			\
 	soup-cookie-jar.c		\

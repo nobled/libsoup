@@ -20,6 +20,7 @@ LoadModule auth_digest_module   @APACHE_MODULE_DIR@/mod_auth_digest.so
 LoadModule authn_file_module    @APACHE_MODULE_DIR@/mod_authn_file.so
 LoadModule authz_host_module    @APACHE_MODULE_DIR@/mod_authz_host.so
 LoadModule authz_user_module    @APACHE_MODULE_DIR@/mod_authz_user.so
+LoadModule deflate_module       @APACHE_MODULE_DIR@/mod_deflate.so
 LoadModule dir_module           @APACHE_MODULE_DIR@/mod_dir.so
 LoadModule mime_module          @APACHE_MODULE_DIR@/mod_mime.so
 @IF_HAVE_PHP@LoadModule php5_module          @APACHE_PHP_MODULE_DIR@/@APACHE_PHP_MODULE@
@@ -281,4 +282,11 @@ Alias /Digest @srcdir@
   Require valid-user
   # test RFC2069-style Digest
   AuthDigestQop none
+</Location>
+
+# Compression
+Alias /compressed @srcdir@
+
+<Location /compressed>
+  SetOutputFilter DEFLATE
 </Location>

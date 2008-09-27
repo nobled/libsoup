@@ -14,7 +14,6 @@
 
 #include "soup-proxy-resolver-gnome.h"
 #include "soup-address.h"
-#include "soup-dns.h"
 #include "soup-message.h"
 #include "soup-misc.h"
 #include "soup-session-feature.h"

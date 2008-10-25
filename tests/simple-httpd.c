@@ -223,16 +223,6 @@ server_callback (SoupServer *server, SoupMessage *msg,
 		 SoupClientContext *context, gpointer data)
 {
 	char *file_path;
-	SoupMessageHeadersIter iter;
-	const char *name, *value;
-
-	printf ("%s %s HTTP/1.%d\n", msg->method, path,
-		soup_message_get_http_version (msg));
-	soup_message_headers_iter_init (&iter, msg->request_headers);
-	while (soup_message_headers_iter_next (&iter, &name, &value))
-		printf ("%s: %s\n", name, value);
-	if (msg->request_body->length)
-		printf ("%s\n", msg->request_body->data);
 
 	file_path = g_strdup_printf (".%s", path);
 
@@ -244,7 +234,6 @@ server_callback (SoupServer *server, SoupMessage *msg,
 		soup_message_set_status (msg, SOUP_STATUS_NOT_IMPLEMENTED);
 
 	g_free (file_path);
-	printf ("  -> %d %s\n\n", msg->status_code, msg->reason_phrase);
 }
 
 static void
@@ -259,6 +248,7 @@ main (int argc, char **argv)
 {
 	GMainLoop *loop;
 	SoupServer *server, *ssl_server;
+	SoupLogger *logger;
 	int opt;
 	int port = SOUP_ADDRESS_ANY_PORT;
 	int ssl_port = SOUP_ADDRESS_ANY_PORT;
@@ -289,8 +279,11 @@ main (int argc, char **argv)
 		}
 	}
 
+	logger = soup_logger_new (SOUP_LOGGER_LOG_BODY, -1);
+
 	server = soup_server_new (SOUP_SERVER_PORT, port,
 				  SOUP_SERVER_SERVER_HEADER, "simple-httpd ",
+				  SOUP_SERVER_ADD_FEATURE, logger,
 				  NULL);
 	if (!server) {
 		fprintf (stderr, "Unable to bind to server port %d\n", port);
@@ -307,6 +300,8 @@ main (int argc, char **argv)
 			SOUP_SERVER_PORT, ssl_port,
 			SOUP_SERVER_SSL_CERT_FILE, ssl_cert_file,
 			SOUP_SERVER_SSL_KEY_FILE, ssl_key_file,
+			SOUP_SERVER_SERVER_HEADER, "simple-httpd ",
+			SOUP_SERVER_ADD_FEATURE, logger,
 			NULL);
 
 		if (!ssl_server) {
@@ -324,6 +319,8 @@ main (int argc, char **argv)
 
 	loop = g_main_loop_new (NULL, TRUE);
 	g_main_loop_run (loop);
+
+	g_object_unref (logger);
 
 	return 0;
 }

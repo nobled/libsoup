@@ -17,22 +17,26 @@
 #include "soup-message.h"
 #include "soup-session.h"
 #include "soup-session-feature.h"
+#include "soup-server.h"
+#include "soup-server-feature.h"
 #include "soup-uri.h"
 
 /**
  * SECTION:soup-logger
  * @short_description: Debug logging support
  *
- * #SoupLogger watches a #SoupSession and logs the HTTP traffic that
- * it generates, for debugging purposes. Many applications use an
- * environment variable to determine whether or not to use
- * #SoupLogger, and to determine the amount of debugging output.
+ * #SoupLogger watches a #SoupSession or #SoupServer and logs the HTTP
+ * traffic that it generates, for debugging purposes. Many
+ * applications use an environment variable to determine whether or
+ * not to use #SoupLogger, and to determine the amount of debugging
+ * output.
  *
  * To use #SoupLogger, first create a logger with soup_logger_new(),
  * optionally configure it with soup_logger_set_request_filter(),
  * soup_logger_set_response_filter(), and soup_logger_set_printer(),
  * and then attach it to a session (or multiple sessions) with
- * soup_session_add_feature().
+ * soup_session_add_feature(), or to a server with
+ * soup_server_add_feature().
  *
  * By default, the debugging output is sent to %stdout, and looks
  * something like:
@@ -59,19 +63,19 @@
  * received.
  *
  * The <literal>Soup-Debug</literal> line gives further debugging
- * information about the #SoupSession, #SoupMessage, and #SoupSocket
- * involved; the hex numbers are the addresses of the objects in
- * question (which may be useful if you are running in a debugger).
- * The decimal IDs are simply counters that uniquely identify objects
- * across the lifetime of the #SoupLogger. In particular, this can be
- * used to identify when multiple messages are sent across the same
- * connection.
+ * information about the #SoupSession (or #SoupServer), #SoupMessage,
+ * and #SoupSocket involved; the hex numbers are the addresses of the
+ * objects in question (which may be useful if you are running in a
+ * debugger). The decimal IDs are simply counters that uniquely
+ * identify objects across the lifetime of the #SoupLogger. In
+ * particular, this can be used to identify when multiple messages are
+ * sent across the same connection.
  *
- * The request half of the message is logged just before the first
- * byte of the request gets written to the network (from the
- * #SoupSession::request_started signal), and the response is logged
- * just after the last byte of the response body is read from the
- * network (from the #SoupMessage::got_body or
+ * For client-side logging, the request half of the message is logged
+ * just before the first byte of the request gets written to the
+ * network (from the #SoupSession::request_started signal), and the
+ * response is logged just after the last byte of the response body is
+ * read from the network (from the #SoupMessage::got_body or
  * #SoupMessage::got_informational signal). In particular, note that
  * the #SoupMessage::got_headers signal, and anything triggered off it
  * (such as #SoupSession::authenticate) will be emitted
@@ -80,17 +84,29 @@
  **/
 
 static void soup_logger_session_feature_init (SoupSessionFeatureInterface *feature_interface, gpointer interface_data);
+static void soup_logger_server_feature_init (SoupServerFeatureInterface *feature_interface, gpointer interface_data);
 
-static void request_queued  (SoupSessionFeature *feature, SoupSession *session,
-			     SoupMessage *msg);
-static void request_started  (SoupSessionFeature *feature, SoupSession *session,
-			      SoupMessage *msg, SoupSocket *socket);
-static void request_unqueued  (SoupSessionFeature *feature,
-			       SoupSession *session, SoupMessage *msg);
+static void session_request_queued   (SoupSessionFeature *feature,
+				      SoupSession        *session,
+				      SoupMessage        *msg);
+static void session_request_started  (SoupSessionFeature *feature,
+				      SoupSession        *session,
+				      SoupMessage        *msg,
+				      SoupSocket         *socket);
+static void session_request_unqueued (SoupSessionFeature *feature,
+				      SoupSession        *session,
+				      SoupMessage        *msg);
+
+static void server_request_started   (SoupServerFeature  *feature,
+				      SoupServer         *server,
+				      SoupMessage        *msg,
+				      SoupClientContext  *client);
 
 G_DEFINE_TYPE_WITH_CODE (SoupLogger, soup_logger, G_TYPE_OBJECT,
 			 G_IMPLEMENT_INTERFACE (SOUP_TYPE_SESSION_FEATURE,
-						soup_logger_session_feature_init))
+						soup_logger_session_feature_init)
+			 G_IMPLEMENT_INTERFACE (SOUP_TYPE_SERVER_FEATURE,
+						soup_logger_server_feature_init))
 
 typedef struct {
 	/* We use a mutex so that if requests are being run in
@@ -161,9 +177,16 @@ static void
 soup_logger_session_feature_init (SoupSessionFeatureInterface *feature_interface,
 				  gpointer interface_data)
 {
-	feature_interface->request_queued = request_queued;
-	feature_interface->request_started = request_started;
-	feature_interface->request_unqueued = request_unqueued;
+	feature_interface->request_queued = session_request_queued;
+	feature_interface->request_started = session_request_started;
+	feature_interface->request_unqueued = session_request_unqueued;
+}
+
+static void
+soup_logger_server_feature_init (SoupServerFeatureInterface *feature_interface,
+				 gpointer interface_data)
+{
+	feature_interface->request_started = server_request_started;
 }
 
 /**
@@ -438,7 +461,7 @@ soup_logger_print_basic_auth (SoupLogger *logger, const char *value)
 
 static void
 print_request (SoupLogger *logger, SoupMessage *msg,
-	       SoupSession *session, SoupSocket *socket,
+	       gpointer owner, SoupSocket *socket,
 	       gboolean restarted)
 {
 	SoupLoggerPrivate *priv = SOUP_LOGGER_GET_PRIVATE (logger);
@@ -476,8 +499,8 @@ print_request (SoupLogger *logger, SoupMessage *msg,
 			   (unsigned long)time (0));
 	soup_logger_print (logger, SOUP_LOGGER_LOG_MINIMAL, '>',
 			   "Soup-Debug: %s %u (%p), %s %u (%p), %s %u (%p)%s",
-			   g_type_name_from_instance ((GTypeInstance *)session),
-			   soup_logger_get_id (logger, session), session,
+			   g_type_name_from_instance ((GTypeInstance *)owner),
+			   soup_logger_get_id (logger, owner), owner,
 			   g_type_name_from_instance ((GTypeInstance *)msg),
 			   soup_logger_get_id (logger, msg), msg,
 			   g_type_name_from_instance ((GTypeInstance *)socket),
@@ -561,13 +584,17 @@ print_response (SoupLogger *logger, SoupMessage *msg)
 		return;
 
 	if (msg->response_body->length) {
+		if (!msg->response_body->data) {
+			SoupBuffer *body = soup_message_body_flatten (msg->response_body);
+			soup_buffer_free (body);
+		}
 		soup_logger_print (logger, SOUP_LOGGER_LOG_BODY, '<',
 				   "\n%s", msg->response_body->data);
 	}
 }
 
 static void
-got_informational (SoupMessage *msg, gpointer user_data)
+client_got_informational (SoupMessage *msg, gpointer user_data)
 {
 	SoupLogger *logger = user_data;
 	SoupLoggerPrivate *priv = SOUP_LOGGER_GET_PRIVATE (logger);
@@ -601,7 +628,7 @@ got_informational (SoupMessage *msg, gpointer user_data)
 }
 
 static void
-got_body (SoupMessage *msg, gpointer user_data)
+do_print_response (SoupMessage *msg, gpointer user_data)
 {
 	SoupLogger *logger = user_data;
 	SoupLoggerPrivate *priv = SOUP_LOGGER_GET_PRIVATE (logger);
@@ -615,20 +642,18 @@ got_body (SoupMessage *msg, gpointer user_data)
 }
 
 static void
-request_queued (SoupSessionFeature *logger, SoupSession *session,
-		SoupMessage *msg)
+session_request_queued (SoupSessionFeature *logger, SoupSession *session,
+			SoupMessage *msg)
 {
 	g_signal_connect (msg, "got-informational",
-			  G_CALLBACK (got_informational),
-			  logger);
+			  G_CALLBACK (client_got_informational), logger);
 	g_signal_connect (msg, "got-body",
-			  G_CALLBACK (got_body),
-			  logger);
+			  G_CALLBACK (do_print_response), logger);
 }
 
 static void
-request_started (SoupSessionFeature *feature, SoupSession *session,
-		 SoupMessage *msg, SoupSocket *socket)
+session_request_started (SoupSessionFeature *feature, SoupSession *session,
+			 SoupMessage *msg, SoupSocket *socket)
 {
 	SoupLogger *logger = SOUP_LOGGER (feature);
 	gboolean restarted;
@@ -644,7 +669,6 @@ request_started (SoupSessionFeature *feature, SoupSession *session,
 
 	if (!soup_logger_get_id (logger, session))
 		soup_logger_set_id (logger, session);
-
 	if (!soup_logger_get_id (logger, socket))
 		soup_logger_set_id (logger, socket);
 
@@ -653,9 +677,80 @@ request_started (SoupSessionFeature *feature, SoupSession *session,
 }
 
 static void
-request_unqueued (SoupSessionFeature *logger, SoupSession *session,
-		  SoupMessage *msg)
+session_request_unqueued (SoupSessionFeature *logger, SoupSession *session,
+			  SoupMessage *msg)
 {
-	g_signal_handlers_disconnect_by_func (msg, got_informational, logger);
-	g_signal_handlers_disconnect_by_func (msg, got_body, logger);
+	g_signal_handlers_disconnect_by_func (msg, client_got_informational, logger);
+	g_signal_handlers_disconnect_by_func (msg, do_print_response, logger);
 }
+
+static void
+server_got_headers (SoupMessage *msg, gpointer user_data)
+{
+	SoupLogger *logger = user_data;
+	SoupLoggerPrivate *priv = SOUP_LOGGER_GET_PRIVATE (logger);
+	SoupServer *server;
+	SoupSocket *socket;
+
+	/* Normally we print the request from the got-body handler.
+	 * We only need to do something here in the expect-continue
+	 * case.
+	 */
+	if (!(soup_message_headers_get_expectations (msg->request_headers) &
+	      SOUP_EXPECTATION_CONTINUE))
+		return;
+
+	g_mutex_lock (priv->lock);
+
+	server = g_object_get_data (G_OBJECT (msg), "SoupLogger-server");
+	socket = g_object_get_data (G_OBJECT (msg), "SoupLogger-socket");
+	print_request (logger, msg, server, socket, FALSE);
+	soup_logger_print (logger, SOUP_LOGGER_LOG_MINIMAL, ' ', "");
+
+	g_mutex_unlock (priv->lock);
+}
+
+static void
+server_got_body (SoupMessage *msg, gpointer user_data)
+{
+	SoupLogger *logger = user_data;
+	SoupLoggerPrivate *priv = SOUP_LOGGER_GET_PRIVATE (logger);
+	SoupServer *server;
+	SoupSocket *socket;
+
+	g_mutex_lock (priv->lock);
+
+	server = g_object_get_data (G_OBJECT (msg), "SoupLogger-server");
+	socket = g_object_get_data (G_OBJECT (msg), "SoupLogger-socket");
+	print_request (logger, msg, server, socket, FALSE);
+	soup_logger_print (logger, SOUP_LOGGER_LOG_MINIMAL, ' ', "");
+
+	g_mutex_unlock (priv->lock);
+}
+
+static void
+server_request_started (SoupServerFeature *feature, SoupServer *server,
+			SoupMessage *msg, SoupClientContext *client)
+{
+	SoupLogger *logger = SOUP_LOGGER (feature);
+	SoupSocket *socket = soup_client_context_get_socket (client);
+
+	soup_logger_set_id (logger, msg);
+	if (!soup_logger_get_id (logger, server))
+		soup_logger_set_id (logger, server);
+	if (!soup_logger_get_id (logger, socket))
+		soup_logger_set_id (logger, socket);
+
+	g_object_set_data (G_OBJECT (msg), "SoupLogger-server", server);
+	g_object_set_data (G_OBJECT (msg), "SoupLogger-socket", socket);
+
+	g_signal_connect (msg, "got-headers",
+			  G_CALLBACK (server_got_headers), logger);
+	g_signal_connect (msg, "got-body",
+			  G_CALLBACK (server_got_body), logger);
+	g_signal_connect (msg, "wrote-informational",
+			  G_CALLBACK (do_print_response), logger);
+	g_signal_connect (msg, "wrote-body",
+			  G_CALLBACK (do_print_response), logger);
+}
+

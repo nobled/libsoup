@@ -23,6 +23,7 @@
 #include "soup-message-private.h"
 #include "soup-marshal.h"
 #include "soup-path-map.h" 
+#include "soup-server-feature.h"
 #include "soup-socket.h"
 #include "soup-ssl.h"
 
@@ -106,7 +107,7 @@ typedef struct {
 	SoupPathMap       *handlers;
 	SoupServerHandler *default_handler;
 	
-	GSList            *auth_domains;
+	GSList            *features;
 
 	GMainContext      *async_context;
 } SoupServerPrivate;
@@ -124,6 +125,9 @@ enum {
 	PROP_ASYNC_CONTEXT,
 	PROP_RAW_PATHS,
 	PROP_SERVER_HEADER,
+	PROP_ADD_FEATURE,
+	PROP_ADD_FEATURE_BY_TYPE,
+	PROP_REMOVE_FEATURE_BY_TYPE,
 
 	LAST_PROP
 };
@@ -156,7 +160,6 @@ finalize (GObject *object)
 {
 	SoupServer *server = SOUP_SERVER (object);
 	SoupServerPrivate *priv = SOUP_SERVER_GET_PRIVATE (server);
-	GSList *iter;
 
 	if (priv->interface)
 		g_object_unref (priv->interface);
@@ -183,9 +186,8 @@ finalize (GObject *object)
 		free_handler (priv->default_handler);
 	soup_path_map_free (priv->handlers);
 
-	for (iter = priv->auth_domains; iter; iter = iter->next)
-		g_object_unref (iter->data);
-	g_slist_free (priv->auth_domains);
+	while (priv->features)
+		soup_server_remove_feature (server, priv->features->data);
 
 	if (priv->loop)
 		g_main_loop_unref (priv->loop);
@@ -433,6 +435,28 @@ soup_server_class_init (SoupServerClass *server_class)
 				     "Server header",
 				     NULL,
 				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+	g_object_class_install_property (
+		object_class, PROP_ADD_FEATURE,
+		g_param_spec_object (SOUP_SERVER_ADD_FEATURE,
+				     "Add Feature",
+				     "Add a feature object to the server",
+				     SOUP_TYPE_SERVER_FEATURE,
+				     G_PARAM_READWRITE));
+	g_object_class_install_property (
+		object_class, PROP_ADD_FEATURE_BY_TYPE,
+		g_param_spec_gtype (SOUP_SERVER_ADD_FEATURE_BY_TYPE,
+				    "Add Feature By Type",
+				    "Add a feature object of the given type to the server",
+				    SOUP_TYPE_SERVER_FEATURE,
+				    G_PARAM_READWRITE));
+	g_object_class_install_property (
+		object_class, PROP_REMOVE_FEATURE_BY_TYPE,
+		g_param_spec_gtype (SOUP_SERVER_REMOVE_FEATURE_BY_TYPE,
+				    "Remove Feature By Type",
+				    "Remove features of the given type from the server",
+				    SOUP_TYPE_SERVER_FEATURE,
+				    G_PARAM_READWRITE));
 }
 
 static GObject *
@@ -490,6 +514,7 @@ static void
 set_property (GObject *object, guint prop_id,
 	      const GValue *value, GParamSpec *pspec)
 {
+	SoupServer *server = SOUP_SERVER (object);
 	SoupServerPrivate *priv = SOUP_SERVER_GET_PRIVATE (object);
 	const char *header;
 
@@ -534,6 +559,15 @@ set_property (GObject *object, guint prop_id,
 						 SOUP_SERVER_SERVER_HEADER_BASE);
 		} else
 			priv->server_header = g_strdup (header);
+		break;
+	case PROP_ADD_FEATURE:
+		soup_server_add_feature (server, g_value_get_object (value));
+		break;
+	case PROP_ADD_FEATURE_BY_TYPE:
+		soup_server_add_feature_by_type (server, g_value_get_gtype (value));
+		break;
+	case PROP_REMOVE_FEATURE_BY_TYPE:
+		soup_server_remove_feature_by_type (server, g_value_get_gtype (value));
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -778,9 +812,11 @@ got_headers (SoupMessage *req, SoupClientContext *client)
 	 * immediately rather than waiting for the request body to
 	 * be sent.
 	 */
-	for (iter = priv->auth_domains; iter; iter = iter->next) {
-		domain = iter->data;
+	for (iter = priv->features; iter; iter = iter->next) {
+		if (!SOUP_IS_AUTH_DOMAIN (iter->data))
+			continue;
 
+		domain = iter->data;
 		if (soup_auth_domain_covers (domain, req)) {
 			auth_user = soup_auth_domain_accepts (domain, req);
 			if (auth_user) {
@@ -797,9 +833,11 @@ got_headers (SoupMessage *req, SoupClientContext *client)
 	if (!rejected)
 		return;
 
-	for (iter = priv->auth_domains; iter; iter = iter->next) {
-		domain = iter->data;
+	for (iter = priv->features; iter; iter = iter->next) {
+		if (!SOUP_IS_AUTH_DOMAIN (iter->data))
+			continue;
 
+		domain = iter->data;
 		if (soup_auth_domain_covers (domain, req))
 			soup_auth_domain_challenge (domain, req);
 	}
@@ -1282,17 +1320,13 @@ soup_server_remove_handler (SoupServer *server, const char *path)
  * Proxy Authentication Required). If the request used the
  * "100-continue" Expectation, @server will reject it before the
  * request body is sent.
+ *
+ * Deprecated: use soup_server_add_feature()
  **/
 void
 soup_server_add_auth_domain (SoupServer *server, SoupAuthDomain *auth_domain)
 {
-	SoupServerPrivate *priv;
-
-	g_return_if_fail (SOUP_IS_SERVER (server));
-	priv = SOUP_SERVER_GET_PRIVATE (server);
-
-	priv->auth_domains = g_slist_append (priv->auth_domains, auth_domain);
-	g_object_ref (auth_domain);
+	soup_server_add_feature (server, SOUP_SERVER_FEATURE (auth_domain));
 }
 
 /**
@@ -1301,17 +1335,109 @@ soup_server_add_auth_domain (SoupServer *server, SoupAuthDomain *auth_domain)
  * @auth_domain: a #SoupAuthDomain
  *
  * Removes @auth_domain from @server.
+ *
+ * Deprecated: use soup_server_remove_feature()
  **/
 void
 soup_server_remove_auth_domain (SoupServer *server, SoupAuthDomain *auth_domain)
 {
+	soup_server_remove_feature (server, SOUP_SERVER_FEATURE (auth_domain));
+}
+
+/**
+ * soup_server_add_feature:
+ * @server: a #SoupServer
+ * @feature: an object that implements #SoupServerFeature
+ *
+ * Adds @feature's functionality to @server. You can also add a
+ * feature to the server at construct time by using the
+ * %SOUP_SERVER_ADD_FEATURE property.
+ **/
+void
+soup_server_add_feature (SoupServer *server, SoupServerFeature *feature)
+{
 	SoupServerPrivate *priv;
 
 	g_return_if_fail (SOUP_IS_SERVER (server));
-	priv = SOUP_SERVER_GET_PRIVATE (server);
+	g_return_if_fail (SOUP_IS_SERVER_FEATURE (feature));
 
-	priv->auth_domains = g_slist_remove (priv->auth_domains, auth_domain);
-	g_object_unref (auth_domain);
+	priv = SOUP_SERVER_GET_PRIVATE (server);
+	priv->features = g_slist_append (priv->features, g_object_ref (feature));
+	soup_server_feature_attach (feature, server);
+}
+
+/**
+ * soup_server_add_feature_by_type:
+ * @server: a #SoupServer
+ * @feature_type: the #GType of a class that implements #SoupServerFeature
+ *
+ * Creates a new feature of type @feature_type and adds it to
+ * @server. You can use this instead of soup_server_add_feature() in
+ * the case wher you don't need to customize the new feature in any
+ * way. You can also add a feature to the server at construct time by
+ * using the %SOUP_SERVER_ADD_FEATURE_BY_TYPE property.
+ **/
+void
+soup_server_add_feature_by_type (SoupServer *server, GType feature_type)
+{
+	SoupServerFeature *feature;
+
+	g_return_if_fail (SOUP_IS_SERVER (server));
+	g_return_if_fail (g_type_is_a (feature_type, SOUP_TYPE_SERVER_FEATURE));
+
+	feature = g_object_new (feature_type, NULL);
+	soup_server_add_feature (server, feature);
+	g_object_unref (feature);
+}
+
+/**
+ * soup_server_remove_feature:
+ * @server: a #SoupServer
+ * @feature: a feature that has previously been added to @server
+ *
+ * Removes @feature's functionality from @server.
+ **/
+void
+soup_server_remove_feature (SoupServer *server, SoupServerFeature *feature)
+{
+	SoupServerPrivate *priv;
+
+	g_return_if_fail (SOUP_IS_SERVER (server));
+
+	priv = SOUP_SERVER_GET_PRIVATE (server);
+	if (g_slist_find (priv->features, feature)) {
+		priv->features = g_slist_remove (priv->features, feature);
+		soup_server_feature_detach (feature, server);
+		g_object_unref (feature);
+	}
+}
+
+/**
+ * soup_server_remove_feature_by_type:
+ * @server: a #SoupServer
+ * @feature_type: the #GType of a class that implements #SoupServerFeature
+ *
+ * Removes all features of type @feature_type (or any subclass of
+ * @feature_type) from @server. You can also remove standard features
+ * from the server at construct time by using the
+ * %SOUP_SERVER_REMOVE_FEATURE_BY_TYPE property.
+ **/
+void
+soup_server_remove_feature_by_type (SoupServer *server, GType feature_type)
+{
+	SoupServerPrivate *priv;
+	GSList *f;
+
+	g_return_if_fail (SOUP_IS_SERVER (server));
+
+	priv = SOUP_SERVER_GET_PRIVATE (server);
+restart:
+	for (f = priv->features; f; f = f->next) {
+		if (G_TYPE_CHECK_INSTANCE_TYPE (f->data, feature_type)) {
+			soup_server_remove_feature (server, f->data);
+			goto restart;
+		}
+	}
 }
 
 /**

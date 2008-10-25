@@ -14,6 +14,7 @@
 #include "soup-auth-domain.h"
 #include "soup-message.h"
 #include "soup-path-map.h"
+#include "soup-server-feature.h"
 #include "soup-uri.h"
 
 /**
@@ -70,7 +71,11 @@ typedef struct {
 
 #define SOUP_AUTH_DOMAIN_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SOUP_TYPE_AUTH_DOMAIN, SoupAuthDomainPrivate))
 
-G_DEFINE_TYPE (SoupAuthDomain, soup_auth_domain, G_TYPE_OBJECT)
+static void soup_auth_domain_server_feature_init (SoupServerFeatureInterface *feature_interface, gpointer interface_data);
+
+G_DEFINE_TYPE_WITH_CODE (SoupAuthDomain, soup_auth_domain, G_TYPE_OBJECT,
+			 G_IMPLEMENT_INTERFACE (SOUP_TYPE_SERVER_FEATURE,
+						soup_auth_domain_server_feature_init))
 
 static void set_property (GObject *object, guint prop_id,
 			  const GValue *value, GParamSpec *pspec);
@@ -212,6 +217,15 @@ soup_auth_domain_class_init (SoupAuthDomainClass *auth_domain_class)
 				      "Authentication callback data",
 				      "Data to pass to auth callback",
 				      G_PARAM_READWRITE));
+}
+
+static void
+soup_auth_domain_server_feature_init (SoupServerFeatureInterface *feature_interface,
+				      gpointer interface_data)
+{
+	/* SoupAuthDomain is actually handled specially by SoupServer,
+	 * so there's nothing to do here.
+	 */
 }
 
 static void

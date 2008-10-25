@@ -18,10 +18,6 @@ G_BEGIN_DECLS
 #define SOUP_IS_SERVER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((obj), SOUP_TYPE_SERVER))
 #define SOUP_SERVER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), SOUP_TYPE_SERVER, SoupServerClass))
 
-typedef struct SoupClientContext SoupClientContext;
-GType soup_client_context_get_type (void);
-#define SOUP_TYPE_CLIENT_CONTEXT (soup_client_context_get_type ())
-
 struct _SoupServer {
 	GObject parent;
 
@@ -63,6 +59,9 @@ typedef void (*SoupServerCallback) (SoupServer        *server,
 #define SOUP_SERVER_ASYNC_CONTEXT "async-context"
 #define SOUP_SERVER_RAW_PATHS     "raw-paths"
 #define SOUP_SERVER_SERVER_HEADER "server-header"
+#define SOUP_SERVER_ADD_FEATURE            "add-feature"
+#define SOUP_SERVER_ADD_FEATURE_BY_TYPE    "add-feature-by-type"
+#define SOUP_SERVER_REMOVE_FEATURE_BY_TYPE "remove-feature-by-type"
 
 SoupServer        *soup_server_new            (const char            *optname1,
 					       ...) G_GNUC_NULL_TERMINATED;
@@ -88,10 +87,21 @@ void               soup_server_add_handler    (SoupServer            *server,
 void               soup_server_remove_handler (SoupServer            *server,
 					       const char            *path);
 
+#ifndef LIBSOUP_DISABLE_DEPRECATED
 void               soup_server_add_auth_domain    (SoupServer     *server,
 						   SoupAuthDomain *auth_domain);
 void               soup_server_remove_auth_domain (SoupServer     *server,
 						   SoupAuthDomain *auth_domain);
+#endif
+
+void               soup_server_add_feature            (SoupServer        *server,
+						       SoupServerFeature *feature);
+void               soup_server_add_feature_by_type    (SoupServer        *server,
+						       GType               feature_type);
+void               soup_server_remove_feature         (SoupServer        *server,
+						       SoupServerFeature *feature);
+void               soup_server_remove_feature_by_type (SoupServer        *server,
+						       GType               feature_type);
 
 /* I/O */
 
@@ -101,6 +111,9 @@ void               soup_server_unpause_message (SoupServer           *server,
 						SoupMessage          *msg);
 
 /* Client context */
+
+GType soup_client_context_get_type (void);
+#define SOUP_TYPE_CLIENT_CONTEXT (soup_client_context_get_type ())
 
 SoupSocket     *soup_client_context_get_socket      (SoupClientContext *client);
 SoupAddress    *soup_client_context_get_address     (SoupClientContext *client);

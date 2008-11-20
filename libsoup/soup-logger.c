@@ -123,7 +123,8 @@ soup_logger_init (SoupLogger *logger)
 {
 	SoupLoggerPrivate *priv = SOUP_LOGGER_GET_PRIVATE (logger);
 
-	priv->lock = g_mutex_new ();
+	if (g_thread_supported ())
+		priv->lock = g_mutex_new ();
 	priv->tag = g_quark_from_static_string (g_strdup_printf ("SoupLogger-%p", logger));
 	priv->ids = g_hash_table_new (NULL, NULL);
 }

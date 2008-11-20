@@ -111,8 +111,10 @@ soup_socket_init (SoupSocket *sock)
 
 	priv->sockfd = -1;
 	priv->non_blocking = TRUE;
-	priv->addrlock = g_mutex_new ();
-	priv->iolock = g_mutex_new ();
+	if (g_thread_supported ()) {
+		priv->addrlock = g_mutex_new ();
+		priv->iolock = g_mutex_new ();
+	}
 	priv->timeout = 0;
 }
 

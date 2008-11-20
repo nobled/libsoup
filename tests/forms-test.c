@@ -400,6 +400,7 @@ main (int argc, char **argv)
 	guint port;
 	char *uri_str;
 
+	g_thread_init (NULL);
 	test_init (argc, argv, no_test_entry);
 
 	server = soup_test_server_new (TRUE);

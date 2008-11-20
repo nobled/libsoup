@@ -299,6 +299,7 @@ main (int argc, char **argv)
 	guint port;
 	SoupURI *base_uri;
 
+	g_thread_init (NULL);
 	test_init (argc, argv, no_test_entry);
 
 	server = soup_test_server_new (TRUE);

@@ -259,6 +259,7 @@ main (int argc, char **argv)
 {
 	SoupServer *server;
 
+	g_thread_init (NULL);
 	test_init (argc, argv, NULL);
 
 	server = soup_test_server_new (TRUE);

@@ -86,6 +86,7 @@ main (int argc, char **argv)
 	SoupServer *server;
 	char *fast_uri, *slow_uri;
 
+	g_thread_init (NULL);
 	test_init (argc, argv, NULL);
 
 	debug_printf (1, "http\n");

@@ -289,6 +289,7 @@ main (int argc, char **argv)
 	SoupServer *server;
 	SoupAuthDomain *auth_domain;
 
+	g_thread_init (NULL);
 	test_init (argc, argv, NULL);
 
 	server = soup_test_server_new (TRUE);

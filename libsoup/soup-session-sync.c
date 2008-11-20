@@ -60,8 +60,10 @@ soup_session_sync_init (SoupSessionSync *ss)
 {
 	SoupSessionSyncPrivate *priv = SOUP_SESSION_SYNC_GET_PRIVATE (ss);
 
-	priv->lock = g_mutex_new ();
-	priv->cond = g_cond_new ();
+	if (g_thread_supported ()) {
+		priv->lock = g_mutex_new ();
+		priv->cond = g_cond_new ();
+	}
 }
 
 static void

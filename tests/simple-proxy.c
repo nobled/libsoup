@@ -135,7 +135,6 @@ main (int argc, char **argv)
 	int opt;
 	int port = SOUP_ADDRESS_ANY_PORT;
 
-	g_thread_init (NULL);
 	g_type_init ();
 	signal (SIGINT, quit);
 

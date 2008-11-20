@@ -42,7 +42,8 @@ soup_message_queue_new (SoupSession *session)
 
 	queue = g_slice_new0 (SoupMessageQueue);
 	queue->session = session;
-	queue->mutex = g_mutex_new ();
+	if (g_thread_supported ())
+		queue->mutex = g_mutex_new ();
 	return queue;
 }
 

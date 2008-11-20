@@ -154,7 +154,8 @@ soup_session_init (SoupSession *session)
 
 	priv->queue = soup_message_queue_new (session);
 
-	priv->host_lock = g_mutex_new ();
+	if (g_thread_supported ())
+		priv->host_lock = g_mutex_new ();
 	priv->hosts = g_hash_table_new (soup_address_hash_by_ip,
 					soup_address_equal_by_ip);
 	priv->conns = g_hash_table_new (NULL, NULL);

@@ -6,6 +6,7 @@
 #ifndef SOUP_SESSION_PRIVATE_H
 #define SOUP_SESSION_PRIVATE_H 1
 
+#include "soup-cache.h"
 #include "soup-session.h"
 #include "soup-connection.h"
 #include "soup-message-queue.h"
@@ -24,6 +25,7 @@ SoupConnection   *soup_session_get_connection       (SoupSession *session,
 gboolean          soup_session_try_prune_connection (SoupSession *session);
 
 SoupProxyResolver *soup_session_get_proxy_resolver  (SoupSession *session);
+SoupCache         *soup_session_get_cache           (SoupSession *session);
 
 G_END_DECLS
 

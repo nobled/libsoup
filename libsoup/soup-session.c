@@ -18,6 +18,7 @@
 #include "soup-auth-basic.h"
 #include "soup-auth-digest.h"
 #include "soup-auth-manager-ntlm.h"
+#include "soup-cache.h"
 #include "soup-connection.h"
 #include "soup-marshal.h"
 #include "soup-message-private.h"
@@ -65,6 +66,7 @@ typedef struct {
 
 typedef struct {
 	SoupProxyResolver *proxy_resolver;
+	SoupCache *cache;
 
 	char *ssl_ca_file;
 	SoupSSLCredentials *ssl_creds;
@@ -1494,6 +1496,9 @@ soup_session_add_feature (SoupSession *session, SoupSessionFeature *feature)
 
 	if (SOUP_IS_PROXY_RESOLVER (feature))
 		priv->proxy_resolver = SOUP_PROXY_RESOLVER (feature);
+
+	if (SOUP_IS_CACHE (feature))
+		priv->cache = SOUP_CACHE (feature);
 }
 
 /**
@@ -1546,6 +1551,9 @@ soup_session_remove_feature (SoupSession *session, SoupSessionFeature *feature)
 
 		if (feature == (SoupSessionFeature *)priv->proxy_resolver)
 			priv->proxy_resolver = NULL;
+
+		if (feature == (SoupSessionFeature *)priv->cache)
+			priv->cache = NULL;
 	}
 }
 
@@ -1645,4 +1653,12 @@ soup_session_get_proxy_resolver (SoupSession *session)
 	SoupSessionPrivate *priv = SOUP_SESSION_GET_PRIVATE (session);
 
 	return priv->proxy_resolver;
+}
+
+SoupCache *
+soup_session_get_cache (SoupSession *session)
+{
+	SoupSessionPrivate *priv = SOUP_SESSION_GET_PRIVATE (session);
+
+	return priv->cache;
 }

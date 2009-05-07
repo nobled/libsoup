@@ -361,10 +361,21 @@ do_idle_run_queue (SoupSession *session)
 	}
 }
 
+static gboolean
+had_cache (SoupMessageQueueItem *item)
+{
+	SoupCache *cache;
+
+	cache = soup_session_get_cache (item->session);
+	soup_cache_send_response (cache, item->session, item->msg);
+	return FALSE;
+}
+
 static void
 queue_message (SoupSession *session, SoupMessage *req,
 	       SoupSessionCallback callback, gpointer user_data)
 {
+	SoupCache *cache;
 	SoupMessageQueueItem *item;
 
 	SOUP_SESSION_CLASS (soup_session_async_parent_class)->queue_message (session, req, callback, user_data);
@@ -376,6 +387,12 @@ queue_message (SoupSession *session, SoupMessage *req,
 			  G_CALLBACK (request_restarted), item);
 	g_signal_connect_after (req, "finished",
 				G_CALLBACK (final_finished), item);
+
+	cache = soup_session_get_cache (session);
+	if (cache && soup_cache_has_response (cache, session, req)) {
+		g_idle_add ((GSourceFunc)had_cache, item);
+		return;
+	}
 
 	do_idle_run_queue (session);
 }

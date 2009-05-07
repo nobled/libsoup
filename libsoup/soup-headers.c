@@ -818,6 +818,9 @@ soup_header_g_string_append_param (GString *string, const char *name,
 {
 	const char *v;
 
+	g_return_if_fail (name);
+	g_return_if_fail (value);
+
 	g_string_append (string, name);
 	if (!value)
 		return;

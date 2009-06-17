@@ -1,0 +1,227 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+/*
+ * Copyright (C) 2009 Gustavo Noronha Silva <gns@gnome.org>.
+ */
+
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <libsoup/soup.h>
+
+#include "test-utils.h"
+
+SoupSession *session;
+SoupURI *base_uri;
+SoupMessageBody *chunk_data;
+
+static void
+server_callback (SoupServer *server, SoupMessage *msg,
+		 const char *path, GHashTable *query,
+		 SoupClientContext *context, gpointer data)
+{
+	GError *error = NULL;
+	char *contents;
+	gsize length;
+
+	if (msg->method != SOUP_METHOD_GET) {
+		soup_message_set_status (msg, SOUP_STATUS_NOT_IMPLEMENTED);
+		return;
+	}
+
+	soup_message_set_status (msg, SOUP_STATUS_OK);
+
+	if (!strcmp (path, "/mbox")) {
+		g_file_get_contents ("resources/mbox",
+				     &contents, &length,
+				     &error);
+
+		if (error) {
+			g_error ("%s", error->message);
+			g_error_free (error);
+			exit (1);
+		}
+
+		soup_message_set_response (msg, "text/plain",
+					   SOUP_MEMORY_TAKE,
+					   contents,
+					   length);
+	}
+}
+
+static gboolean
+unpause_msg (gpointer data)
+{
+	SoupMessage *msg = (SoupMessage*)data;
+	soup_session_unpause_message (session, msg);
+	return FALSE;
+}
+
+
+static void
+content_sniffed (SoupMessage *msg, char *content_type, gpointer data)
+{
+	gboolean should_pause = GPOINTER_TO_INT (data);
+
+	if (g_object_get_data (G_OBJECT (msg), "got-chunk")) {
+		debug_printf (1, "  got-chunk got emitted before content-sniffed\n");
+		errors++;
+	}
+
+	g_object_set_data (G_OBJECT (msg), "content-sniffed", GINT_TO_POINTER (TRUE));
+
+	if (should_pause) {
+		soup_session_pause_message (session, msg);
+		g_idle_add (unpause_msg, msg);
+	}
+}
+
+static void
+got_headers (SoupMessage *msg, gpointer data)
+{
+	gboolean should_pause = GPOINTER_TO_INT (data);
+
+	if (g_object_get_data (G_OBJECT (msg), "content-sniffed")) {
+		debug_printf (1, "  content-sniffed got emitted before got-headers\n");
+		errors++;
+	}
+
+	g_object_set_data (G_OBJECT (msg), "got-headers", GINT_TO_POINTER (TRUE));
+
+	if (should_pause) {
+		soup_session_pause_message (session, msg);
+		g_idle_add (unpause_msg, msg);
+	}
+}
+
+static void
+got_chunk (SoupMessage *msg, SoupBuffer *chunk, gpointer data)
+{
+	gboolean should_accumulate = GPOINTER_TO_INT (data);
+
+	g_object_set_data (G_OBJECT (msg), "got-chunk", GINT_TO_POINTER (TRUE));
+
+	if (!should_accumulate) {
+		if (!chunk_data)
+			chunk_data = soup_message_body_new ();
+		soup_message_body_append_buffer (chunk_data, chunk);
+	}
+}
+
+static void
+finished (SoupSession *session, SoupMessage *msg, gpointer data)
+{
+	GMainLoop *loop = (GMainLoop*)data;
+	g_main_loop_quit (loop);
+}
+
+static void
+do_signals_test (gboolean should_content_sniff,
+		 gboolean should_pause,
+		 gboolean should_accumulate)
+{
+	SoupURI *uri = soup_uri_new_with_base (base_uri, "/mbox");
+	SoupMessage *msg = soup_message_new_from_uri ("GET", uri);
+	GMainLoop *loop = g_main_loop_new (NULL, TRUE);
+	char *contents;
+	gsize length;
+	GError *error = NULL;
+	SoupBuffer *body;
+
+	soup_message_body_set_accumulate (msg->response_body, should_accumulate);
+
+	g_object_connect (msg,
+			  "signal::got-headers", got_headers, GINT_TO_POINTER (should_pause),
+			  "signal::got-chunk", got_chunk, GINT_TO_POINTER (should_accumulate),
+			  "signal::content_sniffed", content_sniffed, GINT_TO_POINTER (should_pause),
+			  NULL);
+
+	g_object_ref (msg);
+	soup_session_queue_message (session, msg, finished, loop);
+
+	g_main_loop_run (loop);
+
+	if (!should_content_sniff &&
+	    g_object_get_data (G_OBJECT (msg), "content-sniffed")) {
+		debug_printf (1, "  content-sniffed got emitted without a sniffer\n");
+		errors++;
+	} else if (should_content_sniff &&
+		   !g_object_get_data (G_OBJECT (msg), "content-sniffed")) {
+		debug_printf (1, "  content-sniffed did not get emitted\n");
+		errors++;
+	}
+
+	g_file_get_contents ("resources/mbox",
+			     &contents, &length,
+			     &error);
+
+	if (error) {
+		g_error ("%s", error->message);
+		g_error_free (error);
+		exit (1);
+	}
+
+	if (!should_accumulate) {
+		body = soup_message_body_flatten (chunk_data);
+		soup_message_body_free (chunk_data);
+		chunk_data = NULL;
+	} else
+		body = soup_message_body_flatten (msg->response_body);
+
+	if (body->length != length) {
+		debug_printf (1, "  lengths do not match\n");
+		errors++;
+	}
+
+	if (memcmp (body->data, contents, length)) {
+		debug_printf (1, "  downloaded data does not match\n");
+		errors++;
+	}
+
+	g_free (contents);
+	soup_buffer_free (body);
+
+	soup_uri_free (uri);
+	g_object_unref (msg);
+	g_main_loop_unref (loop);
+}
+
+int
+main (int argc, char **argv)
+{
+	SoupServer *server;
+	SoupContentSniffer *sniffer;
+
+	test_init (argc, argv, NULL);
+
+	server = soup_test_server_new (TRUE);
+	soup_server_add_handler (server, NULL, server_callback, NULL, NULL);
+	base_uri = soup_uri_new ("http://127.0.0.1/");
+	soup_uri_set_port (base_uri, soup_server_get_port (server));
+
+	session = soup_session_async_new ();
+
+	/* No sniffer, no content_sniffed should be emitted */
+	do_signals_test (FALSE, FALSE, FALSE);
+	do_signals_test (FALSE, FALSE, TRUE);
+
+	do_signals_test (FALSE, TRUE, TRUE);
+	do_signals_test (FALSE, TRUE, FALSE);
+
+	sniffer = soup_content_sniffer_new ();
+	soup_session_add_feature (session, (SoupSessionFeature*)sniffer);
+
+	/* Now, with a sniffer, content_sniffed must be emitted after
+	 * got-headers, and before got-chunk.
+	 */
+	do_signals_test (TRUE, FALSE, FALSE);
+	do_signals_test (TRUE, FALSE, TRUE);
+
+	do_signals_test (TRUE, TRUE, TRUE);
+	do_signals_test (TRUE, TRUE, FALSE);
+
+	soup_uri_free (base_uri);
+
+	test_cleanup ();
+	return errors != 0;
+}

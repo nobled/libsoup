@@ -47,6 +47,29 @@ server_callback (SoupServer *server, SoupMessage *msg,
 					   contents,
 					   length);
 	}
+
+	if (g_str_has_prefix (path, "/text_or_binary/")) {
+		char *base_name = g_path_get_basename (path);
+		char *file_name = g_strdup_printf ("resources/%s", base_name);
+
+		g_file_get_contents (file_name,
+				     &contents, &length,
+				     &error);
+
+		g_free (base_name);
+		g_free (file_name);
+
+		if (error) {
+			g_error ("%s", error->message);
+			g_error_free (error);
+			exit (1);
+		}
+
+		soup_message_set_response (msg, "text/plain",
+					   SOUP_MEMORY_TAKE,
+					   contents,
+					   length);
+	}
 }
 
 static gboolean
@@ -186,6 +209,40 @@ do_signals_test (gboolean should_content_sniff,
 	g_main_loop_unref (loop);
 }
 
+static void
+sniffing_content_sniffed (SoupMessage *msg, char *content_type, gpointer data)
+{
+	char *expected_type = (char*)data;
+
+	if (strcmp (content_type, expected_type)) {
+		debug_printf (1, "  sniffing failed! expected %s, got %s\n",
+			      expected_type, content_type);
+		errors++;
+	}
+}
+
+static void
+test_sniffing (const char *path, const char *expected_type)
+{
+	SoupURI *uri = soup_uri_new_with_base (base_uri, path);
+	SoupMessage *msg = soup_message_new_from_uri ("GET", uri);
+	GMainLoop *loop = g_main_loop_new (NULL, TRUE);
+
+	g_object_connect (msg,
+			  "signal::content_sniffed", sniffing_content_sniffed, expected_type,
+			  NULL);
+
+	g_object_ref (msg);
+
+	soup_session_queue_message (session, msg, finished, loop);
+
+	g_main_loop_run (loop);
+
+	soup_uri_free (uri);
+	g_object_unref (msg);
+	g_main_loop_unref (loop);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -219,6 +276,23 @@ main (int argc, char **argv)
 
 	do_signals_test (TRUE, TRUE, TRUE);
 	do_signals_test (TRUE, TRUE, FALSE);
+
+	/* Test the text_or_binary sniffing path */
+
+	/* GIF is a 'safe' type */
+	test_sniffing ("/text_or_binary/home.gif", "image/gif");
+
+	/* With our current code, no sniffing is done using GIO, so
+	 * the mbox will be identified as text/plain; should we change
+	 * this?
+	 */
+	test_sniffing ("/text_or_binary/mbox", "text/plain");
+
+	/* HTML is considered unsafe for this algorithm, since it is
+	 * scriptable, so going from text/plain to text/html is
+	 * considered 'privilege escalation'
+	 */
+	test_sniffing ("/text_or_binary/test.html", "text/plain");
 
 	soup_uri_free (base_uri);
 

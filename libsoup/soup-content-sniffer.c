@@ -33,7 +33,7 @@
  * Since: 2.27.3
  **/
 
-static char* sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, gboolean *uncertain);
+static char* sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer);
 static gsize get_buffer_size (SoupContentSniffer *sniffer);
 
 static void soup_content_sniffer_session_feature_init (SoupSessionFeatureInterface *feature_interface, gpointer interface_data);
@@ -80,24 +80,269 @@ soup_content_sniffer_new ()
 	return g_object_new (SOUP_TYPE_CONTENT_SNIFFER, NULL);
 }
 
+/* This table is based on the HTML5 spec;
+ * See 2.7.4 Content-Type sniffing: unknown type
+ */
+struct _type_info {
+	const gboolean has_ws;       /* if there is insignificant
+				      * whitespace in the patter */
+	const char *mask;
+	const char *pattern;
+	const guint pattern_length;
+	const char *sniffed_type;
+	const gboolean scriptable;
+};
+
+static struct _type_info types_table[] = {
+	{ FALSE,
+	  "\xFF\xFF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xFF\xDF\xDF\xDF\xDF",
+	  "\x3C\x21\x44\x4F\x43\x54\x59\x50\x45\x20\x48\x54\x4D\x4C",
+	  14,
+	  "text/html",
+	  TRUE },
+
+	{ TRUE,
+	  "\xFF\xFF\xDF\xDF\xDF\xDF",
+	  " \x3C\x48\x54\x4D\x4C",
+	  5,
+	  "text/html",
+	  TRUE },
+
+	{ TRUE,
+	  "\xFF\xFF\xDF\xDF\xDF\xDF",
+	  " \x3C\x48\x45\x41\x44",
+	  5,
+	  "text/html",
+	  TRUE },
+
+	{ TRUE,
+	  "\xFF\xFF\xDF\xDF\xDF\xDF\xDF\xDF",
+	  " \x3C\x53\x43\x52\x49\x50\x54",
+	  7,
+	  "text/html",
+	  TRUE },
+
+	{ FALSE,
+	  "\xFF\xFF\xFF\xFF\xFF",
+	  "\x25\x50\x44\x46\x2D",
+	  5,
+	  "application/pdf",
+	  TRUE },
+
+	{ FALSE,
+	  "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
+	  "\x25\x21\x50\x53\x2D\x41\x64\x6F\x62\x65\x2D",
+	  11,
+	  "application/postscript",
+	  FALSE },
+
+	/* BOMs go here */
+
+	{ FALSE,
+	  "\xFF\xFF\xFF\xFF\xFF\xFF",
+	  "\x47\x49\x46\x38\x37\x61",
+	  6,
+	  "image/gif",
+	  FALSE },
+
+	{ FALSE,
+	  "\xFF\xFF\xFF\xFF\xFF\xFF",
+	  "\x47\x49\x46\x38\x39\x61",
+	  6,
+	  "image/gif",
+	  FALSE },
+
+	{ FALSE,
+	  "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
+	  "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A",
+	  8,
+	  "image/png",
+	  FALSE },
+
+	{ FALSE,
+	  "\xFF\xFF\xFF",
+	  "\xFF\xD8\xFF",
+	  3,
+	  "image/jpeg",
+	  FALSE },
+
+	{ FALSE,
+	  "\xFF\xFF",
+	  "\x42\x4D",
+	  2,
+	  "image/bmp",
+	  FALSE },
+
+	{ FALSE,
+	  "\xFF\xFF\xFF\xFF",
+	  "\x00\x00\x01\x00",
+	  4,
+	  "image/vnd.microsoft.icon",
+	  FALSE },
+
+	/* Marks the end */
+	{ FALSE,
+	  NULL,
+	  NULL,
+	  0,
+	  NULL,
+	  FALSE },
+};
+
+/* Whether a given byte looks like it might be part of binary content.
+ * Source: HTML5 spec; borrowed from the Chromium mime sniffer code,
+ * which is BSD-lincensed
+ */
+static char kByteLooksBinary[] = {
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1,  // 0x00 - 0x0F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,  // 0x10 - 0x1F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x20 - 0x2F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x30 - 0x3F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x40 - 0x4F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x50 - 0x5F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x60 - 0x6F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x70 - 0x7F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x80 - 0x8F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x90 - 0x9F
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xA0 - 0xAF
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xB0 - 0xBF
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xC0 - 0xCF
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xD0 - 0xDF
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xE0 - 0xEF
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xF0 - 0xFF
+};
+
+
+/* HTML5: 2.7.3 Content-Type sniffing: text or binary */
 static char*
-sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, gboolean *uncertain)
+sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+{
+	const char *resource = buffer->data;
+	int resource_length = MIN(512, buffer->length);
+	gboolean looks_binary = FALSE;
+	int i;
+
+	/* Detecting UTF-16BE, UTF-16LE, and UTF-8 BOMs means it's text/plain */
+	if (resource_length >= 4) {
+		if ((resource[0] == 0xfe && resource[1] == 0xff) ||
+		    (resource[0] == 0xff && resource[1] == 0xfe) ||
+		    (resource[0] == 0xef && resource[1] == 0xbb && resource[2] == 0xbf))
+			return g_strdup ("text/plain");
+	}
+
+	/* Look to see if any of the first n bytes looks binary */
+	for (i = 0; i < resource_length; i++) {
+		if (kByteLooksBinary[(unsigned char)resource[i]]) {
+			looks_binary = TRUE;
+			break;
+		}
+	}
+
+	if (!looks_binary)
+		return g_strdup ("text/plain");
+
+	/* HTML5: 2.7.4 Content-Type sniffing: unknown type
+	 *
+	 * This will probably live in its own function, since it is
+	 * used by other parts of the algorithm
+	 */
+	for (i = 0; types_table[i].pattern != NULL ; i++) {
+		struct _type_info *type_row = &(types_table[i]);
+
+		if (type_row->scriptable)
+			continue;
+
+		if (type_row->has_ws) {
+			int index_stream = 0;
+			int index_pattern = 0;
+			gboolean skip_row = FALSE;
+
+			while (index_stream < resource_length) {
+				/* Skip insignificant white space ("WS" in the spec) */
+				if (type_row->pattern[index_pattern] == ' ') {
+					if (resource[index_stream] == '\x09' ||
+					    resource[index_stream] == '\x0a' ||
+					    resource[index_stream] == '\x0c' ||
+					    resource[index_stream] == '\x0d' ||
+					    resource[index_stream] == '\x20')
+						index_stream++;
+					else
+						index_pattern++;
+				} else {
+					if ((type_row->mask[index_pattern] & resource[index_stream]) != type_row->pattern[index_pattern]) {
+						skip_row = TRUE;
+						break;
+					}
+					index_pattern++;
+					index_stream++;
+				}
+			}
+
+			if (skip_row)
+				continue;
+
+			if (index_pattern > type_row->pattern_length)
+				return g_strdup (type_row->sniffed_type);
+		} else {
+			int j;
+
+			if (resource_length < type_row->pattern_length)
+				continue;
+
+			for (j = 0; j < type_row->pattern_length; j++) {
+				if ((type_row->mask[j] & resource[j]) != type_row->pattern[j])
+					break;
+			}
+
+			/* This means our comparison above matched completely */
+			if (j == type_row->pattern_length)
+				return g_strdup (type_row->sniffed_type);
+		}
+	}
+
+	return g_strdup ("application/octet-stream");
+}
+
+static char*
+sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 {
 	SoupURI *uri;
 	char *uri_path;
 	char *content_type;
 	char *mime_type;
+	gboolean uncertain;
 
 	uri = soup_message_get_uri (msg);
 	uri_path = soup_uri_to_string (uri, TRUE);
 
-	content_type= g_content_type_guess (uri_path, (const guchar*)buffer->data, buffer->length, uncertain);
+	content_type= g_content_type_guess (uri_path, (const guchar*)buffer->data, buffer->length, &uncertain);
 	mime_type = g_content_type_get_mime_type (content_type);
 
 	g_free (uri_path);
 	g_free (content_type);
 
 	return mime_type;
+}
+
+static char*
+sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+{
+	const char *content_type;
+
+	content_type = soup_message_headers_get_one (msg->response_headers, "Content-Type");
+
+	if (content_type == NULL)
+		return sniff_gio (sniffer, msg, buffer);
+
+	/* If we got text/plain, use text_or_binary */
+	if (g_str_equal (content_type, "text/plain") ||
+	     g_str_equal (content_type, "text/plain; charset=ISO-8859-1") ||
+	     g_str_equal (content_type, "text/plain; charset=iso-8859-1") ||
+	     g_str_equal (content_type, "text/plain; charset=UTF-8")) {
+		return sniff_text_or_binary (sniffer, msg, buffer);
+	}
+
+	return sniff_gio (sniffer, msg, buffer);
 }
 
 static gsize

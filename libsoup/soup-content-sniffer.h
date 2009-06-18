@@ -31,8 +31,7 @@ typedef struct {
 
 	char* (*sniff)              (SoupContentSniffer *sniffer,
 				     SoupMessage *msg,
-				     SoupBuffer *buffer,
-				     gboolean *uncertain);
+				     SoupBuffer *buffer);
 	gsize (*get_buffer_size)    (SoupContentSniffer *sniffer);
 
 	/* Padding for future expansion */

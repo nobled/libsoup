@@ -224,18 +224,15 @@ io_sniff_content (SoupMessage *msg)
 	SoupBuffer *sniffed_buffer = soup_message_body_flatten (io->delayed_chunk_data);
 	SoupContentSnifferClass *content_sniffer_class = SOUP_CONTENT_SNIFFER_GET_CLASS (priv->sniffer);
 	char *sniffed_mime_type;
-	gboolean uncertain;
 
 	io->delay_got_chunks = FALSE;
 
-	sniffed_mime_type = content_sniffer_class->sniff (priv->sniffer, msg, sniffed_buffer, &uncertain);
-	if (!uncertain) {
-		SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
-		soup_message_content_sniffed (msg, sniffed_mime_type);
-		g_free (sniffed_mime_type);
-		sniffed_mime_type = NULL;
-		SOUP_MESSAGE_IO_RETURN_VAL_IF_CANCELLED_OR_PAUSED (FALSE);
-	}
+	sniffed_mime_type = content_sniffer_class->sniff (priv->sniffer, msg, sniffed_buffer);
+	SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
+	soup_message_content_sniffed (msg, sniffed_mime_type);
+	g_free (sniffed_mime_type);
+	sniffed_mime_type = NULL;
+	SOUP_MESSAGE_IO_RETURN_VAL_IF_CANCELLED_OR_PAUSED (FALSE);
 	g_free (sniffed_mime_type);
 
 	SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;

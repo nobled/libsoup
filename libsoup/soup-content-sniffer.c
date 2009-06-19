@@ -136,7 +136,26 @@ static struct _type_info types_table[] = {
 	  "application/postscript",
 	  FALSE },
 
-	/* BOMs go here */
+	{ FALSE,
+	  "\xFF\xFF\x00\x00",
+	  "\xFE\xFF\x00\x00",
+	  4,
+	  "text/plain",
+	  FALSE },
+
+	{ FALSE,
+	  "\xFF\xFF\x00\x00",
+	  "\xFF\xFF\x00\x00",
+	  4,
+	  "text/plain",
+	  FALSE },
+
+	{ FALSE,
+	  "\xFF\xFF\xFF\x00",
+	  "\xEF\xBB\xBF\x00",
+	  4,
+	  "text/plain",
+	  FALSE },
 
 	{ FALSE,
 	  "\xFF\xFF\xFF\xFF\xFF\xFF",

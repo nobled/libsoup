@@ -94,7 +94,7 @@ server_callback (SoupServer *server, SoupMessage *msg,
 					   length);
 	}
 
-	if (g_str_has_prefix (path, "/xml/")) {
+	if (g_str_has_prefix (path, "/type/")) {
 		char **components = g_strsplit (path, "/", 4);
 		char *ptr;
 
@@ -357,9 +357,13 @@ main (int argc, char **argv)
 
 	/* Test the XML sniffing path */
 
-	test_sniffing ("/xml/text_xml/home.gif", "text/xml");
-	test_sniffing ("/xml/anice_type+xml/home.gif", "anice/type+xml");
-	test_sniffing ("/xml/application_xml/home.gif", "application/xml");
+	test_sniffing ("/type/text_xml/home.gif", "text/xml");
+	test_sniffing ("/type/anice_type+xml/home.gif", "anice/type+xml");
+	test_sniffing ("/type/application_xml/home.gif", "application/xml");
+
+	/* Test the image sniffing path */
+
+	test_sniffing ("/type/image_png/home.gif", "image/gif");
 
 	soup_uri_free (base_uri);
 

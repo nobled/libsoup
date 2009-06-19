@@ -330,6 +330,36 @@ sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer 
 }
 
 static char*
+sniff_images (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, const char *content_type)
+{
+	const char *resource = buffer->data;
+	int resource_length = MIN(512, buffer->length);
+	int i;
+
+	for (i = 0; types_table[i].pattern != NULL ; i++) {
+		struct _type_info *type_row = &(types_table[i]);
+		int j;
+
+		if (resource_length < type_row->pattern_length)
+			continue;
+
+		if (!g_str_has_prefix (type_row->sniffed_type, "image/"))
+			continue;
+
+		for (j = 0; j < type_row->pattern_length; j++) {
+			if (resource[j] != type_row->pattern[j])
+					break;
+		}
+
+		/* This means our comparison above matched completely */
+		if (j == type_row->pattern_length)
+			return g_strdup (type_row->sniffed_type);
+	}
+
+	return g_strdup (content_type);
+}
+
+static char*
 sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 {
 	SoupURI *uri;
@@ -369,6 +399,19 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 	    !g_ascii_strcasecmp (content_type, "text/xml") ||
 	    !g_ascii_strcasecmp (content_type, "application/xml"))
 		return g_strdup (content_type);
+
+	/* 2.7.5 Content-Type sniffing: image
+	 * The spec says:
+	 *
+	 *   If the resource's official type is "image/svg+xml", then
+	 *   the sniffed type of the resource is its official type (an
+	 *   XML type)
+	 *
+	 * The XML case is handled by the if above; if you refactor
+	 * this code, keep this in mind.
+	 */
+	if (!g_ascii_strncasecmp (content_type, "image/", 6))
+		return sniff_images (sniffer, msg, buffer, content_type);
 
 	content_type_with_params = soup_message_headers_get_one (msg->response_headers, "Content-Type");
 

@@ -231,44 +231,20 @@ static char kByteLooksBinary[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xF0 - 0xFF
 };
 
-
-/* HTML5: 2.7.3 Content-Type sniffing: text or binary */
+/* HTML5: 2.7.4 Content-Type sniffing: unknown type */
 static char*
-sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, gboolean for_text_or_binary)
 {
 	const char *resource = buffer->data;
 	int resource_length = MIN(512, buffer->length);
-	gboolean looks_binary = FALSE;
 	int i;
 
-	/* Detecting UTF-16BE, UTF-16LE, and UTF-8 BOMs means it's text/plain */
-	if (resource_length >= 4) {
-		if ((resource[0] == 0xfe && resource[1] == 0xff) ||
-		    (resource[0] == 0xff && resource[1] == 0xfe) ||
-		    (resource[0] == 0xef && resource[1] == 0xbb && resource[2] == 0xbf))
-			return g_strdup ("text/plain");
-	}
-
-	/* Look to see if any of the first n bytes looks binary */
-	for (i = 0; i < resource_length; i++) {
-		if (kByteLooksBinary[(unsigned char)resource[i]]) {
-			looks_binary = TRUE;
-			break;
-		}
-	}
-
-	if (!looks_binary)
-		return g_strdup ("text/plain");
-
-	/* HTML5: 2.7.4 Content-Type sniffing: unknown type
-	 *
-	 * This will probably live in its own function, since it is
-	 * used by other parts of the algorithm
-	 */
 	for (i = 0; types_table[i].pattern != NULL ; i++) {
 		struct _type_info *type_row = &(types_table[i]);
 
-		if (type_row->scriptable)
+		/* The scriptable types should be skiped for the text
+		 * or binary path, but considered for other paths */
+		if (for_text_or_binary && type_row->scriptable)
 			continue;
 
 		if (type_row->has_ws) {
@@ -322,6 +298,37 @@ sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer 
 	return g_strdup ("application/octet-stream");
 }
 
+/* HTML5: 2.7.3 Content-Type sniffing: text or binary */
+static char*
+sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+{
+	const char *resource = buffer->data;
+	int resource_length = MIN(512, buffer->length);
+	gboolean looks_binary = FALSE;
+	int i;
+
+	/* Detecting UTF-16BE, UTF-16LE, and UTF-8 BOMs means it's text/plain */
+	if (resource_length >= 4) {
+		if ((resource[0] == 0xfe && resource[1] == 0xff) ||
+		    (resource[0] == 0xff && resource[1] == 0xfe) ||
+		    (resource[0] == 0xef && resource[1] == 0xbb && resource[2] == 0xbf))
+			return g_strdup ("text/plain");
+	}
+
+	/* Look to see if any of the first n bytes looks binary */
+	for (i = 0; i < resource_length; i++) {
+		if (kByteLooksBinary[(unsigned char)resource[i]]) {
+			looks_binary = TRUE;
+			break;
+		}
+	}
+
+	if (!looks_binary)
+		return g_strdup ("text/plain");
+
+	return sniff_unknown (sniffer, msg, buffer, TRUE);
+}
+
 static char*
 sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 {
@@ -346,18 +353,25 @@ sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 static char*
 sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 {
+	const char *content_type_with_params;
 	const char *content_type;
 
-	content_type = soup_message_headers_get_one (msg->response_headers, "Content-Type");
+	content_type = soup_message_headers_get_content_type (msg->response_headers, NULL);
 
-	if (content_type == NULL)
-		return sniff_gio (sniffer, msg, buffer);
+	/* These comparisons are done in an ASCII-case-insensitive
+	 * manner because the spec requires it */
+	if ((content_type == NULL) ||
+	    !g_ascii_strcasecmp (content_type, "unknown/unknown") ||
+	    !g_ascii_strcasecmp (content_type, "application/unknown"))
+		return sniff_unknown (sniffer, msg, buffer, FALSE);
+
+	content_type_with_params = soup_message_headers_get_one (msg->response_headers, "Content-Type");
 
 	/* If we got text/plain, use text_or_binary */
-	if (g_str_equal (content_type, "text/plain") ||
-	     g_str_equal (content_type, "text/plain; charset=ISO-8859-1") ||
-	     g_str_equal (content_type, "text/plain; charset=iso-8859-1") ||
-	     g_str_equal (content_type, "text/plain; charset=UTF-8")) {
+	if (g_str_equal (content_type_with_params, "text/plain") ||
+	     g_str_equal (content_type_with_params, "text/plain; charset=ISO-8859-1") ||
+	     g_str_equal (content_type_with_params, "text/plain; charset=iso-8859-1") ||
+	     g_str_equal (content_type_with_params, "text/plain; charset=UTF-8")) {
 		return sniff_text_or_binary (sniffer, msg, buffer);
 	}
 
@@ -378,8 +392,10 @@ soup_content_sniffer_got_headers_cb (SoupMessage *msg, SoupContentSniffer *sniff
 	const char *content_type = soup_message_headers_get_content_type (msg->response_headers, NULL);
 
 	if ((content_type == NULL)
-	    || (strcmp (content_type, "application/octet-stream") == 0)
-	    || (strcmp (content_type, "text/plain") == 0)) {
+	    || (g_ascii_strcasecmp (content_type, "application/octet-stream") == 0)
+	    || (g_ascii_strcasecmp (content_type, "text/plain") == 0)
+	    || (g_ascii_strcasecmp (content_type, "unknown/unknown") == 0)
+	    || (g_ascii_strcasecmp (content_type, "application/unknown") == 0)) {
 		priv->should_sniff_content = TRUE;
 		priv->bytes_for_sniffing = content_sniffer_class->get_buffer_size (sniffer);
 	}

@@ -70,6 +70,29 @@ server_callback (SoupServer *server, SoupMessage *msg,
 					   contents,
 					   length);
 	}
+
+	if (g_str_has_prefix (path, "/unknown/")) {
+		char *base_name = g_path_get_basename (path);
+		char *file_name = g_strdup_printf ("resources/%s", base_name);
+
+		g_file_get_contents (file_name,
+				     &contents, &length,
+				     &error);
+
+		g_free (base_name);
+		g_free (file_name);
+
+		if (error) {
+			g_error ("%s", error->message);
+			g_error_free (error);
+			exit (1);
+		}
+
+		soup_message_set_response (msg, "UNKNOWN/unknown",
+					   SOUP_MEMORY_TAKE,
+					   contents,
+					   length);
+	}
 }
 
 static gboolean
@@ -293,6 +316,12 @@ main (int argc, char **argv)
 	 * considered 'privilege escalation'
 	 */
 	test_sniffing ("/text_or_binary/test.html", "text/plain");
+
+	/* Test the unknown sniffing path */
+
+	test_sniffing ("/unknown/test.html", "text/html");
+	test_sniffing ("/unknown/home.gif", "image/gif");
+	test_sniffing ("/unknown/mbox", "application/octet-stream");
 
 	soup_uri_free (base_uri);
 

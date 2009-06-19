@@ -365,6 +365,11 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 	    !g_ascii_strcasecmp (content_type, "application/unknown"))
 		return sniff_unknown (sniffer, msg, buffer, FALSE);
 
+	if (g_str_has_suffix (content_type, "+xml") ||
+	    !g_ascii_strcasecmp (content_type, "text/xml") ||
+	    !g_ascii_strcasecmp (content_type, "application/xml"))
+		return g_strdup (content_type);
+
 	content_type_with_params = soup_message_headers_get_one (msg->response_headers, "Content-Type");
 
 	/* If we got text/plain, use text_or_binary */
@@ -389,16 +394,9 @@ soup_content_sniffer_got_headers_cb (SoupMessage *msg, SoupContentSniffer *sniff
 {
 	SoupMessagePrivate *priv = SOUP_MESSAGE_GET_PRIVATE (msg);
 	SoupContentSnifferClass *content_sniffer_class = SOUP_CONTENT_SNIFFER_GET_CLASS (sniffer);
-	const char *content_type = soup_message_headers_get_content_type (msg->response_headers, NULL);
 
-	if ((content_type == NULL)
-	    || (g_ascii_strcasecmp (content_type, "application/octet-stream") == 0)
-	    || (g_ascii_strcasecmp (content_type, "text/plain") == 0)
-	    || (g_ascii_strcasecmp (content_type, "unknown/unknown") == 0)
-	    || (g_ascii_strcasecmp (content_type, "application/unknown") == 0)) {
-		priv->should_sniff_content = TRUE;
-		priv->bytes_for_sniffing = content_sniffer_class->get_buffer_size (sniffer);
-	}
+	priv->should_sniff_content = TRUE;
+	priv->bytes_for_sniffing = content_sniffer_class->get_buffer_size (sniffer);
 }
 
 static void

@@ -231,12 +231,35 @@ static char kByteLooksBinary[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xF0 - 0xFF
 };
 
+static char*
+sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+{
+	SoupURI *uri;
+	char *uri_path;
+	char *content_type;
+	char *mime_type;
+	gboolean uncertain;
+
+	uri = soup_message_get_uri (msg);
+	uri_path = soup_uri_to_string (uri, TRUE);
+
+	content_type= g_content_type_guess (uri_path, (const guchar*)buffer->data, buffer->length, &uncertain);
+	mime_type = g_content_type_get_mime_type (content_type);
+
+	g_free (uri_path);
+	g_free (content_type);
+
+	return mime_type;
+}
+
 /* HTML5: 2.7.4 Content-Type sniffing: unknown type */
 static char*
 sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, gboolean for_text_or_binary)
 {
 	const char *resource = buffer->data;
 	int resource_length = MIN(512, buffer->length);
+	char *gio_guess;
+	gboolean use_gio_guess = TRUE;
 	int i;
 
 	for (i = 0; types_table[i].pattern != NULL ; i++) {
@@ -294,6 +317,28 @@ sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer
 				return g_strdup (type_row->sniffed_type);
 		}
 	}
+
+	/* The spec allows us to use platform sniffing to find out
+	 * about other types that are not covered, but we need to be
+	 * careful to not escalate privileges, if on text or
+	 * binary. */
+	gio_guess = sniff_gio (sniffer, msg, buffer);
+
+	if (for_text_or_binary) {
+		for (i = 0; types_table[i].pattern != NULL ; i++) {
+			struct _type_info *type_row = &(types_table[i]);
+
+			if (!g_ascii_strcasecmp (type_row, gio_guess) &&
+			    type_row->scriptable) {
+				use_gio_guess = FALSE;
+				break;
+			}
+		}
+	}
+
+	if (use_gio_guess)
+		return gio_guess;
+	g_free (gio_guess);
 
 	return g_strdup ("application/octet-stream");
 }
@@ -360,27 +405,6 @@ sniff_images (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer,
 }
 
 static char*
-sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
-{
-	SoupURI *uri;
-	char *uri_path;
-	char *content_type;
-	char *mime_type;
-	gboolean uncertain;
-
-	uri = soup_message_get_uri (msg);
-	uri_path = soup_uri_to_string (uri, TRUE);
-
-	content_type= g_content_type_guess (uri_path, (const guchar*)buffer->data, buffer->length, &uncertain);
-	mime_type = g_content_type_get_mime_type (content_type);
-
-	g_free (uri_path);
-	g_free (content_type);
-
-	return mime_type;
-}
-
-static char*
 sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 {
 	const char *content_type_with_params;
@@ -423,7 +447,7 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 		return sniff_text_or_binary (sniffer, msg, buffer);
 	}
 
-	return sniff_gio (sniffer, msg, buffer);
+	return g_strdup (content_type);
 }
 
 static gsize

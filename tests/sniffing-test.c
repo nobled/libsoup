@@ -353,7 +353,7 @@ main (int argc, char **argv)
 
 	test_sniffing ("/unknown/test.html", "text/html");
 	test_sniffing ("/unknown/home.gif", "image/gif");
-	test_sniffing ("/unknown/mbox", "application/octet-stream");
+	test_sniffing ("/unknown/mbox", "application/mbox");
 
 	/* Test the XML sniffing path */
 

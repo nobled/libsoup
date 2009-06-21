@@ -33,7 +33,7 @@
  * Since: 2.27.3
  **/
 
-static char* sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer);
+static char *sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer);
 static gsize get_buffer_size (SoupContentSniffer *sniffer);
 
 static void soup_content_sniffer_session_feature_init (SoupSessionFeatureInterface *feature_interface, gpointer interface_data);
@@ -80,20 +80,31 @@ soup_content_sniffer_new ()
 	return g_object_new (SOUP_TYPE_CONTENT_SNIFFER, NULL);
 }
 
+void
+soup_content_sniffer_sniff (SoupContentSniffer *sniffer,
+			    SoupMessage *msg, SoupBuffer *buffer)
+{
+	g_return_if_fail (SOUP_IS_CONTENT_SNIFFER (sniffer));
+	g_return_if_fail (SOUP_IS_MESSAGE (msg));
+	g_return_if_fail (buffer != NULL);
+
+	return SOUP_CONTENT_SNIFFER_GET_CLASS (sniffer)->sniff (sniffer, msg, buffer);
+}
+
 /* This table is based on the HTML5 spec;
  * See 2.7.4 Content-Type sniffing: unknown type
  */
-struct _type_info {
-	const gboolean has_ws;       /* if there is insignificant
-				      * whitespace in the patter */
+typedef struct {
+	/* @has_ws is TRUE if @pattern contains "generic" whitespace */
+	gboolean    has_ws;
 	const char *mask;
 	const char *pattern;
-	const guint pattern_length;
+	guint       pattern_length;
 	const char *sniffed_type;
-	const gboolean scriptable;
-};
+	gboolean    scriptable;
+} SoupContentSnifferPattern;
 
-static struct _type_info types_table[] = {
+static SoupContentSnifferPattern types_table[] = {
 	{ FALSE,
 	  "\xFF\xFF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xFF\xDF\xDF\xDF\xDF",
 	  "\x3C\x21\x44\x4F\x43\x54\x59\x50\x45\x20\x48\x54\x4D\x4C",
@@ -197,41 +208,33 @@ static struct _type_info types_table[] = {
 	  "\x00\x00\x01\x00",
 	  4,
 	  "image/vnd.microsoft.icon",
-	  FALSE },
-
-	/* Marks the end */
-	{ FALSE,
-	  NULL,
-	  NULL,
-	  0,
-	  NULL,
-	  FALSE },
+	  FALSE }
 };
 
 /* Whether a given byte looks like it might be part of binary content.
  * Source: HTML5 spec; borrowed from the Chromium mime sniffer code,
- * which is BSD-lincensed
+ * which is BSD-licensed
  */
-static char kByteLooksBinary[] = {
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1,  // 0x00 - 0x0F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,  // 0x10 - 0x1F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x20 - 0x2F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x30 - 0x3F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x40 - 0x4F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x50 - 0x5F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x60 - 0x6F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x70 - 0x7F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x80 - 0x8F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0x90 - 0x9F
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xA0 - 0xAF
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xB0 - 0xBF
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xC0 - 0xCF
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xD0 - 0xDF
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xE0 - 0xEF
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 0xF0 - 0xFF
+static char byte_looks_binary[] = {
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1,  /* 0x00 - 0x0F */
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,  /* 0x10 - 0x1F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x20 - 0x2F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x30 - 0x3F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x40 - 0x4F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x50 - 0x5F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x60 - 0x6F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x70 - 0x7F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x80 - 0x8F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0x90 - 0x9F */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0xA0 - 0xAF */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0xB0 - 0xBF */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0xC0 - 0xCF */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0xD0 - 0xDF */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0xE0 - 0xEF */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 0xF0 - 0xFF */
 };
 
-static char*
+static char *
 sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 {
 	SoupURI *uri;
@@ -254,16 +257,16 @@ sniff_gio (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 
 /* HTML5: 2.7.4 Content-Type sniffing: unknown type */
 static char*
-sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, gboolean for_text_or_binary)
+sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg,
+	       SoupBuffer *buffer, gboolean for_text_or_binary)
 {
 	const char *resource = buffer->data;
-	int resource_length = MIN(512, buffer->length);
+	int resource_length = MIN (512, buffer->length);
 	char *gio_guess;
-	gboolean use_gio_guess = TRUE;
 	int i;
 
-	for (i = 0; types_table[i].pattern != NULL ; i++) {
-		struct _type_info *type_row = &(types_table[i]);
+	for (i = 0; i < G_N_ELEMENTS (types_table); i++) {
+		SoupContentSnifferPattern *type_row = &(types_table[i]);
 
 		/* The scriptable types should be skiped for the text
 		 * or binary path, but considered for other paths */
@@ -320,49 +323,50 @@ sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer
 
 	/* The spec allows us to use platform sniffing to find out
 	 * about other types that are not covered, but we need to be
-	 * careful to not escalate privileges, if on text or
-	 * binary. */
+	 * careful to not escalate privileges, if on text or binary.
+	 */
 	gio_guess = sniff_gio (sniffer, msg, buffer);
 
 	if (for_text_or_binary) {
-		for (i = 0; types_table[i].pattern != NULL ; i++) {
-			struct _type_info *type_row = &(types_table[i]);
+		for (i = 0; i < G_N_ELEMENTS (types_table); i++) {
+			SoupContentSnifferPattern *type_row = &(types_table[i]);
 
 			if (!g_ascii_strcasecmp (type_row->sniffed_type, gio_guess) &&
 			    type_row->scriptable) {
-				use_gio_guess = FALSE;
+				g_free (gio_guess);
+				gio_guess = NULL;
 				break;
 			}
 		}
 	}
 
-	if (use_gio_guess)
+	if (gio_guess)
 		return gio_guess;
-	g_free (gio_guess);
 
 	return g_strdup ("application/octet-stream");
 }
 
 /* HTML5: 2.7.3 Content-Type sniffing: text or binary */
 static char*
-sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg,
+		      SoupBuffer *buffer)
 {
 	const char *resource = buffer->data;
-	int resource_length = MIN(512, buffer->length);
+	int resource_length = MIN (512, buffer->length);
 	gboolean looks_binary = FALSE;
 	int i;
 
-	/* Detecting UTF-16BE, UTF-16LE, and UTF-8 BOMs means it's text/plain */
+	/* Detecting UTF-16BE, UTF-16LE, or UTF-8 BOMs means it's text/plain */
 	if (resource_length >= 4) {
-		if ((resource[0] == 0xfe && resource[1] == 0xff) ||
-		    (resource[0] == 0xff && resource[1] == 0xfe) ||
-		    (resource[0] == 0xef && resource[1] == 0xbb && resource[2] == 0xbf))
+		if ((resource[0] == 0xFE && resource[1] == 0xFF) ||
+		    (resource[0] == 0xFF && resource[1] == 0xFE) ||
+		    (resource[0] == 0xEF && resource[1] == 0xBB && resource[2] == 0xBF))
 			return g_strdup ("text/plain");
 	}
 
 	/* Look to see if any of the first n bytes looks binary */
 	for (i = 0; i < resource_length; i++) {
-		if (kByteLooksBinary[(unsigned char)resource[i]]) {
+		if (byte_looks_binary[(unsigned char)resource[i]]) {
 			looks_binary = TRUE;
 			break;
 		}
@@ -375,15 +379,15 @@ sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer 
 }
 
 static char*
-sniff_images (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, const char *content_type)
+sniff_images (SoupContentSniffer *sniffer, SoupMessage *msg,
+	      SoupBuffer *buffer, const char *content_type)
 {
 	const char *resource = buffer->data;
-	int resource_length = MIN(512, buffer->length);
+	int resource_length = MIN (512, buffer->length);
 	int i;
 
-	for (i = 0; types_table[i].pattern != NULL ; i++) {
-		struct _type_info *type_row = &(types_table[i]);
-		int j;
+	for (i = 0; i < G_N_ELEMENTS (types_table); i++) {
+		SoupContentSnifferPattern *type_row = &(types_table[i]);
 
 		if (resource_length < type_row->pattern_length)
 			continue;
@@ -391,13 +395,10 @@ sniff_images (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer,
 		if (!g_str_has_prefix (type_row->sniffed_type, "image/"))
 			continue;
 
-		for (j = 0; j < type_row->pattern_length; j++) {
-			if (resource[j] != type_row->pattern[j])
-					break;
-		}
-
-		/* This means our comparison above matched completely */
-		if (j == type_row->pattern_length)
+		/* All of the image types use all-\xFF for the mask,
+		 * so we can just memcmp.
+		 */
+		if (memcmp (type_row->pattern, resource, type_row->pattern_length) == 0)
 			return g_strdup (type_row->sniffed_type);
 	}
 
@@ -441,9 +442,9 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 
 	/* If we got text/plain, use text_or_binary */
 	if (g_str_equal (content_type_with_params, "text/plain") ||
-	     g_str_equal (content_type_with_params, "text/plain; charset=ISO-8859-1") ||
-	     g_str_equal (content_type_with_params, "text/plain; charset=iso-8859-1") ||
-	     g_str_equal (content_type_with_params, "text/plain; charset=UTF-8")) {
+	    g_str_equal (content_type_with_params, "text/plain; charset=ISO-8859-1") ||
+	    g_str_equal (content_type_with_params, "text/plain; charset=iso-8859-1") ||
+	    g_str_equal (content_type_with_params, "text/plain; charset=UTF-8")) {
 		return sniff_text_or_binary (sniffer, msg, buffer);
 	}
 

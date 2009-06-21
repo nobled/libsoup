@@ -222,18 +222,15 @@ io_sniff_content (SoupMessage *msg)
 	SoupMessagePrivate *priv = SOUP_MESSAGE_GET_PRIVATE (msg);
 	SoupMessageIOData *io = priv->io_data;
 	SoupBuffer *sniffed_buffer = soup_message_body_flatten (io->delayed_chunk_data);
-	SoupContentSnifferClass *content_sniffer_class = SOUP_CONTENT_SNIFFER_GET_CLASS (priv->sniffer);
 	char *sniffed_mime_type;
 
 	io->delay_got_chunks = FALSE;
 
-	sniffed_mime_type = content_sniffer_class->sniff (priv->sniffer, msg, sniffed_buffer);
+	sniffed_mime_type = soup_content_sniffer_sniff (priv->sniffer, msg, sniffed_buffer);
 	SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
 	soup_message_content_sniffed (msg, sniffed_mime_type);
 	g_free (sniffed_mime_type);
-	sniffed_mime_type = NULL;
 	SOUP_MESSAGE_IO_RETURN_VAL_IF_CANCELLED_OR_PAUSED (FALSE);
-	g_free (sniffed_mime_type);
 
 	SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
 	soup_message_got_chunk (msg, sniffed_buffer);
@@ -343,7 +340,7 @@ read_body_chunk (SoupMessage *msg)
 		if (priv->should_sniff_content)
 			io->delay_got_chunks = TRUE;
 		else if (priv->sniffer)
-			soup_message_content_sniffed(msg, NULL);
+			soup_message_content_sniffed (msg, NULL);
 		io->acked_content_sniff_decision = TRUE;
 	}
 
@@ -891,7 +888,8 @@ io_read (SoupSocket *sock, SoupMessage *msg)
 				 * and read_length must be 0; since we
 				 * may be coming from STATE_TRAILERS,
 				 * or may be doing a read-to-eof, we
-				 * sanitize these here. */
+				 * sanitize these here.
+				 */
 				io->read_state = SOUP_MESSAGE_IO_STATE_BODY;
 				io->read_length = 0;
 				SOUP_MESSAGE_IO_RETURN_IF_CANCELLED_OR_PAUSED;

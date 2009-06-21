@@ -349,7 +349,7 @@ sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg,
 /* HTML5: 2.7.3 Content-Type sniffing: text or binary */
 static char*
 sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg,
-		      SoupBuffer *buffer)
+		      SoupBuffer *buffer, const char *official_type)
 {
 	const char *resource = buffer->data;
 	int resource_length = MIN (512, buffer->length);
@@ -361,7 +361,7 @@ sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg,
 		if ((resource[0] == 0xFE && resource[1] == 0xFF) ||
 		    (resource[0] == 0xFF && resource[1] == 0xFE) ||
 		    (resource[0] == 0xEF && resource[1] == 0xBB && resource[2] == 0xBF))
-			return g_strdup ("text/plain");
+			return g_strdup (official_type);
 	}
 
 	/* Look to see if any of the first n bytes looks binary */
@@ -373,7 +373,7 @@ sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg,
 	}
 
 	if (!looks_binary)
-		return g_strdup ("text/plain");
+		return g_strdup (official_type);
 
 	return sniff_unknown (sniffer, msg, buffer, TRUE);
 }
@@ -412,6 +412,8 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 	const char *content_type;
 
 	content_type = soup_message_headers_get_content_type (msg->response_headers, NULL);
+	content_type_with_params = soup_message_headers_get_one (msg->response_headers, "Content-Type");
+
 
 	/* These comparisons are done in an ASCII-case-insensitive
 	 * manner because the spec requires it */
@@ -423,7 +425,7 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 	if (g_str_has_suffix (content_type, "+xml") ||
 	    !g_ascii_strcasecmp (content_type, "text/xml") ||
 	    !g_ascii_strcasecmp (content_type, "application/xml"))
-		return g_strdup (content_type);
+		return g_strdup (content_type_with_params);
 
 	/* 2.7.5 Content-Type sniffing: image
 	 * The spec says:
@@ -438,17 +440,15 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 	if (!g_ascii_strncasecmp (content_type, "image/", 6))
 		return sniff_images (sniffer, msg, buffer, content_type);
 
-	content_type_with_params = soup_message_headers_get_one (msg->response_headers, "Content-Type");
-
 	/* If we got text/plain, use text_or_binary */
 	if (g_str_equal (content_type_with_params, "text/plain") ||
 	    g_str_equal (content_type_with_params, "text/plain; charset=ISO-8859-1") ||
 	    g_str_equal (content_type_with_params, "text/plain; charset=iso-8859-1") ||
 	    g_str_equal (content_type_with_params, "text/plain; charset=UTF-8")) {
-		return sniff_text_or_binary (sniffer, msg, buffer);
+		return sniff_text_or_binary (sniffer, msg, buffer, content_type_with_params);
 	}
 
-	return g_strdup (content_type);
+	return g_strdup (content_type_with_params);
 }
 
 static gsize

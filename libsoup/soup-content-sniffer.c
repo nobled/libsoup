@@ -328,7 +328,7 @@ sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer
 		for (i = 0; types_table[i].pattern != NULL ; i++) {
 			struct _type_info *type_row = &(types_table[i]);
 
-			if (!g_ascii_strcasecmp (type_row, gio_guess) &&
+			if (!g_ascii_strcasecmp (type_row->sniffed_type, gio_guess) &&
 			    type_row->scriptable) {
 				use_gio_guess = FALSE;
 				break;

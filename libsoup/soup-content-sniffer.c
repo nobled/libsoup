@@ -80,13 +80,13 @@ soup_content_sniffer_new ()
 	return g_object_new (SOUP_TYPE_CONTENT_SNIFFER, NULL);
 }
 
-void
+char *
 soup_content_sniffer_sniff (SoupContentSniffer *sniffer,
 			    SoupMessage *msg, SoupBuffer *buffer)
 {
-	g_return_if_fail (SOUP_IS_CONTENT_SNIFFER (sniffer));
-	g_return_if_fail (SOUP_IS_MESSAGE (msg));
-	g_return_if_fail (buffer != NULL);
+	g_return_val_if_fail (SOUP_IS_CONTENT_SNIFFER (sniffer), NULL);
+	g_return_val_if_fail (SOUP_IS_MESSAGE (msg), NULL);
+	g_return_val_if_fail (buffer != NULL, NULL);
 
 	return SOUP_CONTENT_SNIFFER_GET_CLASS (sniffer)->sniff (sniffer, msg, buffer);
 }

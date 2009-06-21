@@ -46,7 +46,7 @@ GType               soup_content_sniffer_get_type (void);
 
 SoupContentSniffer *soup_content_sniffer_new      (void);
 
-void                soup_content_sniffer_sniff    (SoupContentSniffer *sniffer,
+char               *soup_content_sniffer_sniff    (SoupContentSniffer *sniffer,
 						   SoupMessage *msg,
 						   SoupBuffer *buffer);
 

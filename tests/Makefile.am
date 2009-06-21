@@ -89,6 +89,7 @@ TESTS =			\
 	misc-test	\
 	ntlm-test	\
 	redirect-test	\
+	sniffing-test	\
 	streaming-test	\
 	timeout-test	\
 	uri-parsing	\

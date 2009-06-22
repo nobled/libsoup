@@ -125,6 +125,33 @@ server_callback (SoupServer *server, SoupMessage *msg,
 
 		g_strfreev (components);
 	}
+
+	if (g_str_has_prefix (path, "/multiple_headers/")) {
+		char *base_name = g_path_get_basename (path);
+		char *file_name = g_strdup_printf ("resources/%s", base_name);
+
+		g_file_get_contents (file_name,
+				     &contents, &length,
+				     &error);
+
+		g_free (base_name);
+		g_free (file_name);
+
+		if (error) {
+			g_error ("%s", error->message);
+			g_error_free (error);
+			exit (1);
+		}
+
+		soup_message_set_response (msg, "text/xml",
+					   SOUP_MEMORY_TAKE,
+					   contents,
+					   length);
+
+		soup_message_headers_append (msg->response_headers,
+					     "Content-Type", "text/plain");
+	}
+
 }
 
 static gboolean
@@ -364,6 +391,10 @@ main (int argc, char **argv)
 	/* Test the image sniffing path */
 
 	test_sniffing ("/type/image_png/home.gif", "image/gif");
+
+	/* The spec tells us to only use the last Content-Type header */
+
+	test_sniffing ("/multiple_headers/home.gif", "image/gif");
 
 	soup_uri_free (base_uri);
 

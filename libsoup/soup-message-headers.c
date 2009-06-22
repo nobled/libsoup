@@ -277,12 +277,18 @@ const char *
 soup_message_headers_get_one (SoupMessageHeaders *hdrs, const char *name)
 {
 	SoupHeader *hdr_array = (SoupHeader *)(hdrs->array->data);
-	int index;
+	int i;
+	int index = -1;
+	int tmp;
 
 	g_return_val_if_fail (name != NULL, NULL);
 
 	name = intern_header_name (name, NULL);
-	index = find_header (hdr_array, name, 0);
+
+	/* We are looking for the last header */
+	for (i = 0; (tmp = find_header (hdr_array, name, i)) != -1; i++)
+		index = tmp;
+
 	return (index == -1) ? NULL : hdr_array[index].value;
 }
 

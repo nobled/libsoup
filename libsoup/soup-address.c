@@ -660,37 +660,6 @@ idle_complete_resolve (gpointer res_data)
 	return FALSE;
 }
 
-static void
-resolve_for_context (gpointer thread_data, gpointer pool_data)
-{
-	SoupAddressResolveAsyncData *res_data = thread_data;
-
-	res_data->status =
-		soup_address_resolve_sync (res_data->addr,
-					   res_data->cancellable);
-	soup_add_completion (res_data->async_context,
-			     idle_complete_resolve, res_data);
-}
-
-static void
-resolve_in_thread (SoupAddressResolveAsyncData *res_data,
-		   GMainContext *async_context, GCancellable *cancellable)
-{
-	static volatile GThreadPool *thread_pool = NULL;
-
-	if (g_once_init_enter ((gsize *)&thread_pool)) {
-		GThreadPool *pool = g_thread_pool_new (resolve_for_context,
-						       NULL, -1, FALSE, NULL);
-		g_once_init_leave ((gsize *)&thread_pool,
-				   GPOINTER_TO_SIZE (pool));
-	}
-
-	res_data->async_context = g_main_context_ref (async_context);
-	if (cancellable)
-		res_data->cancellable = g_object_ref (cancellable);
-	g_thread_pool_push ((GThreadPool *)thread_pool, res_data, NULL);
-}
-
 /**
  * SoupAddressCallback:
  * @addr: the #SoupAddress that was resolved
@@ -743,16 +712,10 @@ soup_address_resolve_async (SoupAddress *addr, GMainContext *async_context,
 		return;
 	}
 
-	/* GResolver doesn't (yet!) do non-default contexts, so to
-	 * support that we need to synchronously resolve in another
-	 * thread and then send the answer back to the right context.
-	 */
-	if (async_context && async_context != g_main_context_default ()) {
-		resolve_in_thread (res_data, async_context, cancellable);
-		return;
-	}
-
 	resolver = g_resolver_get_default ();
+
+	if (async_context && async_context != g_main_context_default ())
+		g_main_context_push_thread_default (async_context);
 
 	if (priv->name) {
 		res_data->lookup_name = TRUE;
@@ -769,6 +732,9 @@ soup_address_resolve_async (SoupAddress *addr, GMainContext *async_context,
 						    lookup_resolved, res_data);
 		g_object_unref (gia);
 	}
+
+	if (async_context && async_context != g_main_context_default ())
+		g_main_context_push_thread_default (async_context);
 
 	g_object_unref (resolver);
 }

@@ -566,7 +566,7 @@ update_addrs (SoupAddress *addr, GList *addrs, GError *error)
 
 	len = g_socket_address_get_native_size (gsa);
 	priv->sockaddr = g_malloc (len);
-	g_socket_address_to_native (gsa, priv->sockaddr, len);
+	g_socket_address_to_native (gsa, priv->sockaddr, len, NULL);
 
 	return SOUP_STATUS_OK;
 }

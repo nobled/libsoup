@@ -171,33 +171,26 @@ again:
 	return G_IO_STATUS_NORMAL;
 }
 
-static GIOStatus
-soup_gnutls_read (GIOChannel   *channel,
-		  gchar        *buf,
-		  gsize         count,
-		  gsize        *bytes_read,
-		  GError      **err)
+gssize
+soup_ssl_session_receive (SoupSSLSession *session,
+			  gchar *buffer, gsize size,
+			  GCancellable *cancellable,
+			  GError **error)
 {
-	SoupGNUTLSChannel *chan = (SoupGNUTLSChannel *) channel;
-	gint result;
-
-	*bytes_read = 0;
+	int result;
+	gssize nread = 0;
 
 again:
-	if (!chan->established) {
-		result = do_handshake (chan, err);
+	if (!session->established) {
+		if (!do_handshake (session, error))
+			return -1;
 
-		if (result == G_IO_STATUS_AGAIN ||
-		    result == G_IO_STATUS_ERROR)
-			return result;
-
-		chan->established = TRUE;
+		session->established = TRUE;
 	}
 
-	result = gnutls_record_recv (chan->session, buf, count);
-
+	result = gnutls_record_recv (session->gnutls_session, buffer, size);
 	if (result == GNUTLS_E_REHANDSHAKE) {
-		chan->established = FALSE;
+		session->established = FALSE;
 		goto again;
 	}
 
@@ -407,39 +400,16 @@ soup_gnutls_push_func (gnutls_transport_ptr_t transport_data,
 	return nwrote;
 }
 
-/**
- * soup_ssl_wrap_iochannel:
- * @sock: a #GIOChannel wrapping a TCP socket.
- * @non_blocking: whether the underlying socket is blocking or not
- * @type: whether this is a client or server socket
- * @remote_host: the hostname of the remote machine
- * @creds: a client or server credentials structure
- *
- * This attempts to wrap a new #GIOChannel around @sock that
- * will SSL-encrypt/decrypt all traffic through it.
- *
- * Return value: an SSL-encrypting #GIOChannel, or %NULL on
- * failure.
- **/
-GIOChannel *
-soup_ssl_wrap_iochannel (GIOChannel *sock, gboolean non_blocking, 
-			 SoupSSLType type, const char *remote_host, 
-			 SoupSSLCredentials *creds)
+SoupSSLSession *
+soup_ssl_session_new (GSocket *gsock, SoupSSLType type,
+		      const char *remote_host, SoupSSLCredentials *creds)
 {
-	SoupGNUTLSChannel *chan = NULL;
-	GIOChannel *gchan = NULL;
+	SoupSSLSession *sss = NULL;
 	gnutls_session session = NULL;
-	int sockfd;
 	int ret;
 
-	g_return_val_if_fail (sock != NULL, NULL);
+	g_return_val_if_fail (gsock != NULL, NULL);
 	g_return_val_if_fail (creds != NULL, NULL);
-
-	sockfd = g_io_channel_unix_get_fd (sock);
-	if (!sockfd) {
-		g_warning ("Failed to get channel fd.");
-		goto THROW_CREATE_ERROR;
-	}
 
 	ret = gnutls_init (&session,
 			   (type == SOUP_SSL_TYPE_CLIENT) ? GNUTLS_CLIENT : GNUTLS_SERVER);
@@ -456,33 +426,30 @@ soup_ssl_wrap_iochannel (GIOChannel *sock, gboolean non_blocking,
 	if (type == SOUP_SSL_TYPE_SERVER)
 		gnutls_dh_set_prime_bits (session, DH_BITS);
 
-	chan = g_slice_new0 (SoupGNUTLSChannel);
-	chan->real_sock = sock;
-	chan->sockfd = sockfd;
-	chan->session = session;
-	chan->creds = creds;
-	chan->hostname = g_strdup (remote_host);
-	chan->type = type;
-	chan->non_blocking = non_blocking;
-	g_io_channel_ref (sock);
+	sss = g_slice_new0 (SoupSSLSession);
+	sss->gsock = g_object_ref (gsock);
+	sss->session = session;
+	sss->creds = creds;
+	sss->hostname = g_strdup (remote_host);
+	sss->type = type;
 
-	gnutls_transport_set_ptr (session, chan);
+	gnutls_transport_set_ptr (session, sss);
 	gnutls_transport_set_push_function (session, soup_gnutls_push_func);
 	gnutls_transport_set_pull_function (session, soup_gnutls_pull_func);
 
-	gchan = (GIOChannel *) chan;
-	gchan->funcs = (GIOFuncs *)&soup_gnutls_channel_funcs;
-	g_io_channel_init (gchan);
-	gchan->is_readable = gchan->is_writeable = TRUE;
-	gchan->use_buffer = FALSE;
-
-	return gchan;
+	return sss;
 
  THROW_CREATE_ERROR:
 	if (session)
 		gnutls_deinit (session);
 	return NULL;
 }
+
+gssize              soup_ssl_session_send            (SoupSSLSession     *session,
+						      const gchar        *buffer,
+						      gsize               size,
+						      GCancellable       *cancellable,
+						      GError            **error);
 
 #if defined(GCRY_THREAD_OPTION_PTHREAD_IMPL) && !defined(G_OS_WIN32)
 GCRY_THREAD_OPTION_PTHREAD_IMPL;

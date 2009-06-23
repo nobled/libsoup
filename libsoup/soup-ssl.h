@@ -14,6 +14,7 @@ typedef enum {
 } SoupSSLType;
 
 typedef struct SoupSSLCredentials SoupSSLCredentials;
+typedef struct SoupSSLSession     SoupSSLSession;
 
 SoupSSLCredentials *soup_ssl_get_client_credentials  (const char         *ca_file);
 void                soup_ssl_free_client_credentials (SoupSSLCredentials *creds);
@@ -22,10 +23,20 @@ SoupSSLCredentials *soup_ssl_get_server_credentials  (const char         *cert_f
 						      const char         *key_file);
 void                soup_ssl_free_server_credentials (SoupSSLCredentials *creds);
 
-GIOChannel         *soup_ssl_wrap_iochannel          (GIOChannel         *sock,
-						      gboolean            non_blocking,
+SoupSSLSession     *soup_ssl_session_new             (GSocket            *gsock,
 						      SoupSSLType         type,
 						      const char         *remote_host,
 						      SoupSSLCredentials *creds);
+
+gssize              soup_ssl_session_receive         (SoupSSLSession     *session,
+						      gchar              *buffer,
+						      gsize               size,
+						      GCancellable       *cancellable,
+						      GError            **error);
+gssize              soup_ssl_session_send            (SoupSSLSession     *session,
+						      const gchar        *buffer,
+						      gsize               size,
+						      GCancellable       *cancellable,
+						      GError            **error);
 
 #endif /* SOUP_SSL_H */

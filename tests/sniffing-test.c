@@ -21,6 +21,7 @@ server_callback (SoupServer *server, SoupMessage *msg,
 		 SoupClientContext *context, gpointer data)
 {
 	GError *error = NULL;
+	char *chunked;
 	char *contents;
 	gsize length;
 
@@ -30,6 +31,13 @@ server_callback (SoupServer *server, SoupMessage *msg,
 	}
 
 	soup_message_set_status (msg, SOUP_STATUS_OK);
+
+	if (query) {
+		chunked = g_hash_table_lookup (query, "chunked");
+		if (chunked && g_str_equal (chunked, "yes"))
+			soup_message_headers_set_encoding (msg->response_headers,
+							   SOUP_ENCODING_CHUNKED);
+	}
 
 	if (!strcmp (path, "/mbox")) {
 		g_file_get_contents ("resources/mbox",
@@ -223,7 +231,8 @@ finished (SoupSession *session, SoupMessage *msg, gpointer data)
 static void
 do_signals_test (gboolean should_content_sniff,
 		 gboolean should_pause,
-		 gboolean should_accumulate)
+		 gboolean should_accumulate,
+		 gboolean chunked_encoding)
 {
 	SoupURI *uri = soup_uri_new_with_base (base_uri, "/mbox");
 	SoupMessage *msg = soup_message_new_from_uri ("GET", uri);
@@ -232,6 +241,9 @@ do_signals_test (gboolean should_content_sniff,
 	gsize length;
 	GError *error = NULL;
 	SoupBuffer *body;
+
+	if (chunked_encoding)
+		soup_uri_set_query (uri, "chunked=yes");
 
 	soup_message_body_set_accumulate (msg->response_body, should_accumulate);
 
@@ -341,11 +353,15 @@ main (int argc, char **argv)
 	session = soup_session_async_new ();
 
 	/* No sniffer, no content_sniffed should be emitted */
-	do_signals_test (FALSE, FALSE, FALSE);
-	do_signals_test (FALSE, FALSE, TRUE);
+	do_signals_test (FALSE, FALSE, FALSE, FALSE);
+	do_signals_test (FALSE, FALSE, FALSE, TRUE);
+	do_signals_test (FALSE, FALSE, TRUE, FALSE);
+	do_signals_test (FALSE, FALSE, TRUE, TRUE);
 
-	do_signals_test (FALSE, TRUE, TRUE);
-	do_signals_test (FALSE, TRUE, FALSE);
+	do_signals_test (FALSE, TRUE, TRUE, FALSE);
+	do_signals_test (FALSE, TRUE, TRUE, TRUE);
+	do_signals_test (FALSE, TRUE, FALSE, FALSE);
+	do_signals_test (FALSE, TRUE, FALSE, TRUE);
 
 	sniffer = soup_content_sniffer_new ();
 	soup_session_add_feature (session, (SoupSessionFeature*)sniffer);
@@ -353,11 +369,15 @@ main (int argc, char **argv)
 	/* Now, with a sniffer, content_sniffed must be emitted after
 	 * got-headers, and before got-chunk.
 	 */
-	do_signals_test (TRUE, FALSE, FALSE);
-	do_signals_test (TRUE, FALSE, TRUE);
+	do_signals_test (TRUE, FALSE, FALSE, FALSE);
+	do_signals_test (TRUE, FALSE, FALSE, TRUE);
+	do_signals_test (TRUE, FALSE, TRUE, FALSE);
+	do_signals_test (TRUE, FALSE, TRUE, TRUE);
 
-	do_signals_test (TRUE, TRUE, TRUE);
-	do_signals_test (TRUE, TRUE, FALSE);
+	do_signals_test (TRUE, TRUE, TRUE, FALSE);
+	do_signals_test (TRUE, TRUE, TRUE, TRUE);
+	do_signals_test (TRUE, TRUE, FALSE, FALSE);
+	do_signals_test (TRUE, TRUE, FALSE, TRUE);
 
 	/* Test the text_or_binary sniffing path */
 

@@ -33,7 +33,7 @@
  * Since: 2.27.3
  **/
 
-static char *sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer);
+static char *sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, GHashTable **params);
 static gsize get_buffer_size (SoupContentSniffer *sniffer);
 
 static void soup_content_sniffer_session_feature_init (SoupSessionFeatureInterface *feature_interface, gpointer interface_data);
@@ -82,13 +82,14 @@ soup_content_sniffer_new ()
 
 char *
 soup_content_sniffer_sniff (SoupContentSniffer *sniffer,
-			    SoupMessage *msg, SoupBuffer *buffer)
+			    SoupMessage *msg, SoupBuffer *buffer,
+			    GHashTable **params)
 {
 	g_return_val_if_fail (SOUP_IS_CONTENT_SNIFFER (sniffer), NULL);
 	g_return_val_if_fail (SOUP_IS_MESSAGE (msg), NULL);
 	g_return_val_if_fail (buffer != NULL, NULL);
 
-	return SOUP_CONTENT_SNIFFER_GET_CLASS (sniffer)->sniff (sniffer, msg, buffer);
+	return SOUP_CONTENT_SNIFFER_GET_CLASS (sniffer)->sniff (sniffer, msg, buffer, params);
 }
 
 /* This table is based on the HTML5 spec;
@@ -349,7 +350,7 @@ sniff_unknown (SoupContentSniffer *sniffer, SoupMessage *msg,
 /* HTML5: 2.7.3 Content-Type sniffing: text or binary */
 static char*
 sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg,
-		      SoupBuffer *buffer, const char *official_type)
+		      SoupBuffer *buffer)
 {
 	const char *resource = buffer->data;
 	int resource_length = MIN (512, buffer->length);
@@ -361,7 +362,7 @@ sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg,
 		if ((resource[0] == 0xFE && resource[1] == 0xFF) ||
 		    (resource[0] == 0xFF && resource[1] == 0xFE) ||
 		    (resource[0] == 0xEF && resource[1] == 0xBB && resource[2] == 0xBF))
-			return g_strdup (official_type);
+			return g_strdup ("text/plain");
 	}
 
 	/* Look to see if any of the first n bytes looks binary */
@@ -373,7 +374,7 @@ sniff_text_or_binary (SoupContentSniffer *sniffer, SoupMessage *msg,
 	}
 
 	if (!looks_binary)
-		return g_strdup (official_type);
+		return g_strdup ("text/plain");
 
 	return sniff_unknown (sniffer, msg, buffer, TRUE);
 }
@@ -406,12 +407,12 @@ sniff_images (SoupContentSniffer *sniffer, SoupMessage *msg,
 }
 
 static char*
-sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, GHashTable **params)
 {
 	const char *content_type_with_params;
 	const char *content_type;
 
-	content_type = soup_message_headers_get_content_type (msg->response_headers, NULL);
+	content_type = soup_message_headers_get_content_type (msg->response_headers, params);
 	content_type_with_params = soup_message_headers_get_one (msg->response_headers, "Content-Type");
 
 
@@ -425,7 +426,7 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 	if (g_str_has_suffix (content_type, "+xml") ||
 	    !g_ascii_strcasecmp (content_type, "text/xml") ||
 	    !g_ascii_strcasecmp (content_type, "application/xml"))
-		return g_strdup (content_type_with_params);
+		return g_strdup (content_type);
 
 	/* 2.7.5 Content-Type sniffing: image
 	 * The spec says:
@@ -445,10 +446,10 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
 	    g_str_equal (content_type_with_params, "text/plain; charset=ISO-8859-1") ||
 	    g_str_equal (content_type_with_params, "text/plain; charset=iso-8859-1") ||
 	    g_str_equal (content_type_with_params, "text/plain; charset=UTF-8")) {
-		return sniff_text_or_binary (sniffer, msg, buffer, content_type_with_params);
+		return sniff_text_or_binary (sniffer, msg, buffer);
 	}
 
-	return g_strdup (content_type_with_params);
+	return g_strdup (content_type);
 }
 
 static gsize

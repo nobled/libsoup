@@ -31,7 +31,8 @@ typedef struct {
 
 	char* (*sniff)              (SoupContentSniffer *sniffer,
 				     SoupMessage *msg,
-				     SoupBuffer *buffer);
+				     SoupBuffer *buffer,
+				     GHashTable **params);
 	gsize (*get_buffer_size)    (SoupContentSniffer *sniffer);
 
 	/* Padding for future expansion */
@@ -48,7 +49,8 @@ SoupContentSniffer *soup_content_sniffer_new      (void);
 
 char               *soup_content_sniffer_sniff    (SoupContentSniffer *sniffer,
 						   SoupMessage *msg,
-						   SoupBuffer *buffer);
+						   SoupBuffer *buffer,
+						   GHashTable **params);
 
 G_END_DECLS
 

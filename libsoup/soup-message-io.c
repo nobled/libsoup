@@ -223,13 +223,16 @@ io_sniff_content (SoupMessage *msg)
 	SoupMessageIOData *io = priv->io_data;
 	SoupBuffer *sniffed_buffer = soup_message_body_flatten (io->delayed_chunk_data);
 	char *sniffed_mime_type;
+	GHashTable *params;
 
 	io->delay_got_chunks = FALSE;
 
-	sniffed_mime_type = soup_content_sniffer_sniff (priv->sniffer, msg, sniffed_buffer);
+	sniffed_mime_type = soup_content_sniffer_sniff (priv->sniffer, msg, sniffed_buffer, &params);
 	SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
-	soup_message_content_sniffed (msg, sniffed_mime_type);
+	soup_message_content_sniffed (msg, sniffed_mime_type, params);
 	g_free (sniffed_mime_type);
+	if (params)
+		g_hash_table_destroy (params);
 	SOUP_MESSAGE_IO_RETURN_VAL_IF_CANCELLED_OR_PAUSED (FALSE);
 
 	SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
@@ -340,7 +343,7 @@ read_body_chunk (SoupMessage *msg)
 		if (priv->should_sniff_content)
 			io->delay_got_chunks = TRUE;
 		else if (priv->sniffer)
-			soup_message_content_sniffed (msg, NULL);
+			soup_message_content_sniffed (msg, NULL, NULL);
 		io->acked_content_sniff_decision = TRUE;
 	}
 

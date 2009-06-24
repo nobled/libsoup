@@ -172,7 +172,7 @@ unpause_msg (gpointer data)
 
 
 static void
-content_sniffed (SoupMessage *msg, char *content_type, gpointer data)
+content_sniffed (SoupMessage *msg, char *content_type, GHashTable *params, gpointer data)
 {
 	gboolean should_pause = GPOINTER_TO_INT (data);
 
@@ -304,7 +304,7 @@ do_signals_test (gboolean should_content_sniff,
 }
 
 static void
-sniffing_content_sniffed (SoupMessage *msg, char *content_type, gpointer data)
+sniffing_content_sniffed (SoupMessage *msg, char *content_type, GHashTable *params, gpointer data)
 {
 	char *expected_type = (char*)data;
 

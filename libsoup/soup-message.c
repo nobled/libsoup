@@ -406,6 +406,7 @@ soup_message_class_init (SoupMessageClass *message_class)
 	 * SoupMessage::content-sniffed:
 	 * @msg: the message
 	 * @type: the content type that we got from sniffing
+	 * @params: a #GHashTable with the parameters
 	 *
 	 * This signal is emitted after %got-headers, and before the
 	 * first %got-chunk. If content sniffing is disabled, or no
@@ -434,9 +435,10 @@ soup_message_class_init (SoupMessageClass *message_class)
 			      G_SIGNAL_RUN_FIRST,
 			      0,
 			      NULL, NULL,
-			      soup_marshal_NONE__STRING,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_STRING);
+			      soup_marshal_NONE__STRING_BOXED,
+			      G_TYPE_NONE, 2,
+			      G_TYPE_STRING,
+			      G_TYPE_HASH_TABLE);
 
 	/**
 	 * SoupMessage::restarted:
@@ -899,6 +901,7 @@ soup_message_got_body (SoupMessage *msg)
  * soup_message_content_sniffed:
  * @msg: a #SoupMessage
  * @type: a string with the sniffed content type
+ * @params: a #GHashTable with the parameters
  *
  * Emits the %content_sniffed signal, indicating that the IO layer
  * finished sniffing the content type for @msg. If content sniffing
@@ -907,9 +910,9 @@ soup_message_got_body (SoupMessage *msg)
  * after %got_headers, with %NULL as @content_type.
  **/
 void
-soup_message_content_sniffed (SoupMessage *msg, const char *content_type)
+soup_message_content_sniffed (SoupMessage *msg, const char *content_type, GHashTable *params)
 {
-	g_signal_emit (msg, signals[CONTENT_SNIFFED], 0, content_type);
+	g_signal_emit (msg, signals[CONTENT_SNIFFED], 0, content_type, params);
 }
 
 static void

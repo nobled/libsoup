@@ -420,7 +420,8 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, GHashT
 	 * manner because the spec requires it */
 	if ((content_type == NULL) ||
 	    !g_ascii_strcasecmp (content_type, "unknown/unknown") ||
-	    !g_ascii_strcasecmp (content_type, "application/unknown"))
+	    !g_ascii_strcasecmp (content_type, "application/unknown") ||
+	    !g_ascii_strcasecmp (content_type, "*/*"))
 		return sniff_unknown (sniffer, msg, buffer, FALSE);
 
 	if (g_str_has_suffix (content_type, "+xml") ||

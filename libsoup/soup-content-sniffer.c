@@ -407,6 +407,79 @@ sniff_images (SoupContentSniffer *sniffer, SoupMessage *msg,
 }
 
 static char*
+sniff_feed_or_html (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer)
+{
+	const char *resource = buffer->data;
+	int resource_length = MIN (512, buffer->length);
+	int pos = 0;
+
+	/* Skip a leading UTF-8 BOM */
+	if (resource[0] == 0xEF && resource[1] == 0xBB && resource[2] == 0xBF)
+		pos = 3;
+
+ look_for_tag:
+	/* Skip insignificant white space */
+	while ((resource[pos] == '\x09') ||
+	       (resource[pos] == '\x20') ||
+	       (resource[pos] == '\x0A') ||
+	       (resource[pos] == '\x0D'))
+		pos++;
+
+	/* != < */
+	if (resource[pos] != '\x3C')
+		return g_strdup ("text/html");
+
+	pos++;
+
+	/* Skipping comments */
+	if ((resource[pos] == '\x2D') ||
+	    (resource[pos+1] == '\x2D') ||
+	    (resource[pos+2] == '\x3E')) {
+		pos = pos + 3;
+
+		while ((resource[pos] != '\x2D') &&
+		       (resource[pos+1] != '\x2D') &&
+		       (resource[pos+2] != '\x3E'))
+			pos++;
+
+		goto look_for_tag;
+	}
+
+	/* == ! */
+	if (resource[pos] == '\x21') {
+		do {
+			pos++;
+		} while (resource[pos] != '\x3E');
+
+		pos++;
+
+		goto look_for_tag;
+	} else if (resource[pos] == '\x3F') { /* ? */
+		do {
+			pos++;
+		} while ((resource[pos] != '\x3F') &&
+			 (resource[pos+1] != '\x3E'));
+
+		pos = pos + 2;
+
+		goto look_for_tag;
+	}
+
+	if ((resource[pos] == '\x72') &&
+	    (resource[pos+1] == '\x73') &&
+	    (resource[pos+2] == '\x73'))
+		return g_strdup ("application/rss+xml");
+
+	if ((resource[pos] == '\x66') &&
+	    (resource[pos+1] == '\x65') &&
+	    (resource[pos+2] == '\x65') &&
+	    (resource[pos+3] == '\x64'))
+		return g_strdup ("application/atom+xml");
+
+	return g_strdup ("text/html");
+}
+
+static char*
 sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, GHashTable **params)
 {
 	const char *content_type_with_params;
@@ -449,6 +522,9 @@ sniff (SoupContentSniffer *sniffer, SoupMessage *msg, SoupBuffer *buffer, GHashT
 	    g_str_equal (content_type_with_params, "text/plain; charset=UTF-8")) {
 		return sniff_text_or_binary (sniffer, msg, buffer);
 	}
+
+	if (!g_ascii_strcasecmp (content_type, "text/html"))
+		return sniff_feed_or_html (sniffer, msg, buffer);
 
 	return g_strdup (content_type);
 }

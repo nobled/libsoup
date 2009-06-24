@@ -412,6 +412,12 @@ main (int argc, char **argv)
 
 	test_sniffing ("/type/image_png/home.gif", "image/gif");
 
+	/* Test the feed or html path */
+
+	test_sniffing ("/type/text_html/test.html", "text/html");
+	test_sniffing ("/type/text_html/rss20.xml", "application/rss+xml");
+	test_sniffing ("/type/text_html/atom.xml", "application/atom+xml");
+
 	/* The spec tells us to only use the last Content-Type header */
 
 	test_sniffing ("/multiple_headers/home.gif", "image/gif");

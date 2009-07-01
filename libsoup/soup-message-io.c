@@ -223,7 +223,7 @@ io_sniff_content (SoupMessage *msg)
 	SoupMessageIOData *io = priv->io_data;
 	SoupBuffer *sniffed_buffer = soup_message_body_flatten (io->delayed_chunk_data);
 	char *sniffed_mime_type;
-	GHashTable *params;
+	GHashTable *params = NULL;
 
 	io->delay_got_chunks = FALSE;
 

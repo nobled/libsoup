@@ -53,6 +53,9 @@ typedef struct {
 	SoupMessageBody      *read_body;
 	goffset               read_length;
 
+	gboolean              need_content_sniffed, need_got_chunk;
+	SoupMessageBody      *sniff_data;
+
 	SoupMessageIOState    write_state;
 	SoupEncoding          write_encoding;
 	GString              *write_buf;
@@ -105,6 +108,9 @@ soup_message_io_cleanup (SoupMessage *msg)
 	if (io->write_chunk)
 		soup_buffer_free (io->write_chunk);
 
+	if (io->sniff_data)
+		soup_message_body_free (io->sniff_data);
+
 	g_slice_free (SoupMessageIOData, io);
 }
 
@@ -151,7 +157,7 @@ soup_message_io_stop (SoupMessage *msg)
 	else if (io->conn) {
 		SoupConnection *conn = io->conn;
 		io->conn = NULL;
-		soup_connection_release (conn);
+		soup_connection_set_state (conn, SOUP_CONNECTION_IDLE);
 		g_object_unref (conn);
 	}
 }
@@ -207,6 +213,55 @@ io_disconnected (SoupSocket *sock, SoupMessage *msg)
 	io_error (sock, msg, NULL);
 }
 
+static gboolean
+io_handle_sniffing (SoupMessage *msg, gboolean done_reading)
+{
+	SoupMessagePrivate *priv = SOUP_MESSAGE_GET_PRIVATE (msg);
+	SoupMessageIOData *io = priv->io_data;
+	SoupBuffer *sniffed_buffer;
+	char *sniffed_mime_type;
+	GHashTable *params = NULL;
+
+	if (!priv->sniffer)
+		return TRUE;
+
+	if (!io->sniff_data) {
+		io->sniff_data = soup_message_body_new ();
+		io->need_content_sniffed = TRUE;
+	}
+
+	if (io->need_content_sniffed) {
+		if (io->sniff_data->length < priv->bytes_for_sniffing &&
+		    !done_reading)
+			return TRUE;
+
+		io->need_content_sniffed = FALSE;
+		sniffed_buffer = soup_message_body_flatten (io->sniff_data);
+		sniffed_mime_type = soup_content_sniffer_sniff (priv->sniffer, msg, sniffed_buffer, &params);
+
+		SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
+		soup_message_content_sniffed (msg, sniffed_mime_type, params);
+		g_free (sniffed_mime_type);
+		if (params)
+			g_hash_table_destroy (params);
+		if (sniffed_buffer)
+			soup_buffer_free (sniffed_buffer);
+		SOUP_MESSAGE_IO_RETURN_VAL_IF_CANCELLED_OR_PAUSED (FALSE);
+	}
+
+	if (io->need_got_chunk) {
+		io->need_got_chunk = FALSE;
+		sniffed_buffer = soup_message_body_flatten (io->sniff_data);
+
+		SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
+		soup_message_got_chunk (msg, sniffed_buffer);
+		soup_buffer_free (sniffed_buffer);
+		SOUP_MESSAGE_IO_RETURN_VAL_IF_CANCELLED_OR_PAUSED (FALSE);
+	}
+
+	return TRUE;
+}
+
 /* Reads data from io->sock into io->read_meta_buf. If @to_blank is
  * %TRUE, it reads up until a blank line ("CRLF CRLF" or "LF LF").
  * Otherwise, it reads up until a single CRLF or LF.
@@ -257,7 +312,15 @@ read_metadata (SoupMessage *msg, gboolean to_blank)
 		if (got_lf) {
 			if (!to_blank)
 				break;
-			if (nread == 1 || (nread == 2 && read_buf[0] == '\r'))
+			if (nread == 1 &&
+			    !strncmp ((char *)io->read_meta_buf->data +
+				      io->read_meta_buf->len - 2,
+				      "\n\n", 2))
+				break;
+			else if (nread == 2 &&
+				 !strncmp ((char *)io->read_meta_buf->data +
+					   io->read_meta_buf->len - 3,
+					   "\n\r\n", 3))
 				break;
 		}
 	}
@@ -285,6 +348,9 @@ read_body_chunk (SoupMessage *msg)
 	gsize nread;
 	GError *error = NULL;
 	SoupBuffer *buffer;
+
+	if (!io_handle_sniffing (msg, FALSE))
+		return FALSE;
 
 	while (read_to_eof || io->read_length > 0) {
 		if (priv->chunk_allocator) {
@@ -315,6 +381,14 @@ read_body_chunk (SoupMessage *msg)
 			soup_message_body_got_chunk (io->read_body, buffer);
 
 			io->read_length -= nread;
+
+			if (io->need_content_sniffed) {
+				soup_message_body_append_buffer (io->sniff_data, buffer);
+				io->need_got_chunk = TRUE;
+				if (!io_handle_sniffing (msg, FALSE))
+					return FALSE;
+				continue;
+			}
 
 			SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;
 			soup_message_got_chunk (msg, buffer);
@@ -774,6 +848,21 @@ io_read (SoupSocket *sock, SoupMessage *msg)
 			return;
 
 	got_body:
+		if (!io_handle_sniffing (msg, TRUE)) {
+			/* If the message was paused (as opposed to
+			 * cancelled), we need to make sure we wind up
+			 * back here when it's unpaused, even if it
+			 * was doing a chunked or EOF-terminated read
+			 * before.
+			 */
+			if (io == priv->io_data) {
+				io->read_state = SOUP_MESSAGE_IO_STATE_BODY;
+				io->read_encoding = SOUP_ENCODING_CONTENT_LENGTH;
+				io->read_length = 0;
+			}
+			return;
+		}
+
 		io->read_state = SOUP_MESSAGE_IO_STATE_FINISHING;
 
 		SOUP_MESSAGE_IO_PREPARE_FOR_CALLBACK;

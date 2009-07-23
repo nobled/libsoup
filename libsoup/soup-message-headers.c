@@ -33,6 +33,7 @@
 
 typedef void (*SoupHeaderSetter) (SoupMessageHeaders *, const char *);
 static const char *intern_header_name (const char *name, SoupHeaderSetter *setter);
+static void clear_special_headers (SoupMessageHeaders *hdrs);
 
 typedef struct {
 	const char *name;
@@ -98,7 +99,6 @@ soup_message_headers_free (SoupMessageHeaders *hdrs)
 		g_array_free (hdrs->array, TRUE);
 		if (hdrs->concat)
 			g_hash_table_destroy (hdrs->concat);
-		g_free (hdrs->content_type);
 		g_slice_free (SoupMessageHeaders, hdrs);
 	}
 }
@@ -137,7 +137,7 @@ soup_message_headers_clear (SoupMessageHeaders *hdrs)
 	if (hdrs->concat)
 		g_hash_table_remove_all (hdrs->concat);
 
-	hdrs->encoding = -1;
+	clear_special_headers (hdrs);
 }
 
 /**
@@ -226,6 +226,20 @@ find_header (SoupHeader *hdr_array, const char *interned_name, int nth)
 	return -1;
 }
 
+static int
+find_last_header (SoupHeader *hdr_array, guint length, const char *interned_name, int nth)
+{
+	int i;
+
+	for (i = length; i >= 0; i--) {
+		if (hdr_array[i].name == interned_name) {
+			if (nth-- == 0)
+				return i;
+		}
+	}
+	return -1;
+}
+
 /**
  * soup_message_headers_remove:
  * @hdrs: a #SoupMessageHeaders
@@ -277,12 +291,15 @@ const char *
 soup_message_headers_get_one (SoupMessageHeaders *hdrs, const char *name)
 {
 	SoupHeader *hdr_array = (SoupHeader *)(hdrs->array->data);
+	guint hdr_length = hdrs->array->len;
 	int index;
 
 	g_return_val_if_fail (name != NULL, NULL);
 
 	name = intern_header_name (name, NULL);
-	index = find_header (hdr_array, name, 0);
+
+	index = find_last_header (hdr_array, hdr_length, name, 0);
+
 	return (index == -1) ? NULL : hdr_array[index].value;
 }
 
@@ -531,6 +548,22 @@ intern_header_name (const char *name, SoupHeaderSetter *setter)
 	return interned;
 }
 
+static void
+clear_special_headers (SoupMessageHeaders *hdrs)
+{
+	SoupHeaderSetter setter;
+	GHashTableIter iter;
+	gpointer key, value;
+
+	/* Make sure header_setters has been initialized */
+	intern_header_name ("", NULL);
+
+	g_hash_table_iter_init (&iter, header_setters);
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+		setter = value;
+		setter (hdrs, NULL);
+	}
+}
 
 /* Specific headers */
 

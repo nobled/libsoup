@@ -56,6 +56,7 @@ soup_headers =			\
 	soup-auth-domain-basic.h  \
 	soup-auth-domain-digest.h \
 	soup-cache.h		\
+	soup-content-sniffer.h  \
 	soup-cookie.h		\
 	soup-cookie-jar.h	\
 	soup-cookie-jar-text.h	\
@@ -71,6 +72,7 @@ soup_headers =			\
 	soup-multipart.h     	\
 	soup-portability.h	\
 	soup-proxy-resolver.h	\
+	soup-proxy-uri-resolver.h \
 	soup-server.h		\
 	soup-session.h		\
 	soup-session-async.h	\
@@ -120,6 +122,7 @@ libsoup_2_4_la_SOURCES =		\
 	soup-cache.c			\
 	soup-connection.h		\
 	soup-connection.c		\
+	soup-content-sniffer.c		\
 	soup-cookie.c			\
 	soup-cookie-jar.c		\
 	soup-cookie-jar-text.c		\
@@ -148,6 +151,7 @@ libsoup_2_4_la_SOURCES =		\
 	soup-proxy-resolver.c		\
 	soup-proxy-resolver-static.h	\
 	soup-proxy-resolver-static.c	\
+	soup-proxy-uri-resolver.c	\
 	soup-server.c			\
 	soup-session.c			\
 	soup-session-async.c		\

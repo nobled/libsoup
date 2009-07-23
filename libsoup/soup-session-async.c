@@ -15,6 +15,8 @@
 #include "soup-address.h"
 #include "soup-message-private.h"
 #include "soup-misc.h"
+#include "soup-proxy-uri-resolver.h"
+#include "soup-uri.h"
 
 /**
  * SECTION:soup-session-async
@@ -108,27 +110,36 @@ soup_session_async_new_with_options (const char *optname1, ...)
 	return session;
 }
 
+static gboolean
+item_failed (SoupMessageQueueItem *item, guint status)
+{
+	if (item->removed) {
+		soup_message_queue_item_unref (item);
+		return TRUE;
+	}
+
+	if (!SOUP_STATUS_IS_SUCCESSFUL (status)) {
+		if (status != SOUP_STATUS_CANCELLED)
+			soup_session_cancel_message (item->session, item->msg, status);
+		soup_message_queue_item_unref (item);
+		return TRUE;
+	}
+
+	return FALSE;
+}
 
 static void
-resolved_msg_addr (SoupAddress *addr, guint status, gpointer user_data)
+resolved_proxy_addr (SoupAddress *addr, guint status, gpointer user_data)
 {
 	SoupMessageQueueItem *item = user_data;
 	SoupSession *session = item->session;
 
-	if (item->removed) {
-		/* Message was cancelled before its address resolved */
-		soup_message_queue_item_unref (item);
+	if (item_failed (item, status))
 		return;
-	}
 
-	if (!SOUP_STATUS_IS_SUCCESSFUL (status)) {
-		soup_session_cancel_message (session, item->msg, status);
-		soup_message_queue_item_unref (item);
-		return;
-	}
-
-	item->msg_addr = g_object_ref (addr);
-	item->resolving_msg_addr = FALSE;
+	item->proxy_addr = g_object_ref (addr);
+	item->resolving_proxy_addr = FALSE;
+	item->resolved_proxy_addr = TRUE;
 
 	soup_message_queue_item_unref (item);
 
@@ -137,42 +148,31 @@ resolved_msg_addr (SoupAddress *addr, guint status, gpointer user_data)
 }
 
 static void
-resolve_msg_addr (SoupMessageQueueItem *item)
-{
-	if (item->resolving_msg_addr)
-		return;
-	item->resolving_msg_addr = TRUE;
-
-	soup_message_queue_item_ref (item);
-	soup_address_resolve_async (soup_message_get_address (item->msg),
-				    soup_session_get_async_context (item->session),
-				    item->cancellable,
-				    resolved_msg_addr, item);
-}
-
-static void
-resolved_proxy_addr (SoupProxyResolver *proxy_resolver, SoupMessage *msg,
-		     guint status, SoupAddress *proxy_addr, gpointer user_data)
+resolved_proxy_uri (SoupProxyURIResolver *proxy_resolver,
+		    guint status, SoupURI *proxy_uri, gpointer user_data)
 {
 	SoupMessageQueueItem *item = user_data;
 	SoupSession *session = item->session;
 
-	if (item->removed) {
-		/* Message was cancelled before its proxy addr resolved */
-		soup_message_queue_item_unref (item);
+	if (item_failed (item, status))
 		return;
-	}
 
-	if (!SOUP_STATUS_IS_SUCCESSFUL (status)) {
-		soup_session_cancel_message (session, item->msg, status);
-		soup_message_queue_item_unref (item);
+	if (proxy_uri) {
+		SoupAddress *proxy_addr;
+
+		item->proxy_uri = soup_uri_copy (proxy_uri);
+		proxy_addr = soup_address_new (proxy_uri->host,
+					       proxy_uri->port);
+		soup_address_resolve_async (proxy_addr,
+					    soup_session_get_async_context (session),
+					    item->cancellable,
+					    resolved_proxy_addr, item);
+		g_object_unref (proxy_addr);
 		return;
 	}
 
 	item->resolving_proxy_addr = FALSE;
 	item->resolved_proxy_addr = TRUE;
-	item->proxy_addr = proxy_addr ? g_object_ref (proxy_addr) : NULL;
-
 	soup_message_queue_item_unref (item);
 
 	/* If we got here we know session still exists */
@@ -181,17 +181,17 @@ resolved_proxy_addr (SoupProxyResolver *proxy_resolver, SoupMessage *msg,
 
 static void
 resolve_proxy_addr (SoupMessageQueueItem *item,
-		    SoupProxyResolver *proxy_resolver)
+		    SoupProxyURIResolver *proxy_resolver)
 {
 	if (item->resolving_proxy_addr)
 		return;
 	item->resolving_proxy_addr = TRUE;
 
 	soup_message_queue_item_ref (item);
-	soup_proxy_resolver_get_proxy_async (proxy_resolver, item->msg,
-					     soup_session_get_async_context (item->session),
-					     item->cancellable,
-					     resolved_proxy_addr, item);
+	soup_proxy_uri_resolver_get_proxy_uri_async (
+		proxy_resolver, soup_message_get_uri (item->msg),
+		soup_session_get_async_context (item->session),
+		item->cancellable, resolved_proxy_uri, item);
 }
 
 static void
@@ -203,12 +203,68 @@ connection_closed (SoupConnection *conn, gpointer session)
 	do_idle_run_queue (session);
 }
 
+typedef struct {
+	SoupSession *session;
+	SoupConnection *conn;
+	SoupMessageQueueItem *item;
+} SoupSessionAsyncTunnelData;
+
 static void
-got_connection (SoupConnection *conn, guint status, gpointer user_data)
+tunnel_connected (SoupMessage *msg, gpointer user_data)
 {
-	SoupSession *session = user_data;
+	SoupSessionAsyncTunnelData *data = user_data;
+
+	if (SOUP_MESSAGE_IS_STARTING (msg)) {
+		soup_session_send_queue_item (data->session, data->item, data->conn);
+		return;
+	}
+
+	if (!SOUP_STATUS_IS_SUCCESSFUL (msg->status_code)) {
+		soup_session_connection_failed (data->session, data->conn,
+						msg->status_code);
+		goto done;
+	}
+
+	if (!soup_connection_start_ssl (data->conn)) {
+		soup_session_connection_failed (data->session, data->conn,
+						SOUP_STATUS_SSL_FAILED);
+		goto done;
+	}
+
+	g_signal_connect (data->conn, "disconnected",
+			  G_CALLBACK (connection_closed), data->session);
+	soup_connection_set_state (data->conn, SOUP_CONNECTION_IDLE);
+
+	do_idle_run_queue (data->session);
+
+done:
+	g_object_unref (data->session);
+	soup_message_queue_item_unref (data->item);
+	g_slice_free (SoupSessionAsyncTunnelData, data);
+}
+
+static void
+got_connection (SoupConnection *conn, guint status, gpointer session)
+{
+	SoupAddress *tunnel_addr;
 
 	if (status == SOUP_STATUS_OK) {
+		tunnel_addr = soup_connection_get_tunnel_addr (conn);
+		if (tunnel_addr) {
+			SoupSessionAsyncTunnelData *data;
+
+			data = g_slice_new (SoupSessionAsyncTunnelData);
+			data->session = session;
+			data->conn = conn;
+			data->item = soup_session_make_connect_message (session, tunnel_addr);
+			g_signal_connect (data->item->msg, "finished",
+					  G_CALLBACK (tunnel_connected), data);
+			g_signal_connect (data->item->msg, "restarted",
+					  G_CALLBACK (tunnel_connected), data);
+			soup_session_send_queue_item (session, data->item, conn);
+			return;
+		}
+
 		g_signal_connect (conn, "disconnected",
 				  G_CALLBACK (connection_closed), session);
 
@@ -222,8 +278,9 @@ got_connection (SoupConnection *conn, guint status, gpointer user_data)
 		 * idle pool and then just run the queue and see what
 		 * happens.
 		 */
-		soup_connection_release (conn);
-	}
+		soup_connection_set_state (conn, SOUP_CONNECTION_IDLE);
+	} else
+		soup_session_connection_failed (session, conn, status);
 
 	/* Even if the connection failed, we run the queue, since
 	 * there may have been messages waiting for the connection
@@ -239,13 +296,12 @@ run_queue (SoupSessionAsync *sa)
 	SoupSession *session = SOUP_SESSION (sa);
 	SoupMessageQueue *queue = soup_session_get_queue (session);
 	SoupMessageQueueItem *item;
-	SoupProxyResolver *proxy_resolver =
+	SoupProxyURIResolver *proxy_resolver =
 		soup_session_get_proxy_resolver (session);
 	SoupMessage *msg;
 	SoupMessageIOStatus cur_io_status = SOUP_MESSAGE_IO_STATUS_CONNECTING;
 	SoupConnection *conn;
 	gboolean try_pruning = TRUE, should_prune = FALSE;
-	gboolean is_new;
 
  try_again:
 	for (item = soup_message_queue_first (queue);
@@ -253,30 +309,29 @@ run_queue (SoupSessionAsync *sa)
 	     item = soup_message_queue_next (queue, item)) {
 		msg = item->msg;
 
+		/* CONNECT messages are handled specially */
+		if (msg->method == SOUP_METHOD_CONNECT)
+			continue;
+
 		if (soup_message_get_io_status (msg) != cur_io_status ||
 		    soup_message_io_in_progress (msg))
 			continue;
 
-		if (!item->msg_addr) {
-			resolve_msg_addr (item);
-			continue;
-		}
 		if (proxy_resolver && !item->resolved_proxy_addr) {
 			resolve_proxy_addr (item, proxy_resolver);
 			continue;
 		}
 
-		conn = soup_session_get_connection (session, msg,
-						    item->proxy_addr,
-						    &should_prune, &is_new);
+		conn = soup_session_get_connection (session, item,
+						    &should_prune);
 		if (!conn)
 			continue;
 
-		if (is_new) {
+		if (soup_connection_get_state (conn) == SOUP_CONNECTION_NEW) {
 			soup_connection_connect_async (conn, got_connection,
 						       g_object_ref (session));
 		} else
-			soup_connection_send_request (conn, msg);
+			soup_session_send_queue_item (session, item, conn);
 	}
 	if (item)
 		soup_message_queue_item_unref (item);
@@ -302,17 +357,6 @@ static void
 request_restarted (SoupMessage *req, gpointer user_data)
 {
 	SoupMessageQueueItem *item = user_data;
-
-	if (item->msg_addr &&
-	    item->msg_addr != soup_message_get_address (item->msg)) {
-		g_object_unref (item->msg_addr);
-		item->msg_addr = NULL;
-	}
-	if (item->proxy_addr) {
-		g_object_unref (item->proxy_addr);
-		item->proxy_addr = NULL;
-	}
-	item->resolved_proxy_addr = FALSE;
 
 	run_queue ((SoupSessionAsync *)item->session);
 }

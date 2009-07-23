@@ -16,9 +16,11 @@
 #include "soup-headers.h"
 #include "soup-marshal.h"
 #include "soup-message-private.h"
+#include "soup-message-queue.h"
 #include "soup-path-map.h"
 #include "soup-session.h"
 #include "soup-session-feature.h"
+#include "soup-session-private.h"
 #include "soup-uri.h"
 
 static void soup_auth_manager_session_feature_init (SoupSessionFeatureInterface *feature_interface, gpointer interface_data);
@@ -53,7 +55,7 @@ typedef struct {
 #define SOUP_AUTH_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SOUP_TYPE_AUTH_MANAGER, SoupAuthManagerPrivate))
 
 typedef struct {
-	SoupAddress *addr;
+	SoupURI     *uri;
 	SoupPathMap *auth_realms;      /* path -> scheme:realm */
 	GHashTable  *auths;            /* scheme:realm -> SoupAuth */
 } SoupAuthHost;
@@ -64,8 +66,8 @@ soup_auth_manager_init (SoupAuthManager *manager)
 	SoupAuthManagerPrivate *priv = SOUP_AUTH_MANAGER_GET_PRIVATE (manager);
 
 	priv->auth_types = g_ptr_array_new ();
-	priv->auth_hosts = g_hash_table_new (soup_address_hash_by_name,
-					     soup_address_equal_by_name);
+	priv->auth_hosts = g_hash_table_new (soup_uri_host_hash,
+					     soup_uri_host_equal);
 }
 
 static gboolean
@@ -78,7 +80,7 @@ foreach_free_host (gpointer key, gpointer value, gpointer data)
 	if (host->auths)
 		g_hash_table_destroy (host->auths);
 
-	g_object_unref (host->addr);
+	soup_uri_free (host->uri);
 	g_slice_free (SoupAuthHost, host);
 
 	return TRUE;
@@ -318,15 +320,15 @@ static SoupAuthHost *
 get_auth_host_for_message (SoupAuthManagerPrivate *priv, SoupMessage *msg)
 {
 	SoupAuthHost *host;
-	SoupAddress *addr = soup_message_get_address (msg);
+	SoupURI *uri = soup_message_get_uri (msg);
 
-	host = g_hash_table_lookup (priv->auth_hosts, addr);
+	host = g_hash_table_lookup (priv->auth_hosts, uri);
 	if (host)
 		return host;
 
 	host = g_slice_new0 (SoupAuthHost);
-	host->addr = g_object_ref (addr);
-	g_hash_table_insert (priv->auth_hosts, host->addr, host);
+	host->uri = soup_uri_copy_host (uri);
+	g_hash_table_insert (priv->auth_hosts, host->uri, host);
 
 	return host;
 }
@@ -354,7 +356,7 @@ lookup_auth (SoupAuthManagerPrivate *priv, SoupMessage *msg)
 static gboolean
 authenticate_auth (SoupAuthManager *manager, SoupAuth *auth,
 		   SoupMessage *msg, gboolean prior_auth_failed,
-		   gboolean proxy)
+		   gboolean proxy, gboolean can_interact)
 {
 	SoupAuthManagerPrivate *priv = SOUP_AUTH_MANAGER_GET_PRIVATE (manager);
 	SoupURI *uri;
@@ -363,24 +365,32 @@ authenticate_auth (SoupAuthManager *manager, SoupAuth *auth,
 		return TRUE;
 
 	if (proxy) {
-		g_object_get (G_OBJECT (priv->session),
-			      SOUP_SESSION_PROXY_URI, &uri,
-			      NULL);
-		/* FIXME: temporary workaround for proxy auth brokenness */
+		SoupMessageQueue *queue;
+		SoupMessageQueueItem *item;
+
+		queue = soup_session_get_queue (priv->session);
+		item = soup_message_queue_lookup (queue, msg);
+		if (item) {
+			uri = soup_connection_get_proxy_uri (item->conn);
+			soup_message_queue_item_unref (item);
+		} else
+			uri = NULL;
+
 		if (!uri)
 			return FALSE;
 	} else
-		uri = soup_uri_copy (soup_message_get_uri (msg));
+		uri = soup_message_get_uri (msg);
 
 	if (uri->password && !prior_auth_failed) {
 		soup_auth_authenticate (auth, uri->user, uri->password);
-		soup_uri_free (uri);
 		return TRUE;
 	}
-	soup_uri_free (uri);
 
-	soup_auth_manager_emit_authenticate (manager, msg, auth,
-					     prior_auth_failed);
+	if (can_interact) {
+		soup_auth_manager_emit_authenticate (manager, msg, auth,
+						     prior_auth_failed);
+	}
+
 	return soup_auth_is_authenticated (auth);
 }
 
@@ -449,7 +459,7 @@ update_auth (SoupMessage *msg, gpointer manager)
 
 	/* If we need to authenticate, try to do it. */
 	authenticate_auth (manager, auth, msg,
-			   prior_auth_failed, FALSE);
+			   prior_auth_failed, FALSE, TRUE);
 }
 
 static void
@@ -484,7 +494,7 @@ update_proxy_auth (SoupMessage *msg, gpointer manager)
 
 	/* If we need to authenticate, try to do it. */
 	authenticate_auth (manager, priv->proxy_auth, msg,
-			   prior_auth_failed, TRUE);
+			   prior_auth_failed, TRUE, TRUE);
 }
 
 static void
@@ -525,12 +535,12 @@ request_started (SoupSessionFeature *feature, SoupSession *session,
 	SoupAuth *auth;
 
 	auth = lookup_auth (priv, msg);
-	if (!auth || !authenticate_auth (manager, auth, msg, FALSE, FALSE))
+	if (!auth || !authenticate_auth (manager, auth, msg, FALSE, FALSE, FALSE))
 		auth = NULL;
 	soup_message_set_auth (msg, auth);
 
 	auth = priv->proxy_auth;
-	if (!auth || !authenticate_auth (manager, auth, msg, FALSE, TRUE))
+	if (!auth || !authenticate_auth (manager, auth, msg, FALSE, TRUE, FALSE))
 		auth = NULL;
 	soup_message_set_proxy_auth (msg, auth);
 }

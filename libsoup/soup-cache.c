@@ -6,7 +6,6 @@
  */
 
 /* TODO:
- * - Opening cache files for write is still sync.
  * - Storage is hardcoded in the base class.
  * - Need to persist the cache across sessions.
  * - Need to hook the feature in the sync SoupSession.
@@ -405,14 +404,14 @@ msg_got_chunk_cb (SoupMessage *msg, SoupBuffer *chunk, SoupCacheEntry *entry)
 {
 	g_return_if_fail (chunk->data && chunk->length);
 	g_return_if_fail (entry);
-	g_return_if_fail (G_IS_OUTPUT_STREAM (entry->stream));
 
 	g_string_append_len (entry->data, chunk->data, chunk->length);
 	entry->length = entry->data->len;
 
 	/* FIXME: remove the error check when we cancel the caching at
 	   the first write error */
-	if (entry->writing == FALSE && entry->error == NULL) {
+	/* Only write if the entry stream is ready */
+	if (entry->writing == FALSE && entry->error == NULL && entry->stream) {
 		GString *data = entry->data;
 		entry->writing = TRUE;
 		g_output_stream_write_async (entry->stream,
@@ -429,7 +428,12 @@ static void
 msg_got_body_cb (SoupMessage *msg, SoupCacheEntry *entry)
 {
 	g_return_if_fail (entry);
-	g_return_if_fail (G_IS_OUTPUT_STREAM (entry->stream));
+
+	if (!entry->stream && entry->pos != entry->length) {
+		/* FIXME: the stream is not ready to be written but we
+		   still have data to write */
+		return;
+	}
 
 	g_output_stream_close_async (entry->stream,
 				     G_PRIORITY_DEFAULT,
@@ -465,6 +469,21 @@ msg_restarted_cb (SoupMessage *msg, SoupCacheEntry *entry)
 }
 
 static void
+append_to_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
+{
+	GFile *file = (GFile*)source;
+	GError *error = NULL;
+	GOutputStream *stream = (GOutputStream*)g_file_append_to_finish (file, result, &error);
+	if (error) {
+		entry->error = error;
+		return;
+	}
+
+	entry->stream = stream;
+	g_object_unref (file);
+}
+
+static void
 msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 {
 	SoupCacheability cacheable;
@@ -492,14 +511,18 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 
 		g_hash_table_insert (cache->priv->cache, g_strdup (entry->key), entry);
 
-		/* Prepare entry */
-		file = g_file_new_for_path (entry->filename);
-		entry->stream = (GOutputStream*)g_file_append_to (file, 0, NULL, NULL);
-		g_object_unref (file);
-
+		/* We connect now to these signals and buffer the data
+		   if it comes before the file is ready for writing */
 		g_signal_connect (msg, "got-chunk", G_CALLBACK (msg_got_chunk_cb), entry);
 		g_signal_connect (msg, "got-body", G_CALLBACK (msg_got_body_cb), entry);
 		g_signal_connect (msg, "restarted", G_CALLBACK (msg_restarted_cb), entry);
+
+		/* Prepare entry */
+		file = g_file_new_for_path (entry->filename);
+		g_file_append_to_async (file, 0,
+					G_PRIORITY_DEFAULT, NULL,
+					(GAsyncReadyCallback)append_to_ready_cb,
+					entry);
 	} else if (cacheable & SOUP_CACHE_INVALIDATES) {
 		char *key;
 

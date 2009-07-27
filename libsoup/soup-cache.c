@@ -66,14 +66,14 @@ get_cacheability (SoupMessage *msg)
 	const char *cache_control;
 
 	/* 1. The request method must be cacheable */
-        if (msg->method == SOUP_METHOD_GET)
-                cacheability = SOUP_CACHE_CACHEABLE;
-        else if (msg->method == SOUP_METHOD_HEAD ||
-                 msg->method == SOUP_METHOD_TRACE ||
-                 msg->method == SOUP_METHOD_CONNECT)
-                return SOUP_CACHE_UNCACHEABLE;
-        else
-                return (SOUP_CACHE_UNCACHEABLE | SOUP_CACHE_INVALIDATES);
+	if (msg->method == SOUP_METHOD_GET)
+		cacheability = SOUP_CACHE_CACHEABLE;
+	else if (msg->method == SOUP_METHOD_HEAD ||
+		 msg->method == SOUP_METHOD_TRACE ||
+		 msg->method == SOUP_METHOD_CONNECT)
+		return SOUP_CACHE_UNCACHEABLE;
+	else
+		return (SOUP_CACHE_UNCACHEABLE | SOUP_CACHE_INVALIDATES);
 
 	cache_control = soup_message_headers_get (msg->response_headers, "Cache-Control");
 	if (cache_control) {
@@ -81,68 +81,70 @@ get_cacheability (SoupMessage *msg)
 
 		hash = soup_header_parse_param_list (cache_control);
 		/* 2. The 'no-store' cache directive does not appear in the
-		   headers */
+		 * headers
+		 */
 		if (g_hash_table_lookup (hash, "no-store")) {
 			soup_header_free_param_list (hash);
 			return SOUP_CACHE_UNCACHEABLE;
 		}
 
 		/* This does not appear in section 2.1, but I think it makes
-		   sense to check it too? */
+		 * sense to check it too?
+		 */
 		if (g_hash_table_lookup (hash, "no-cache")) {
 			soup_header_free_param_list (hash);
 			return SOUP_CACHE_UNCACHEABLE;
 		}
 	}
 
-        switch (msg->status_code) {
-        case SOUP_STATUS_PARTIAL_CONTENT:
-        case SOUP_STATUS_NOT_MODIFIED:
-                /* We don't cache partial responses, but they only
-                 * invalidate cached full responses if the headers
-                 * don't match. Likewise with 304 Not Modified.
-                 */
-                cacheability = SOUP_CACHE_UNCACHEABLE;
-                break;
+	switch (msg->status_code) {
+	case SOUP_STATUS_PARTIAL_CONTENT:
+	case SOUP_STATUS_NOT_MODIFIED:
+		/* We don't cache partial responses, but they only
+		 * invalidate cached full responses if the headers
+		 * don't match. Likewise with 304 Not Modified.
+		 */
+		cacheability = SOUP_CACHE_UNCACHEABLE;
+		break;
 
-        case SOUP_STATUS_MULTIPLE_CHOICES:
-        case SOUP_STATUS_MOVED_PERMANENTLY:
-        case SOUP_STATUS_GONE:
-                /* FIXME: cacheable unless indicated otherwise */
-                cacheability = SOUP_CACHE_UNCACHEABLE;
-                break;
+	case SOUP_STATUS_MULTIPLE_CHOICES:
+	case SOUP_STATUS_MOVED_PERMANENTLY:
+	case SOUP_STATUS_GONE:
+		/* FIXME: cacheable unless indicated otherwise */
+		cacheability = SOUP_CACHE_UNCACHEABLE;
+		break;
 
-        case SOUP_STATUS_FOUND:
-        case SOUP_STATUS_TEMPORARY_REDIRECT:
-                /* FIXME: cacheable if explicitly indicated */
-                cacheability = SOUP_CACHE_UNCACHEABLE;
-                break;
+	case SOUP_STATUS_FOUND:
+	case SOUP_STATUS_TEMPORARY_REDIRECT:
+		/* FIXME: cacheable if explicitly indicated */
+		cacheability = SOUP_CACHE_UNCACHEABLE;
+		break;
 
-        case SOUP_STATUS_SEE_OTHER:
-        case SOUP_STATUS_FORBIDDEN:
-        case SOUP_STATUS_NOT_FOUND:
-        case SOUP_STATUS_METHOD_NOT_ALLOWED:
-                return (SOUP_CACHE_UNCACHEABLE | SOUP_CACHE_INVALIDATES);
+	case SOUP_STATUS_SEE_OTHER:
+	case SOUP_STATUS_FORBIDDEN:
+	case SOUP_STATUS_NOT_FOUND:
+	case SOUP_STATUS_METHOD_NOT_ALLOWED:
+		return (SOUP_CACHE_UNCACHEABLE | SOUP_CACHE_INVALIDATES);
 
-        default:
-                /* Any 5xx status or any 4xx status not handled above
-                 * is uncacheable but doesn't break the cache.
-                 */
-                if ((msg->status_code >= SOUP_STATUS_BAD_REQUEST &&
-                     msg->status_code <= SOUP_STATUS_FAILED_DEPENDENCY) ||
-                    msg->status_code >= SOUP_STATUS_INTERNAL_SERVER_ERROR)
-                        return SOUP_CACHE_UNCACHEABLE;
+	default:
+		/* Any 5xx status or any 4xx status not handled above
+		 * is uncacheable but doesn't break the cache.
+		 */
+		if ((msg->status_code >= SOUP_STATUS_BAD_REQUEST &&
+		     msg->status_code <= SOUP_STATUS_FAILED_DEPENDENCY) ||
+		    msg->status_code >= SOUP_STATUS_INTERNAL_SERVER_ERROR)
+			return SOUP_CACHE_UNCACHEABLE;
 
-                /* An unrecognized 2xx, 3xx, or 4xx response breaks
-                 * the cache.
-                 */
-                if ((msg->status_code > SOUP_STATUS_PARTIAL_CONTENT &&
-                     msg->status_code < SOUP_STATUS_MULTIPLE_CHOICES) ||
-                    (msg->status_code > SOUP_STATUS_TEMPORARY_REDIRECT &&
-                     msg->status_code < SOUP_STATUS_INTERNAL_SERVER_ERROR))
-                        return (SOUP_CACHE_UNCACHEABLE | SOUP_CACHE_INVALIDATES);
-                break;
-        }
+		/* An unrecognized 2xx, 3xx, or 4xx response breaks
+		 * the cache.
+		 */
+		if ((msg->status_code > SOUP_STATUS_PARTIAL_CONTENT &&
+		     msg->status_code < SOUP_STATUS_MULTIPLE_CHOICES) ||
+		    (msg->status_code > SOUP_STATUS_TEMPORARY_REDIRECT &&
+		     msg->status_code < SOUP_STATUS_INTERNAL_SERVER_ERROR))
+			return (SOUP_CACHE_UNCACHEABLE | SOUP_CACHE_INVALIDATES);
+		break;
+	}
 
 	return cacheability;
 }
@@ -231,7 +233,8 @@ soup_cache_entry_set_freshness (SoupCacheEntry *entry, SoupMessage *msg)
 		soup_header_free_param_list (hash);
 
 	/* If the 'Expires' response header is present, use its value
-	   minus the value of the 'Date' response header */
+	 * minus the value of the 'Date' response header
+	 */
 	expires = soup_message_headers_get (entry->headers, "Expires");
 	date = soup_message_headers_get (entry->headers, "Date");
 	if (expires && date) {
@@ -481,8 +484,7 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 			return;
 		}
 
-		/* Create a new entry, deleting any old one if
-		   present */
+		/* Create a new entry, deleting any old one if present */
 		entry = soup_cache_entry_new (cache, msg);
 		soup_cache_entry_delete_by_key (cache, entry->key);
 
@@ -521,27 +523,35 @@ soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *ms
 	entry = soup_cache_lookup_uri (cache, key);
 
 	/* 1. The presented Request-URI and that of stored response
-	   match */
-	if (!entry) return FALSE;
+	 * match
+	 */
+	if (!entry)
+		return FALSE;
 
-	if (entry->dirty) return FALSE;
+	if (entry->dirty)
+		return FALSE;
 
 	/* 2. The request method associated with the stored response
-	   allows it to be used for the presented request */
+	 *  allows it to be used for the presented request
+	 */
 
 	/* In practice this means we only return our resource for GET,
-	   cacheability for other methods is a TODO in the RFC
-	   (TODO: although we could return the headers for HEAD
-	   probably). */
-	if (msg->method != SOUP_METHOD_GET) return FALSE;
+	 * cacheability for other methods is a TODO in the RFC
+	 * (TODO: although we could return the headers for HEAD
+	 * probably).
+	 */
+	if (msg->method != SOUP_METHOD_GET)
+		return FALSE;
 
 	/* 3. Selecting request-headers nominated by the stored
-	   response (if any) match those presented. */
+	 * response (if any) match those presented.
+	 */
 
 	/* TODO */
 
 	/* 4. The presented request and stored response are free from
-	   directives that would prevent its use. */
+	 * directives that would prevent its use.
+	 */
 
 	must_revalidate = FALSE;
 	max_age = max_stale = min_fresh = -1;
@@ -595,7 +605,8 @@ soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *ms
 	}
 
 	/* 5. The stored response is either: fresh, allowed to be
-	   served stale or succesfully validated */
+	 * served stale or succesfully validated
+	 */
 	if (entry->must_revalidate) {
 		return FALSE;
 	}
@@ -697,7 +708,7 @@ request_started (SoupSessionFeature *feature, SoupSession *session,
 
 static void
 soup_cache_session_feature_init (SoupSessionFeatureInterface *feature_interface,
-                                 gpointer interface_data)
+				 gpointer interface_data)
 {
 	feature_interface->request_started = request_started;
 }

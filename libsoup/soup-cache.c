@@ -609,12 +609,38 @@ soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *ms
 	return TRUE;
 }
 
+static void
+load_contents_ready_cb (GObject *source, GAsyncResult *result, SoupMessage *msg)
+{
+	GFile *file = (GFile*)source;
+	char *contents = NULL;
+	gsize length;
+	GError *error = NULL;
+
+	if (g_file_load_contents_finish (file, result, &contents, &length, NULL, &error)) {
+		SoupBuffer *buffer;
+		
+		buffer = soup_buffer_new (SOUP_MEMORY_TEMPORARY, contents, length);
+		soup_message_body_append_buffer (msg->response_body, buffer);
+		g_signal_emit_by_name (msg, "got-chunk", buffer, NULL);
+		soup_buffer_free (buffer);
+		g_free (contents);
+		
+		soup_message_got_body (msg);
+		soup_message_finished (msg);
+	} else {
+		/* FIXME: I suppose we should request the resource
+		   again here? */
+	}
+
+	g_object_unref (file);
+}
+
 void
 soup_cache_send_response (SoupCache *cache, SoupSession *session, SoupMessage *msg)
 {
 	char *key;
 	SoupCacheEntry *entry;
-	SoupBuffer *buffer;
 	char *current_age;
 
 	key = soup_message_get_cache_key (msg);
@@ -639,21 +665,13 @@ soup_cache_send_response (SoupCache *cache, SoupSession *session, SoupMessage *m
 	/* Do not try to read anything if the length of the
 	   resource is 0 */
 	if (entry->data->len) {
-		char *data;
-		gsize length;
+		GFile *file;
 
-		g_file_get_contents (entry->filename, &data, &length, NULL);
-
-		if (data && length) {
-			buffer = soup_buffer_new (SOUP_MEMORY_TEMPORARY, data, length);
-			soup_message_body_append_buffer (msg->response_body, buffer);
-			g_signal_emit_by_name (msg, "got-chunk", buffer, NULL);
-			soup_buffer_free (buffer);
-		}
+		file = g_file_new_for_path (entry->filename);
+		g_file_load_contents_async (file, NULL,
+					    (GAsyncReadyCallback)load_contents_ready_cb,
+					    msg);
 	}
-
-	soup_message_got_body (msg);
-	soup_message_finished (msg);
 }
 
 static void

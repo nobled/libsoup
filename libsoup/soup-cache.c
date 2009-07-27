@@ -693,6 +693,9 @@ soup_cache_send_response (SoupCache *cache, SoupSession *session, SoupMessage *m
 		g_file_load_contents_async (file, NULL,
 					    (GAsyncReadyCallback)load_contents_ready_cb,
 					    msg);
+	} else {
+		soup_message_got_body (msg);
+		soup_message_finished (msg);
 	}
 }
 

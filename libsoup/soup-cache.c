@@ -47,12 +47,6 @@ enum {
 	PROP_CACHE_DIR
 };
 
-typedef enum {
-	SOUP_CACHE_CACHEABLE   = (1 << 0),
-	SOUP_CACHE_UNCACHEABLE = (1 << 1),
-	SOUP_CACHE_INVALIDATES = (1 << 2)
-} SoupCacheability;
-
 #define SOUP_CACHE_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SOUP_TYPE_CACHE, SoupCachePrivate))
 
 G_DEFINE_TYPE_WITH_CODE (SoupCache, soup_cache, G_TYPE_OBJECT,
@@ -60,7 +54,7 @@ G_DEFINE_TYPE_WITH_CODE (SoupCache, soup_cache, G_TYPE_OBJECT,
 						soup_cache_session_feature_init))
 
 static SoupCacheability
-get_cacheability (SoupMessage *msg)
+get_cacheability (SoupCache *cache, SoupMessage *msg)
 {
 	SoupCacheability cacheability;
 	const char *cache_control;
@@ -467,7 +461,7 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 {
 	SoupCacheability cacheable;
 
-	cacheable = get_cacheability (msg);
+	cacheable = soup_cache_get_cacheability (cache, msg);
 
 	if (cacheable & SOUP_CACHE_CACHEABLE) {
 		SoupCacheEntry *entry;
@@ -804,6 +798,8 @@ soup_cache_class_init (SoupCacheClass *cache_class)
 	gobject_class->set_property = soup_cache_set_property;
 	gobject_class->get_property = soup_cache_get_property;
 
+	cache_class->get_cacheability = get_cacheability;
+
 	g_object_class_install_property(gobject_class, PROP_CACHE_DIR,
 					g_param_spec_string("cache-dir",
 							    "Cache directory",
@@ -832,3 +828,20 @@ soup_cache_new (const char *cache_dir)
 			     NULL);
 }
 
+/**
+ * soup_cache_get_cacheability:
+ * @cache: a #SoupCache
+ * @msg: a #SoupMessage
+ * 
+ * Calculates whether the @msg can be cached or not.
+ * 
+ * Returns: a #SoupCacheability value indicating whether the @msg can be cached or not.
+ **/
+SoupCacheability
+soup_cache_get_cacheability (SoupCache *cache, SoupMessage *msg)
+{
+	g_return_val_if_fail (SOUP_IS_CACHE (cache), SOUP_CACHE_UNCACHEABLE);
+	g_return_val_if_fail (SOUP_IS_MESSAGE (msg), SOUP_CACHE_UNCACHEABLE);
+
+	return SOUP_CACHE_GET_CLASS (cache)->get_cacheability (cache, msg);
+}

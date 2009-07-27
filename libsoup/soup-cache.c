@@ -211,7 +211,7 @@ soup_cache_entry_set_freshness (SoupCacheEntry *entry, SoupMessage *msg)
 		hash = soup_header_parse_param_list (cache_control);
 
 		/* Should we re-validate the entry when it goes stale */
-		entry->must_revalidate = (gboolean)g_hash_table_lookup (hash, "must-revalidate");
+		entry->must_revalidate = g_hash_table_lookup (hash, "must-revalidate");
 
 		/* If 'max-age' cache directive is present, use that */
 		max_age = g_hash_table_lookup (hash, "max-age");

@@ -28,6 +28,7 @@ typedef struct _SoupCacheEntry
 	gboolean must_revalidate;
 	GString *data;
 	gsize pos;
+	gsize length;
 	guint date;
 	gboolean writing;
 	gboolean dirty;
@@ -155,8 +156,10 @@ soup_cache_entry_free (SoupCacheEntry *entry)
 	entry->key = NULL;
 	soup_message_headers_free (entry->headers);
 	entry->headers = NULL;
-	g_string_free (entry->data, TRUE);
-	entry->data = NULL;
+	if (entry->data) {
+		g_string_free (entry->data, TRUE);
+		entry->data = NULL;
+	}
 	if (entry->error) {
 		g_error_free (entry->error);
 		entry->error = NULL;
@@ -346,6 +349,10 @@ close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 	g_output_stream_close_finish (stream, result, NULL);
 	g_object_unref (stream);
 
+	/* Get rid of the GString in memory for the resource now */
+	g_string_free (entry->data, TRUE);
+	entry->data = NULL;
+
 	entry->stream = NULL;
 	entry->dirty = FALSE;
 	entry->writing = FALSE;
@@ -373,8 +380,9 @@ write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 	} else {
 		entry->pos += write_size;
 
-		/* Is there new data to write already ? */
-		if (entry->pos < entry->data->len) {
+		/* Are we still writing and is there new data to write
+		   already ? */
+		if (entry->data && entry->pos < entry->data->len) {
 			g_output_stream_write_async (entry->stream,
 						     entry->data->str + entry->pos,
 						     entry->data->len - entry->pos,
@@ -395,6 +403,7 @@ msg_got_chunk_cb (SoupMessage *msg, SoupBuffer *chunk, SoupCacheEntry *entry)
 	g_return_if_fail (G_IS_OUTPUT_STREAM (entry->stream));
 
 	g_string_append_len (entry->data, chunk->data, chunk->length);
+	entry->length = entry->data->len;
 
 	/* FIXME: remove the error check when we cancel the caching at
 	   the first write error */
@@ -664,7 +673,7 @@ soup_cache_send_response (SoupCache *cache, SoupSession *session, SoupMessage *m
 	/* Data */
 	/* Do not try to read anything if the length of the
 	   resource is 0 */
-	if (entry->data->len) {
+	if (entry->length) {
 		GFile *file;
 
 		file = g_file_new_for_path (entry->filename);

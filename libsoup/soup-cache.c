@@ -26,11 +26,14 @@ typedef struct _SoupCacheEntry
 	char *filename;
 	guint freshness_lifetime;
 	gboolean must_revalidate;
+	GString *data;
+	gsize pos;
 	guint date;
-	guint length;
+	gboolean writing;
+	gboolean dirty;
 	SoupMessageHeaders *headers;
 	GOutputStream *stream;
-	gboolean dirty;
+	GError *error;
 } SoupCacheEntry;
 
 struct _SoupCachePrivate {
@@ -152,6 +155,12 @@ soup_cache_entry_free (SoupCacheEntry *entry)
 	entry->key = NULL;
 	soup_message_headers_free (entry->headers);
 	entry->headers = NULL;
+	g_string_free (entry->data, TRUE);
+	entry->data = NULL;
+	if (entry->error) {
+		g_error_free (entry->error);
+		entry->error = NULL;
+	}
 	g_slice_free (SoupCacheEntry, entry);
 }
 
@@ -181,9 +190,7 @@ soup_cache_entry_is_fresh_enough (SoupCacheEntry *entry, int min_fresh)
 static char *
 soup_message_get_cache_key (SoupMessage *msg)
 {
-	SoupURI *uri;
-
-	uri = soup_message_get_uri (msg);
+	SoupURI *uri = soup_message_get_uri (msg);
 	return soup_uri_to_string (uri, FALSE);
 }
 
@@ -279,9 +286,12 @@ soup_cache_entry_new (SoupCache *cache, SoupMessage *msg)
 	const char *date;
 	char *md5;
 
-	entry = g_slice_new (SoupCacheEntry);
-	entry->length = 0;
+	entry = g_slice_new0 (SoupCacheEntry);
 	entry->dirty = TRUE;
+	entry->writing = FALSE;
+	entry->data = g_string_new (NULL);
+	entry->pos = 0;
+	entry->error = NULL;
 
 	/* key & filename */
 	entry->key = soup_message_get_cache_key (msg);
@@ -329,14 +339,76 @@ soup_cache_lookup_uri (SoupCache *cache, const char *uri)
 }
 
 static void
+close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
+{
+	GOutputStream *stream = G_OUTPUT_STREAM (source);
+
+	g_output_stream_close_finish (stream, result, NULL);
+	g_object_unref (stream);
+
+	entry->stream = NULL;
+	entry->dirty = FALSE;
+	entry->writing = FALSE;
+	entry->pos = 0;
+}
+
+static void
+write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
+{
+	GOutputStream *stream = G_OUTPUT_STREAM (source);
+	GError *error = NULL;
+	gssize write_size;
+
+	write_size = g_output_stream_write_finish (stream, result, &error);
+	if (write_size <= 0 || error) {
+		if (error)
+			entry->error = error;
+		g_output_stream_close_async (stream,
+					     G_PRIORITY_DEFAULT,
+					     NULL,
+					     (GAsyncReadyCallback)close_ready_cb,
+					     entry);
+		/* FIXME: We should completely stop caching the
+		   resource at this point */
+	} else {
+		entry->pos += write_size;
+
+		/* Is there new data to write already ? */
+		if (entry->pos < entry->data->len) {
+			g_output_stream_write_async (entry->stream,
+						     entry->data->str + entry->pos,
+						     entry->data->len - entry->pos,
+						     G_PRIORITY_DEFAULT,
+						     NULL,
+						     (GAsyncReadyCallback)write_ready_cb,
+						     entry);
+		} else
+			entry->writing = FALSE;
+	}
+}
+
+static void
 msg_got_chunk_cb (SoupMessage *msg, SoupBuffer *chunk, SoupCacheEntry *entry)
 {
 	g_return_if_fail (chunk->data && chunk->length);
 	g_return_if_fail (entry);
 	g_return_if_fail (G_IS_OUTPUT_STREAM (entry->stream));
 
-	g_output_stream_write (entry->stream, chunk->data, chunk->length, NULL, NULL);
-	entry->length += chunk->length;
+	g_string_append_len (entry->data, chunk->data, chunk->length);
+
+	/* FIXME: remove the error check when we cancel the caching at
+	   the first write error */
+	if (entry->writing == FALSE && entry->error == NULL) {
+		GString *data = entry->data;
+		entry->writing = TRUE;
+		g_output_stream_write_async (entry->stream,
+					     data->str + entry->pos,
+					     data->len - entry->pos,
+					     G_PRIORITY_DEFAULT,
+					     NULL,
+					     (GAsyncReadyCallback)write_ready_cb,
+					     entry);
+	}
 }
 
 static void
@@ -345,11 +417,11 @@ msg_got_body_cb (SoupMessage *msg, SoupCacheEntry *entry)
 	g_return_if_fail (entry);
 	g_return_if_fail (G_IS_OUTPUT_STREAM (entry->stream));
 
-	g_output_stream_close (entry->stream, NULL, NULL);
-	g_object_unref (entry->stream);
-
-	entry->stream = NULL;
-	entry->dirty = FALSE;
+	g_output_stream_close_async (entry->stream,
+				     G_PRIORITY_DEFAULT,
+				     NULL,
+				     (GAsyncReadyCallback)close_ready_cb,
+				     entry);
 }
 
 static void
@@ -566,7 +638,7 @@ soup_cache_send_response (SoupCache *cache, SoupSession *session, SoupMessage *m
 	/* Data */
 	/* Do not try to read anything if the length of the
 	   resource is 0 */
-	if (entry->length) {
+	if (entry->data->len) {
 		char *data;
 		gsize length;
 

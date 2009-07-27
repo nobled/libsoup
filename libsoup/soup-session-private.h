@@ -6,7 +6,6 @@
 #ifndef SOUP_SESSION_PRIVATE_H
 #define SOUP_SESSION_PRIVATE_H 1
 
-#include "soup-cache.h"
 #include "soup-session.h"
 #include "soup-connection.h"
 #include "soup-message-queue.h"

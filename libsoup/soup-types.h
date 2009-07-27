@@ -16,6 +16,7 @@ G_BEGIN_DECLS
 typedef struct _SoupAddress           SoupAddress;
 typedef struct _SoupAuth              SoupAuth;
 typedef struct _SoupAuthDomain        SoupAuthDomain;
+typedef struct _SoupCache             SoupCache;
 typedef struct _SoupCookie            SoupCookie;
 typedef struct _SoupDate              SoupDate;
 typedef struct _SoupMessage           SoupMessage;

@@ -19,11 +19,11 @@ G_BEGIN_DECLS
 
 typedef struct _SoupCachePrivate SoupCachePrivate;
 
-typedef struct {
+struct _SoupCache {
 	GObject parent_instance;
 
 	SoupCachePrivate *priv;
-} SoupCache;
+};
 
 typedef struct {
 	GObjectClass parent_class;

@@ -5,6 +5,14 @@
  * Copyright (C) 2009 Igalia S.L.
  */
 
+/* TODO:
+ * - Opening cache files for write is still sync.
+ * - Storage is hardcoded in the base class.
+ * - Need to persist the cache across sessions.
+ * - Need to hook the feature in the sync SoupSession.
+ * - No tests. (!)
+ */
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif

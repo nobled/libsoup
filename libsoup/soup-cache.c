@@ -472,11 +472,12 @@ msg_got_body_cb (SoupMessage *msg, SoupCacheEntry *entry)
 		return;
 	}
 
-	g_output_stream_close_async (entry->stream,
-				     G_PRIORITY_DEFAULT,
-				     NULL,
-				     (GAsyncReadyCallback)close_ready_cb,
-				     entry);
+	if (entry->stream)
+		g_output_stream_close_async (entry->stream,
+					     G_PRIORITY_DEFAULT,
+					     NULL,
+					     (GAsyncReadyCallback)close_ready_cb,
+					     entry);
 }
 
 static void

@@ -39,6 +39,7 @@ typedef struct _SoupCacheEntry
 	guint date;
 	gboolean writing;
 	gboolean dirty;
+	gboolean got_body;
 	SoupMessageHeaders *headers;
 	GOutputStream *stream;
 	GError *error;
@@ -294,6 +295,7 @@ soup_cache_entry_new (SoupCache *cache, SoupMessage *msg)
 	entry = g_slice_new0 (SoupCacheEntry);
 	entry->dirty = TRUE;
 	entry->writing = FALSE;
+	entry->got_body = FALSE;
 	entry->data = g_string_new (NULL);
 	entry->pos = 0;
 	entry->error = NULL;
@@ -348,16 +350,25 @@ close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 {
 	GOutputStream *stream = G_OUTPUT_STREAM (source);
 
-	g_output_stream_close_finish (stream, result, NULL);
-	g_object_unref (stream);
+	g_assert (entry->error || entry->pos == entry->length);
+
+	/* FIXME: what do we do on error ? */
+
+	if (stream) {
+		g_output_stream_close_finish (stream, result, NULL);
+		g_object_unref (stream);
+	}
+	entry->stream = NULL;
 
 	/* Get rid of the GString in memory for the resource now */
-	g_string_free (entry->data, TRUE);
-	entry->data = NULL;
+	if (entry->data) {
+		g_string_free (entry->data, TRUE);
+		entry->data = NULL;
+	}
 
-	entry->stream = NULL;
 	entry->dirty = FALSE;
 	entry->writing = FALSE;
+	entry->got_body = FALSE;
 	entry->pos = 0;
 }
 
@@ -392,8 +403,20 @@ write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 						     NULL,
 						     (GAsyncReadyCallback)write_ready_cb,
 						     entry);
-		} else
+		} else {
 			entry->writing = FALSE;
+
+			if (entry->got_body)
+				/* If we already received 'got-body'
+				   and we have written all the data,
+				   we can close the stream */
+				g_output_stream_close_async (entry->stream,
+							     G_PRIORITY_DEFAULT,
+							     NULL,
+							     (GAsyncReadyCallback)close_ready_cb,
+							     entry);
+		}
+
 	}
 }
 
@@ -427,9 +450,25 @@ msg_got_body_cb (SoupMessage *msg, SoupCacheEntry *entry)
 {
 	g_return_if_fail (entry);
 
-	if (!entry->stream && entry->pos != entry->length) {
-		/* FIXME: the stream is not ready to be written but we
-		   still have data to write */
+	entry->got_body = TRUE;
+
+	if (!entry->stream && entry->pos != entry->length)
+		/* The stream is not ready to be written but we still
+		   have data to write, we'll write it when the stream
+		   is opened for writing */
+		return;
+
+
+	if (entry->pos != entry->length) {
+		/* If we still have data to write, write it,
+		   write_ready_cb will close the stream */
+		g_output_stream_write_async (entry->stream,
+					     entry->data->str + entry->pos,
+					     entry->data->len - entry->pos,
+					     G_PRIORITY_DEFAULT,
+					     NULL,
+					     (GAsyncReadyCallback)write_ready_cb,
+					     entry);
 		return;
 	}
 
@@ -479,6 +518,21 @@ append_to_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry
 
 	entry->stream = stream;
 	g_object_unref (file);
+
+	/* If we already got all the data we have to initiate the
+	   writing here, since we won't get more 'got-chunk'
+	   signals */
+	if (entry->got_body) {
+		GString *data = entry->data;
+		entry->writing = TRUE;
+		g_output_stream_write_async (entry->stream,
+					     data->str + entry->pos,
+					     data->len - entry->pos,
+					     G_PRIORITY_DEFAULT,
+					     NULL,
+					     (GAsyncReadyCallback)write_ready_cb,
+					     entry);
+	}
 }
 
 static void

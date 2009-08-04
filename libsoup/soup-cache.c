@@ -571,10 +571,8 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 		entry = soup_cache_lookup_uri (cache, key);
 		g_free (key);
 
-		if (entry && entry->dirty) {
-			g_debug ("ALREADY GOT AN ENTRY, IS IT DIRTY?: %d (%s)", entry->dirty, entry->key);
+		if (entry && entry->dirty)
 			return;
-		}
 
 		/* Create a new entry, deleting any old one if present */
 		entry = soup_cache_entry_new (cache, msg);
@@ -659,12 +657,10 @@ soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *ms
 	max_age = max_stale = min_fresh = -1;
 
 	cache_control = soup_message_headers_get (msg->request_headers, "Cache-Control");
-	g_debug ("Cache-Control for %s: %s", soup_uri_to_string (uri, FALSE), cache_control);
 	if (cache_control) {
 		hash = soup_header_parse_param_list (cache_control);
 
 		if (g_hash_table_lookup_extended (hash, "no-store", NULL, NULL)) {
-			g_debug ("NO-STORE, OUT");
 			g_hash_table_destroy (hash);
 			return FALSE;
 		}
@@ -677,7 +673,6 @@ soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *ms
 		if (value) {
 			SoupURI *uri = soup_message_get_uri (msg);
 			max_age = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
-			g_debug ("Set max-age to %d (resource %s)", max_age, soup_uri_to_string (uri, FALSE));
 		}
 
 		/* max-stale can have no value set, we need to use _extended */
@@ -699,10 +694,8 @@ soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *ms
 
 			/* If we are over max-age and max-stale is not set, do
 			   not use the value from the cache */
-			if (max_age <= current_age && max_stale == -1) {
-				g_debug ("OVER MAX-AGE (%d) AND NO MAX-STALE (%d), OUT", max_age, max_stale);
+			if (max_age <= current_age && max_stale == -1)
 				return FALSE;
-			}
 		}
 	}
 
@@ -727,7 +720,6 @@ soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *ms
 		return FALSE;
 	}
 
-	g_debug ("RETURNING FROM CACHE: %s (lifetime %d)", soup_uri_to_string (uri, FALSE), entry->freshness_lifetime);
 	return TRUE;
 }
 
@@ -803,11 +795,6 @@ static void
 request_started (SoupSessionFeature *feature, SoupSession *session,
 		 SoupMessage *msg, SoupSocket *socket)
 {
-	char *key;
-	key = soup_message_get_cache_key (msg);
-	g_debug ("REQUEST-STARTED %s", key);
-	g_free (key);
-
 	g_signal_connect (msg, "got-headers", G_CALLBACK (msg_got_headers_cb), feature);
 }
 

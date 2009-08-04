@@ -48,7 +48,14 @@ typedef struct _SoupCacheEntry
 struct _SoupCachePrivate {
 	char *cache_dir;
 	GHashTable *cache;
+	guint n_pending;
+	SoupSession *session;
 };
+
+typedef struct {
+	SoupCache *cache;
+	SoupCacheEntry *entry;
+} SoupCacheWritingFixture;
 
 enum {
 	PROP_0,
@@ -346,8 +353,10 @@ soup_cache_lookup_uri (SoupCache *cache, const char *uri)
 }
 
 static void
-close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
+close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheWritingFixture *fixture)
 {
+	SoupCacheEntry *entry = fixture->entry;
+	SoupCache *cache = fixture->cache;
 	GOutputStream *stream = G_OUTPUT_STREAM (source);
 
 	g_assert (entry->error || entry->pos == entry->length);
@@ -370,14 +379,17 @@ close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 	entry->writing = FALSE;
 	entry->got_body = FALSE;
 	entry->pos = 0;
+
+	cache->priv->n_pending--;
 }
 
 static void
-write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
+write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheWritingFixture *fixture)
 {
 	GOutputStream *stream = G_OUTPUT_STREAM (source);
 	GError *error = NULL;
 	gssize write_size;
+	SoupCacheEntry *entry = fixture->entry;
 
 	write_size = g_output_stream_write_finish (stream, result, &error);
 	if (write_size <= 0 || error) {
@@ -387,7 +399,7 @@ write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 					     G_PRIORITY_DEFAULT,
 					     NULL,
 					     (GAsyncReadyCallback)close_ready_cb,
-					     entry);
+					     fixture);
 		/* FIXME: We should completely stop caching the
 		   resource at this point */
 	} else {
@@ -402,7 +414,7 @@ write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 						     G_PRIORITY_DEFAULT,
 						     NULL,
 						     (GAsyncReadyCallback)write_ready_cb,
-						     entry);
+						     fixture);
 		} else {
 			entry->writing = FALSE;
 
@@ -414,15 +426,17 @@ write_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
 							     G_PRIORITY_DEFAULT,
 							     NULL,
 							     (GAsyncReadyCallback)close_ready_cb,
-							     entry);
+							     fixture);
 		}
 
 	}
 }
 
 static void
-msg_got_chunk_cb (SoupMessage *msg, SoupBuffer *chunk, SoupCacheEntry *entry)
+msg_got_chunk_cb (SoupMessage *msg, SoupBuffer *chunk, SoupCacheWritingFixture *fixture)
 {
+	SoupCacheEntry *entry = fixture->entry;
+
 	g_return_if_fail (chunk->data && chunk->length);
 	g_return_if_fail (entry);
 
@@ -441,13 +455,14 @@ msg_got_chunk_cb (SoupMessage *msg, SoupBuffer *chunk, SoupCacheEntry *entry)
 					     G_PRIORITY_DEFAULT,
 					     NULL,
 					     (GAsyncReadyCallback)write_ready_cb,
-					     entry);
+					     fixture);
 	}
 }
 
 static void
-msg_got_body_cb (SoupMessage *msg, SoupCacheEntry *entry)
+msg_got_body_cb (SoupMessage *msg, SoupCacheWritingFixture *fixture)
 {
+	SoupCacheEntry *entry = fixture->entry;
 	g_return_if_fail (entry);
 
 	entry->got_body = TRUE;
@@ -468,7 +483,7 @@ msg_got_body_cb (SoupMessage *msg, SoupCacheEntry *entry)
 					     G_PRIORITY_DEFAULT,
 					     NULL,
 					     (GAsyncReadyCallback)write_ready_cb,
-					     entry);
+					     fixture);
 		return;
 	}
 
@@ -477,7 +492,7 @@ msg_got_body_cb (SoupMessage *msg, SoupCacheEntry *entry)
 					     G_PRIORITY_DEFAULT,
 					     NULL,
 					     (GAsyncReadyCallback)close_ready_cb,
-					     entry);
+					     fixture);
 }
 
 static void
@@ -507,13 +522,15 @@ msg_restarted_cb (SoupMessage *msg, SoupCacheEntry *entry)
 }
 
 static void
-append_to_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry)
+append_to_ready_cb (GObject *source, GAsyncResult *result, SoupCacheWritingFixture *fixture)
 {
 	GFile *file = (GFile*)source;
 	GError *error = NULL;
+	SoupCacheEntry *entry = fixture->entry;
 	GOutputStream *stream = (GOutputStream*)g_file_append_to_finish (file, result, &error);
 	if (error) {
 		entry->error = error;
+		fixture->cache->priv->n_pending--;
 		return;
 	}
 
@@ -532,7 +549,7 @@ append_to_ready_cb (GObject *source, GAsyncResult *result, SoupCacheEntry *entry
 					     G_PRIORITY_DEFAULT,
 					     NULL,
 					     (GAsyncReadyCallback)write_ready_cb,
-					     entry);
+					     fixture);
 	}
 }
 
@@ -547,6 +564,7 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 		SoupCacheEntry *entry;
 		char *key;
 		GFile *file;
+		SoupCacheWritingFixture *fixture;
 
 		/* Check if we are already caching this resource */
 		key = soup_message_get_cache_key (msg);
@@ -564,18 +582,24 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 
 		g_hash_table_insert (cache->priv->cache, g_strdup (entry->key), entry);
 
+		fixture = g_slice_new (SoupCacheWritingFixture);
+		fixture->cache = cache;
+		fixture->entry = entry;
+
 		/* We connect now to these signals and buffer the data
 		   if it comes before the file is ready for writing */
-		g_signal_connect (msg, "got-chunk", G_CALLBACK (msg_got_chunk_cb), entry);
-		g_signal_connect (msg, "got-body", G_CALLBACK (msg_got_body_cb), entry);
+		g_signal_connect (msg, "got-chunk", G_CALLBACK (msg_got_chunk_cb), fixture);
+		g_signal_connect (msg, "got-body", G_CALLBACK (msg_got_body_cb), fixture);
 		g_signal_connect (msg, "restarted", G_CALLBACK (msg_restarted_cb), entry);
 
 		/* Prepare entry */
 		file = g_file_new_for_path (entry->filename);
+		cache->priv->n_pending++;
+
 		g_file_append_to_async (file, 0,
 					G_PRIORITY_DEFAULT, NULL,
 					(GAsyncReadyCallback)append_to_ready_cb,
-					entry);
+					fixture);
 	} else if (cacheable & SOUP_CACHE_INVALIDATES) {
 		char *key;
 
@@ -932,3 +956,27 @@ soup_cache_get_cacheability (SoupCache *cache, SoupMessage *msg)
 
 	return SOUP_CACHE_GET_CLASS (cache)->get_cacheability (cache, msg);
 }
+
+/**
+ * soup_cache_flush:
+ * @cache: a #SoupCache
+ * @session: the #SoupSession associated with the @cache
+ * 
+ * This function will force all pending writes in the @cache to be
+ * committed to disk. For doing so it will iterate the #GMainContext
+ * associated with the @session (which can be the default one) as long
+ * as needed.
+ **/
+void
+soup_cache_flush (SoupCache *cache, SoupSession *session)
+{
+	GMainContext *async_context;
+
+	g_return_if_fail (SOUP_IS_CACHE (cache));
+
+	async_context = soup_session_get_async_context (session);
+
+	while (cache->priv->n_pending > 0)
+		g_main_context_iteration (async_context, TRUE);
+}
+

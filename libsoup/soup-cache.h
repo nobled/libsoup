@@ -53,6 +53,7 @@ void             soup_cache_send_response    (SoupCache   *cache,
 					      SoupMessage *msg);
 SoupCacheability soup_cache_get_cacheability (SoupCache   *cache,
 					      SoupMessage *msg);
+void             soup_cache_flush            (SoupCache   *cache,
 
 G_END_DECLS
 

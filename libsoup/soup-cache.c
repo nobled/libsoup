@@ -20,6 +20,7 @@
 #include "soup-date.h"
 #include "soup-headers.h"
 #include "soup-message.h"
+#include "soup-session.h"
 #include "soup-session-feature.h"
 #include "soup-uri.h"
 

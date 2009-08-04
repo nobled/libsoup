@@ -9,7 +9,7 @@
  * - Storage is hardcoded in the base class.
  * - Need to persist the cache across sessions.
  * - Need to hook the feature in the sync SoupSession.
- * - No tests. (!)
+ * - Need more tests.
  */
 
 #ifdef HAVE_CONFIG_H

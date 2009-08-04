@@ -12,6 +12,7 @@ LIBS =			\
 	$(GLIB_LIBS)
 
 noinst_PROGRAMS =	\
+	cache-test	\
 	chunk-test	\
 	context-test	\
 	continue-test	\
@@ -38,6 +39,7 @@ noinst_PROGRAMS =	\
 TEST_SRCS = test-utils.c test-utils.h
 
 auth_test_SOURCES = auth-test.c $(TEST_SRCS)
+cache_test_SOURCES = cache-test.c $(TEST_SRCS)
 chunk_test_SOURCES = chunk-test.c $(TEST_SRCS)
 context_test_SOURCES = context-test.c $(TEST_SRCS)
 continue_test_SOURCES = continue-test.c $(TEST_SRCS)
@@ -81,6 +83,7 @@ XMLRPC_TESTS = xmlrpc-test xmlrpc-server-test
 endif
 
 TESTS =			\
+	cache-test	\
 	chunk-test	\
 	context-test	\
 	continue-test	\

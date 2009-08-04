@@ -298,6 +298,7 @@ run_queue (SoupSessionAsync *sa)
 	SoupMessageQueueItem *item;
 	SoupProxyURIResolver *proxy_resolver =
 		soup_session_get_proxy_resolver (session);
+	SoupCache * cache = soup_session_get_cache (session);
 	SoupMessage *msg;
 	SoupMessageIOStatus cur_io_status = SOUP_MESSAGE_IO_STATUS_CONNECTING;
 	SoupConnection *conn;
@@ -308,6 +309,12 @@ run_queue (SoupSessionAsync *sa)
 	     item && !should_prune;
 	     item = soup_message_queue_next (queue, item)) {
 		msg = item->msg;
+
+		if (cache && soup_cache_has_response (cache, session, msg)) {
+			soup_message_set_io_status (msg, SOUP_MESSAGE_IO_STATUS_RUNNING);
+			soup_cache_send_response (cache, session, msg);
+			continue;
+		}
 
 		/* CONNECT messages are handled specially */
 		if (msg->method == SOUP_METHOD_CONNECT)
@@ -431,12 +438,6 @@ queue_message (SoupSession *session, SoupMessage *req,
 			  G_CALLBACK (request_restarted), item);
 	g_signal_connect_after (req, "finished",
 				G_CALLBACK (final_finished), item);
-
-	cache = soup_session_get_cache (session);
-	if (cache && soup_cache_has_response (cache, session, req)) {
-		g_idle_add ((GSourceFunc)had_cache, item);
-		return;
-	}
 
 	do_idle_run_queue (session);
 }

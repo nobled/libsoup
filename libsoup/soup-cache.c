@@ -361,7 +361,7 @@ close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheWritingFixture *
 	SoupCache *cache = fixture->cache;
 	GOutputStream *stream = G_OUTPUT_STREAM (source);
 
-	g_assert (entry->error || entry->pos == entry->length);
+	g_warn_if_fail (entry->error || entry->pos == entry->length);
 
 	/* FIXME: what do we do on error ? */
 

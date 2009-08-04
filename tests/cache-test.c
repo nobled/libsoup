@@ -75,7 +75,7 @@ server_callback (SoupServer *server,
 static void
 finished (SoupSession *session, SoupMessage *msg, gpointer data)
 {
-	soup_cache_flush (cache, session);
+	soup_cache_flush (cache);
 
 	if (g_main_loop_is_running (loop))
 		g_main_loop_quit (loop);

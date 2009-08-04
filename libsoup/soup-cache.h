@@ -46,15 +46,12 @@ typedef struct {
 GType            soup_cache_get_type         (void);
 SoupCache*       soup_cache_new              (const char  *cache_dir);
 gboolean         soup_cache_has_response     (SoupCache   *cache,
-					      SoupSession *session,
 					      SoupMessage *msg);
 void             soup_cache_send_response    (SoupCache   *cache,
-					      SoupSession *session,
 					      SoupMessage *msg);
 SoupCacheability soup_cache_get_cacheability (SoupCache   *cache,
 					      SoupMessage *msg);
-void             soup_cache_flush            (SoupCache   *cache,
-					      SoupSession *session);
+void             soup_cache_flush            (SoupCache   *cache);
 void             soup_cache_clear            (SoupCache   *cache);
 
 G_END_DECLS

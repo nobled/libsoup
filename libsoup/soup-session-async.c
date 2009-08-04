@@ -310,9 +310,9 @@ run_queue (SoupSessionAsync *sa)
 	     item = soup_message_queue_next (queue, item)) {
 		msg = item->msg;
 
-		if (cache && soup_cache_has_response (cache, session, msg)) {
+		if (cache && soup_cache_has_response (cache, msg)) {
 			soup_message_set_io_status (msg, SOUP_MESSAGE_IO_STATUS_RUNNING);
-			soup_cache_send_response (cache, session, msg);
+			soup_cache_send_response (cache, msg);
 			continue;
 		}
 

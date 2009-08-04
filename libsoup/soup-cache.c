@@ -26,6 +26,7 @@
 
 #include <gio/gio.h>
 
+static SoupSessionFeatureInterface *soup_cache_default_feature_interface;
 static void soup_cache_session_feature_init (SoupSessionFeatureInterface *feature_interface, gpointer interface_data);
 
 typedef struct _SoupCacheEntry
@@ -609,7 +610,7 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 }
 
 gboolean
-soup_cache_has_response (SoupCache *cache, SoupSession *session, SoupMessage *msg)
+soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 {
 	char *key;
 	SoupCacheEntry *entry;
@@ -752,7 +753,7 @@ load_contents_ready_cb (GObject *source, GAsyncResult *result, SoupMessage *msg)
 }
 
 void
-soup_cache_send_response (SoupCache *cache, SoupSession *session, SoupMessage *msg)
+soup_cache_send_response (SoupCache *cache, SoupMessage *msg)
 {
 	char *key;
 	SoupCacheEntry *entry;
@@ -800,9 +801,22 @@ request_started (SoupSessionFeature *feature, SoupSession *session,
 }
 
 static void
+attach (SoupSessionFeature *feature, SoupSession *session)
+{
+	SoupCache *cache = SOUP_CACHE (feature);
+	cache->priv->session = session;
+
+	soup_cache_default_feature_interface->attach (feature, session);
+}
+
+static void
 soup_cache_session_feature_init (SoupSessionFeatureInterface *feature_interface,
 				 gpointer interface_data)
 {
+	soup_cache_default_feature_interface =
+		g_type_default_interface_peek (SOUP_TYPE_SESSION_FEATURE);
+
+	feature_interface->attach = attach;
 	feature_interface->request_started = request_started;
 }
 
@@ -956,12 +970,15 @@ soup_cache_get_cacheability (SoupCache *cache, SoupMessage *msg)
  * as needed.
  **/
 void
-soup_cache_flush (SoupCache *cache, SoupSession *session)
+soup_cache_flush (SoupCache *cache)
 {
 	GMainContext *async_context;
+	SoupSession *session;
 
 	g_return_if_fail (SOUP_IS_CACHE (cache));
 
+	session = cache->priv->session;
+	g_return_if_fail (SOUP_IS_SESSION (session));
 	async_context = soup_session_get_async_context (session);
 
 	while (cache->priv->n_pending > 0)

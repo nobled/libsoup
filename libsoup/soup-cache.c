@@ -980,3 +980,30 @@ soup_cache_flush (SoupCache *cache, SoupSession *session)
 		g_main_context_iteration (async_context, TRUE);
 }
 
+static void
+remove_cache_item (gpointer key,
+		   gpointer value,
+		   SoupCache *cache)
+{
+	soup_cache_entry_delete_by_key (cache, key);
+}
+
+/**
+ * soup_cache_clear:
+ * @cache: a #SoupCache
+ * 
+ * Will remove all entries in the @cache plus all the cache files
+ * associated with them.
+ **/
+void
+soup_cache_clear (SoupCache *cache)
+{
+	GHashTable *hash;
+
+	g_return_if_fail (SOUP_IS_CACHE (cache));
+
+	hash = cache->priv->cache;
+	g_return_if_fail (hash);
+
+	g_hash_table_foreach (hash, (GHFunc)remove_cache_item, cache);
+}

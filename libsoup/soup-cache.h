@@ -54,6 +54,8 @@ void             soup_cache_send_response    (SoupCache   *cache,
 SoupCacheability soup_cache_get_cacheability (SoupCache   *cache,
 					      SoupMessage *msg);
 void             soup_cache_flush            (SoupCache   *cache,
+					      SoupSession *session);
+void             soup_cache_clear            (SoupCache   *cache);
 
 G_END_DECLS
 

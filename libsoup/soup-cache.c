@@ -609,122 +609,6 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 	}
 }
 
-gboolean
-soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
-{
-	char *key;
-	SoupCacheEntry *entry;
-	const char *cache_control;
-	GHashTable *hash;
-	gpointer value;
-	gboolean must_revalidate;
-	int max_age, max_stale, min_fresh;
-	SoupURI *uri = soup_message_get_uri (msg);
-
-	key = soup_message_get_cache_key (msg);
-	entry = soup_cache_lookup_uri (cache, key);
-
-	/* 1. The presented Request-URI and that of stored response
-	 * match
-	 */
-	if (!entry)
-		return FALSE;
-
-	if (entry->dirty)
-		return FALSE;
-
-	/* 2. The request method associated with the stored response
-	 *  allows it to be used for the presented request
-	 */
-
-	/* In practice this means we only return our resource for GET,
-	 * cacheability for other methods is a TODO in the RFC
-	 * (TODO: although we could return the headers for HEAD
-	 * probably).
-	 */
-	if (msg->method != SOUP_METHOD_GET)
-		return FALSE;
-
-	/* 3. Selecting request-headers nominated by the stored
-	 * response (if any) match those presented.
-	 */
-
-	/* TODO */
-
-	/* 4. The presented request and stored response are free from
-	 * directives that would prevent its use.
-	 */
-
-	must_revalidate = FALSE;
-	max_age = max_stale = min_fresh = -1;
-
-	cache_control = soup_message_headers_get (msg->request_headers, "Cache-Control");
-	if (cache_control) {
-		hash = soup_header_parse_param_list (cache_control);
-
-		if (g_hash_table_lookup_extended (hash, "no-store", NULL, NULL)) {
-			g_hash_table_destroy (hash);
-			return FALSE;
-		}
-
-		if (g_hash_table_lookup_extended (hash, "no-cache", NULL, NULL)) {
-			entry->must_revalidate = TRUE;
-		}
-
-		value = g_hash_table_lookup (hash, "max-age");
-		if (value) {
-			SoupURI *uri = soup_message_get_uri (msg);
-			max_age = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
-		}
-
-		/* max-stale can have no value set, we need to use _extended */
-		if (g_hash_table_lookup_extended (hash, "max-stale", NULL, &value)) {
-			if (value)
-				max_stale = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
-			else
-				max_stale = G_MAXINT32;
-		}
-
-		value = g_hash_table_lookup (hash, "min-fresh");
-		if (value)
-			min_fresh = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
-
-		g_hash_table_destroy (hash);
-
-		if (max_age != -1) {
-			guint current_age = soup_cache_entry_get_current_age (entry);
-
-			/* If we are over max-age and max-stale is not set, do
-			   not use the value from the cache */
-			if (max_age <= current_age && max_stale == -1)
-				return FALSE;
-		}
-	}
-
-	/* 5. The stored response is either: fresh, allowed to be
-	 * served stale or succesfully validated
-	 */
-	if (entry->must_revalidate) {
-		return FALSE;
-	}
-
-	if (!soup_cache_entry_is_fresh_enough (entry, min_fresh)) {
-		/* Not fresh, can it be served stale? */
-		if (max_stale != -1) {
-			/* G_MAXINT32 means we accept any staleness */
-			if (max_stale == G_MAXINT32)
-				return TRUE;
-
-			if ((soup_cache_entry_get_current_age (entry) - entry->freshness_lifetime) <= max_stale)
-				return TRUE;
-		}
-
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 static void
 load_contents_ready_cb (GObject *source, GAsyncResult *result, SoupMessage *msg)
 {
@@ -939,6 +823,133 @@ soup_cache_new (const char *cache_dir)
 	return g_object_new (SOUP_TYPE_CACHE,
 			     "cache-dir", cache_dir,
 			     NULL);
+}
+
+/**
+ * soup_cache_has_response:
+ * @cache: a #SoupCache
+ * @msg: a #SoupMessage
+ * 
+ * This function calculates whether the @cache object has a proper
+ * response for the request @msg given the flags both in the request
+ * and the cached reply and the time ellapsed since it was cached.
+ * 
+ * Returns: whether or not the @cache has a valid response for @msg
+ **/
+gboolean
+soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
+{
+	char *key;
+	SoupCacheEntry *entry;
+	const char *cache_control;
+	GHashTable *hash;
+	gpointer value;
+	gboolean must_revalidate;
+	int max_age, max_stale, min_fresh;
+	SoupURI *uri = soup_message_get_uri (msg);
+
+	key = soup_message_get_cache_key (msg);
+	entry = soup_cache_lookup_uri (cache, key);
+
+	/* 1. The presented Request-URI and that of stored response
+	 * match
+	 */
+	if (!entry)
+		return FALSE;
+
+	if (entry->dirty)
+		return FALSE;
+
+	/* 2. The request method associated with the stored response
+	 *  allows it to be used for the presented request
+	 */
+
+	/* In practice this means we only return our resource for GET,
+	 * cacheability for other methods is a TODO in the RFC
+	 * (TODO: although we could return the headers for HEAD
+	 * probably).
+	 */
+	if (msg->method != SOUP_METHOD_GET)
+		return FALSE;
+
+	/* 3. Selecting request-headers nominated by the stored
+	 * response (if any) match those presented.
+	 */
+
+	/* TODO */
+
+	/* 4. The presented request and stored response are free from
+	 * directives that would prevent its use.
+	 */
+
+	must_revalidate = FALSE;
+	max_age = max_stale = min_fresh = -1;
+
+	cache_control = soup_message_headers_get (msg->request_headers, "Cache-Control");
+	if (cache_control) {
+		hash = soup_header_parse_param_list (cache_control);
+
+		if (g_hash_table_lookup_extended (hash, "no-store", NULL, NULL)) {
+			g_hash_table_destroy (hash);
+			return FALSE;
+		}
+
+		if (g_hash_table_lookup_extended (hash, "no-cache", NULL, NULL)) {
+			entry->must_revalidate = TRUE;
+		}
+
+		value = g_hash_table_lookup (hash, "max-age");
+		if (value) {
+			SoupURI *uri = soup_message_get_uri (msg);
+			max_age = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
+		}
+
+		/* max-stale can have no value set, we need to use _extended */
+		if (g_hash_table_lookup_extended (hash, "max-stale", NULL, &value)) {
+			if (value)
+				max_stale = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
+			else
+				max_stale = G_MAXINT32;
+		}
+
+		value = g_hash_table_lookup (hash, "min-fresh");
+		if (value)
+			min_fresh = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
+
+		g_hash_table_destroy (hash);
+
+		if (max_age != -1) {
+			guint current_age = soup_cache_entry_get_current_age (entry);
+
+			/* If we are over max-age and max-stale is not set, do
+			   not use the value from the cache */
+			if (max_age <= current_age && max_stale == -1)
+				return FALSE;
+		}
+	}
+
+	/* 5. The stored response is either: fresh, allowed to be
+	 * served stale or succesfully validated
+	 */
+	if (entry->must_revalidate) {
+		return FALSE;
+	}
+
+	if (!soup_cache_entry_is_fresh_enough (entry, min_fresh)) {
+		/* Not fresh, can it be served stale? */
+		if (max_stale != -1) {
+			/* G_MAXINT32 means we accept any staleness */
+			if (max_stale == G_MAXINT32)
+				return TRUE;
+
+			if ((soup_cache_entry_get_current_age (entry) - entry->freshness_lifetime) <= max_stale)
+				return TRUE;
+		}
+
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 /**

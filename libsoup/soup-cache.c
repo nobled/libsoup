@@ -383,9 +383,6 @@ close_ready_cb (GObject *source, GAsyncResult *result, SoupCacheWritingFixture *
 	entry->pos = 0;
 
 	cache->priv->n_pending--;
-
-	/* Unref the session */
-	g_object_unref (cache->priv->session);
 }
 
 static void
@@ -536,10 +533,6 @@ append_to_ready_cb (GObject *source, GAsyncResult *result, SoupCacheWritingFixtu
 	if (error) {
 		entry->error = error;
 		fixture->cache->priv->n_pending--;
-
-		/* Unref the session here, since we weren't able to
-		   even open the stream for writing */
-		g_object_unref (fixture->cache->priv->session);
 		return;
 	}
 
@@ -592,9 +585,6 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 		fixture = g_slice_new (SoupCacheWritingFixture);
 		fixture->cache = cache;
 		fixture->entry = entry;
-
-		/* Ref the session to keep it alive until we are done writing */
-		g_object_ref (cache->priv->session);
 
 		/* We connect now to these signals and buffer the data
 		   if it comes before the file is ready for writing */

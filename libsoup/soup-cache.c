@@ -848,7 +848,6 @@ soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 	gpointer value;
 	gboolean must_revalidate;
 	int max_age, max_stale, min_fresh;
-	SoupURI *uri = soup_message_get_uri (msg);
 
 	key = soup_message_get_cache_key (msg);
 	entry = soup_cache_lookup_uri (cache, key);
@@ -902,7 +901,6 @@ soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 
 		value = g_hash_table_lookup (hash, "max-age");
 		if (value) {
-			SoupURI *uri = soup_message_get_uri (msg);
 			max_age = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
 		}
 

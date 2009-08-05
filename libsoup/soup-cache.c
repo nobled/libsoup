@@ -197,8 +197,8 @@ soup_cache_entry_get_current_age (SoupCacheEntry *entry)
 static gboolean
 soup_cache_entry_is_fresh_enough (SoupCacheEntry *entry, int min_fresh)
 {
-	int limit = (min_fresh == -1) ? soup_cache_entry_get_current_age (entry) : min_fresh;
-	return ((int)entry->freshness_lifetime) > limit;
+	unsigned limit = (min_fresh == -1) ? soup_cache_entry_get_current_age (entry) : min_fresh;
+	return entry->freshness_lifetime > limit;
 }
 
 static char *

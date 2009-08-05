@@ -644,6 +644,7 @@ load_contents_ready_cb (GObject *source, GAsyncResult *result, SoupMessage *msg)
 	}
 
 	g_object_unref (file);
+	g_object_unref (msg);
 }
 
 void
@@ -677,6 +678,7 @@ soup_cache_send_response (SoupCache *cache, SoupMessage *msg)
 	if (entry->length) {
 		GFile *file;
 
+		g_object_ref (msg);
 		file = g_file_new_for_path (entry->filename);
 		g_file_load_contents_async (file, NULL,
 					    (GAsyncReadyCallback)load_contents_ready_cb,

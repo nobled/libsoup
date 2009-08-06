@@ -251,17 +251,22 @@ soup_cache_entry_set_freshness (SoupCacheEntry *entry, SoupMessage *msg)
 		time_t expires_t, date_t;
 
 		expires_d = soup_date_new_from_string (expires);
-		date_d = soup_date_new_from_string (date);
+		if (expires_d != NULL) {
+			/* If Expires is not a valid date we
+			   should treat it as already expired, see
+			   section 14.21 */
+			date_d = soup_date_new_from_string (date);
 
-		expires_t = soup_date_to_time_t (expires_d);
-		date_t = soup_date_to_time_t (date_d);
+			expires_t = soup_date_to_time_t (expires_d);
+			date_t = soup_date_to_time_t (date_d);
 
-		soup_date_free (expires_d);
-		soup_date_free (date_d);
+			soup_date_free (expires_d);
+			soup_date_free (date_d);
 
-		if (expires_t && date_t) {
-			entry->freshness_lifetime = (guint) MAX (expires_t - date_t, G_MAXUINT32);
-			return;
+			if (expires_t && date_t) {
+				entry->freshness_lifetime = (guint) MAX (expires_t - date_t, G_MAXUINT32);
+				return;
+			}
 		}
 	}
 

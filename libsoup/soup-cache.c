@@ -536,7 +536,7 @@ append_to_ready_cb (GObject *source, GAsyncResult *result, SoupCacheWritingFixtu
 		return;
 	}
 
-	entry->stream = stream;
+	entry->stream = g_object_ref (stream);
 	g_object_unref (file);
 
 	/* If we already got all the data we have to initiate the

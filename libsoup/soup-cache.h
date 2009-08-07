@@ -22,8 +22,15 @@ typedef struct _SoupCachePrivate SoupCachePrivate;
 typedef enum {
 	SOUP_CACHE_CACHEABLE   = (1 << 0),
 	SOUP_CACHE_UNCACHEABLE = (1 << 1),
-	SOUP_CACHE_INVALIDATES = (1 << 2)
+	SOUP_CACHE_INVALIDATES = (1 << 2),
+	SOUP_CACHE_VALIDATES = (1 << 3)
 } SoupCacheability;
+
+typedef enum {
+	SOUP_CACHE_RESPONSE_FRESH,
+	SOUP_CACHE_RESPONSE_NEEDS_VALIDATION,
+	SOUP_CACHE_RESPONSE_STALE
+} SoupCacheResponse;
 
 struct _SoupCache {
 	GObject parent_instance;
@@ -43,16 +50,18 @@ typedef struct {
 	void (*_libsoup_reserved3) (void);
 } SoupCacheClass;
 
-GType            soup_cache_get_type         (void);
-SoupCache*       soup_cache_new              (const char  *cache_dir);
-gboolean         soup_cache_has_response     (SoupCache   *cache,
-					      SoupMessage *msg);
-void             soup_cache_send_response    (SoupCache   *cache,
-					      SoupMessage *msg);
-SoupCacheability soup_cache_get_cacheability (SoupCache   *cache,
-					      SoupMessage *msg);
-void             soup_cache_flush            (SoupCache   *cache);
-void             soup_cache_clear            (SoupCache   *cache);
+GType             soup_cache_get_type                     (void);
+SoupCache*        soup_cache_new                          (const char  *cache_dir);
+SoupCacheResponse soup_cache_has_response                 (SoupCache   *cache,
+							   SoupMessage *msg);
+void              soup_cache_send_response                (SoupCache   *cache,
+							   SoupMessage *msg);
+SoupCacheability  soup_cache_get_cacheability             (SoupCache   *cache,
+							   SoupMessage *msg);
+void              soup_cache_flush                        (SoupCache   *cache);
+void              soup_cache_clear                        (SoupCache   *cache);
+SoupMessage*      soup_cache_generate_conditional_request (SoupCache   *cache,
+							   SoupMessage *original);
 
 G_END_DECLS
 

@@ -10,6 +10,7 @@
 #endif
 
 #include "soup-address.h"
+#include "soup-cache.h"
 #include "soup-session-async.h"
 #include "soup-session-private.h"
 #include "soup-address.h"
@@ -291,6 +292,50 @@ got_connection (SoupConnection *conn, guint status, gpointer session)
 }
 
 static void
+update_headers (const char *name, const char *value, SoupMessageHeaders *headers)
+{
+	if (soup_message_headers_get (headers, name))
+		soup_message_headers_replace (headers, name, value);
+	else
+		soup_message_headers_append (headers, name, value);
+}
+
+static void
+conditional_get_ready_cb (SoupSession *session, SoupMessage *msg, SoupMessage *original)
+{
+	if (msg->status_code == SOUP_STATUS_NOT_MODIFIED) {
+		SoupCache *cache;
+
+		cache = soup_session_get_cache (session);
+		soup_cache_send_response (cache, original);
+	} else {
+		SoupBuffer *buffer;
+		goffset offset;
+
+		soup_message_set_status (original, msg->status_code);
+		soup_message_headers_foreach (msg->response_headers,
+					      (SoupMessageHeadersForeachFunc)update_headers,
+					      original->response_headers);
+		soup_message_got_headers (original);
+		soup_message_body_free (original->response_body);
+		original->response_body = soup_message_body_new ();
+
+		offset = 0;
+		while (offset <= msg->response_body->length) {
+			buffer = soup_message_body_get_chunk (msg->response_body, offset);
+			if (!buffer) break;
+			soup_message_body_append_buffer (original->response_body, buffer);
+			soup_message_got_chunk (original, buffer);
+			offset += buffer->length;
+			soup_buffer_free (buffer);
+		} 
+
+		soup_message_got_body (original);
+		soup_message_finished (original);
+	}
+}
+
+static void
 run_queue (SoupSessionAsync *sa)
 {
 	SoupSession *session = SOUP_SESSION (sa);
@@ -310,12 +355,6 @@ run_queue (SoupSessionAsync *sa)
 	     item = soup_message_queue_next (queue, item)) {
 		msg = item->msg;
 
-		if (cache && soup_cache_has_response (cache, msg)) {
-			soup_message_set_io_status (msg, SOUP_MESSAGE_IO_STATUS_RUNNING);
-			soup_cache_send_response (cache, msg);
-			continue;
-		}
-
 		/* CONNECT messages are handled specially */
 		if (msg->method == SOUP_METHOD_CONNECT)
 			continue;
@@ -323,6 +362,24 @@ run_queue (SoupSessionAsync *sa)
 		if (soup_message_get_io_status (msg) != cur_io_status ||
 		    soup_message_io_in_progress (msg))
 			continue;
+
+		if (cache) {
+			SoupCacheResponse response;
+
+			response = soup_cache_has_response (cache, msg);
+			if (response == SOUP_CACHE_RESPONSE_FRESH) {
+				soup_message_set_io_status (msg, SOUP_MESSAGE_IO_STATUS_RUNNING);
+				soup_cache_send_response (cache, msg);
+				continue;
+			} else if (response == SOUP_CACHE_RESPONSE_NEEDS_VALIDATION) {
+				SoupMessage *conditional_msg;
+
+				soup_message_set_io_status (msg, SOUP_MESSAGE_IO_STATUS_RUNNING); /* ? */
+				conditional_msg = soup_cache_generate_conditional_request (cache, msg);
+				soup_session_queue_message (session, conditional_msg, conditional_get_ready_cb, msg);
+				continue;
+			}
+		}
 
 		if (proxy_resolver && !item->resolved_proxy_addr) {
 			resolve_proxy_addr (item, proxy_resolver);
@@ -412,21 +469,10 @@ do_idle_run_queue (SoupSession *session)
 	}
 }
 
-static gboolean
-had_cache (SoupMessageQueueItem *item)
-{
-	SoupCache *cache;
-
-	cache = soup_session_get_cache (item->session);
-	soup_cache_send_response (cache, item->session, item->msg);
-	return FALSE;
-}
-
 static void
 queue_message (SoupSession *session, SoupMessage *req,
 	       SoupSessionCallback callback, gpointer user_data)
 {
-	SoupCache *cache;
 	SoupMessageQueueItem *item;
 
 	SOUP_SESSION_CLASS (soup_session_async_parent_class)->queue_message (session, req, callback, user_data);

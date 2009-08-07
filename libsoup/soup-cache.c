@@ -42,6 +42,7 @@ typedef struct _SoupCacheEntry
 	gboolean writing;
 	gboolean dirty;
 	gboolean got_body;
+	gboolean being_validated;
 	SoupMessageHeaders *headers;
 	GOutputStream *stream;
 	GError *error;
@@ -110,12 +111,16 @@ get_cacheability (SoupCache *cache, SoupMessage *msg)
 
 	switch (msg->status_code) {
 	case SOUP_STATUS_PARTIAL_CONTENT:
-	case SOUP_STATUS_NOT_MODIFIED:
 		/* We don't cache partial responses, but they only
 		 * invalidate cached full responses if the headers
-		 * don't match. Likewise with 304 Not Modified.
+		 * don't match.
 		 */
 		cacheability = SOUP_CACHE_UNCACHEABLE;
+		break;
+
+	case SOUP_STATUS_NOT_MODIFIED:
+		/* A 304 response validates an existing cache entry */
+		cacheability = SOUP_CACHE_VALIDATES;
 		break;
 
 	case SOUP_STATUS_MULTIPLE_CHOICES:
@@ -184,6 +189,15 @@ static void
 copy_headers (const char *name, const char *value, SoupMessageHeaders *headers)
 {
 	soup_message_headers_append (headers, name, value);
+}
+
+static void
+update_headers (const char *name, const char *value, SoupMessageHeaders *headers)
+{
+	if (soup_message_headers_get (headers, name))
+		soup_message_headers_replace (headers, name, value);
+	else
+		soup_message_headers_append (headers, name, value);
 }
 
 static guint
@@ -310,6 +324,7 @@ soup_cache_entry_new (SoupCache *cache, SoupMessage *msg)
 	entry->dirty = TRUE;
 	entry->writing = FALSE;
 	entry->got_body = FALSE;
+	entry->being_validated = FALSE;
 	entry->data = g_string_new (NULL);
 	entry->pos = 0;
 	entry->error = NULL;
@@ -611,6 +626,24 @@ msg_got_headers_cb (SoupMessage *msg, SoupCache *cache)
 		key = soup_message_get_cache_key (msg);
 		soup_cache_entry_delete_by_key (cache, key);
 		g_free (key);
+	} else if (cacheable & SOUP_CACHE_VALIDATES) {
+		char *key;
+		SoupCacheEntry *entry;
+
+		key = soup_message_get_cache_key (msg);
+		entry = soup_cache_lookup_uri (cache, key);
+		g_free (key);
+
+		g_return_if_fail (entry);
+
+		entry->being_validated = FALSE;
+
+		/* We update the headers of the existing cache item,
+		   plus its age */
+		soup_message_headers_foreach (msg->response_headers,
+					      (SoupMessageHeadersForeachFunc)update_headers,
+					      entry->headers);
+		soup_cache_entry_set_freshness (entry, msg);
 	}
 }
 
@@ -649,13 +682,20 @@ soup_cache_send_response (SoupCache *cache, SoupMessage *msg)
 	SoupCacheEntry *entry;
 	char *current_age;
 
+	g_return_if_fail (SOUP_IS_CACHE (cache));
+	g_return_if_fail (SOUP_IS_MESSAGE (msg));
+
 	key = soup_message_get_cache_key (msg);
 	entry = soup_cache_lookup_uri (cache, key);
 	g_return_if_fail (entry);
 
+	/* If we are told to send a response from cache any validation
+	   in course is over by now */
+	entry->being_validated = FALSE;
+
 	/* Headers */
 	soup_message_headers_foreach (entry->headers,
-				      (SoupMessageHeadersForeachFunc)copy_headers,
+				      (SoupMessageHeadersForeachFunc)update_headers,
 				      msg->response_headers);
 
 	/* Add 'Age' header with the current age */
@@ -843,7 +883,7 @@ soup_cache_new (const char *cache_dir)
  * 
  * Returns: whether or not the @cache has a valid response for @msg
  **/
-gboolean
+SoupCacheResponse
 soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 {
 	char *key;
@@ -861,10 +901,10 @@ soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 	 * match
 	 */
 	if (!entry)
-		return FALSE;
+		return SOUP_CACHE_RESPONSE_STALE;
 
-	if (entry->dirty)
-		return FALSE;
+	if (entry->dirty || entry->being_validated)
+		return SOUP_CACHE_RESPONSE_STALE;
 
 	/* 2. The request method associated with the stored response
 	 *  allows it to be used for the presented request
@@ -876,7 +916,7 @@ soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 	 * probably).
 	 */
 	if (msg->method != SOUP_METHOD_GET)
-		return FALSE;
+		return SOUP_CACHE_RESPONSE_STALE;
 
 	/* 3. Selecting request-headers nominated by the stored
 	 * response (if any) match those presented.
@@ -897,7 +937,7 @@ soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 
 		if (g_hash_table_lookup_extended (hash, "no-store", NULL, NULL)) {
 			g_hash_table_destroy (hash);
-			return FALSE;
+			return SOUP_CACHE_RESPONSE_STALE;
 		}
 
 		if (g_hash_table_lookup_extended (hash, "no-cache", NULL, NULL)) {
@@ -926,35 +966,35 @@ soup_cache_has_response (SoupCache *cache, SoupMessage *msg)
 		if (max_age != -1) {
 			guint current_age = soup_cache_entry_get_current_age (entry);
 
-			/* If we are over max-age and max-stale is not set, do
-			   not use the value from the cache */
+			/* If we are over max-age and max-stale is not
+			   set, do not use the value from the cache
+			   without validation */
 			if (max_age <= current_age && max_stale == -1)
-				return FALSE;
+				return SOUP_CACHE_RESPONSE_NEEDS_VALIDATION;
 		}
 	}
 
 	/* 5. The stored response is either: fresh, allowed to be
 	 * served stale or succesfully validated
 	 */
-	if (entry->must_revalidate) {
-		return FALSE;
-	}
+	if (entry->must_revalidate)
+		return SOUP_CACHE_RESPONSE_NEEDS_VALIDATION;
 
 	if (!soup_cache_entry_is_fresh_enough (entry, min_fresh)) {
 		/* Not fresh, can it be served stale? */
 		if (max_stale != -1) {
 			/* G_MAXINT32 means we accept any staleness */
 			if (max_stale == G_MAXINT32)
-				return TRUE;
+				return SOUP_CACHE_RESPONSE_FRESH;
 
 			if ((soup_cache_entry_get_current_age (entry) - entry->freshness_lifetime) <= max_stale)
-				return TRUE;
+				return SOUP_CACHE_RESPONSE_FRESH;
 		}
 
-		return FALSE;
+		return SOUP_CACHE_RESPONSE_NEEDS_VALIDATION;
 	}
 
-	return TRUE;
+	return SOUP_CACHE_RESPONSE_FRESH;
 }
 
 /**
@@ -1027,4 +1067,47 @@ soup_cache_clear (SoupCache *cache)
 	g_return_if_fail (hash);
 
 	g_hash_table_foreach (hash, (GHFunc)remove_cache_item, cache);
+}
+
+SoupMessage*
+soup_cache_generate_conditional_request (SoupCache *cache, SoupMessage *original)
+{
+	SoupMessage *msg;
+	SoupURI *uri;
+	SoupCacheEntry *entry;
+	char *key;
+	const char *value;
+
+	g_return_val_if_fail (SOUP_IS_CACHE (cache), NULL);
+	g_return_val_if_fail (SOUP_IS_MESSAGE (original), NULL);
+
+	/* First copy the data we need from the original message */
+	uri = soup_message_get_uri (original);
+	msg = soup_message_new_from_uri (original->method, uri);
+
+	soup_message_headers_foreach (original->request_headers,
+				      (SoupMessageHeadersForeachFunc)copy_headers,
+				      msg->request_headers);
+
+	/* Now add the validator entries in the header from the cached
+	   data */
+	key = soup_message_get_cache_key (original);
+	entry = soup_cache_lookup_uri (cache, key);
+	g_free (key);
+
+	g_return_val_if_fail (entry, NULL);
+
+	entry->being_validated = TRUE;
+
+	value = soup_message_headers_get (entry->headers, "Last-Modified");
+	if (value)
+		soup_message_headers_append (msg->request_headers,
+					     "Last-Modified",
+					     value);
+	value = soup_message_headers_get (entry->headers, "ETag");
+	if (value)
+		soup_message_headers_append (msg->request_headers,
+					     "ETag",
+					     value);
+	return msg;
 }

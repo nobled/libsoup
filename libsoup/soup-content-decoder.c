@@ -64,7 +64,7 @@ G_DEFINE_TYPE_WITH_CODE (SoupContentDecoder, soup_content_decoder, G_TYPE_OBJECT
 						soup_content_decoder_session_feature_init))
 
 /* This is constant for now */
-#define ACCEPT_ENCODING_HEADER "gzip,deflate"
+#define ACCEPT_ENCODING_HEADER "gzip"
 
 static void
 soup_content_decoder_init (SoupContentDecoder *decoder)

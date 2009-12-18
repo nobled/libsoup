@@ -75,6 +75,7 @@ soup_headers =			\
 	soup-portability.h	\
 	soup-proxy-resolver.h	\
 	soup-proxy-uri-resolver.h \
+	soup-request.h		\
 	soup-server.h		\
 	soup-session.h		\
 	soup-session-async.h	\
@@ -157,6 +158,9 @@ libsoup_2_4_la_SOURCES =		\
 	soup-proxy-resolver-static.h	\
 	soup-proxy-resolver-static.c	\
 	soup-proxy-uri-resolver.c	\
+	soup-request.c			\
+	soup-request-file.h		\
+	soup-request-file.c		\
 	soup-server.c			\
 	soup-session.c			\
 	soup-session-async.c		\

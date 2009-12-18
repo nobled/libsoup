@@ -13,6 +13,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <glib/gi18n.h>
+
 #include "soup-address.h"
 #include "soup-auth.h"
 #include "soup-auth-basic.h"
@@ -25,6 +27,7 @@
 #include "soup-misc.h"
 #include "soup-proxy-resolver-static.h"
 #include "soup-proxy-uri-resolver.h"
+#include "soup-request-file.h"
 #include "soup-session.h"
 #include "soup-session-feature.h"
 #include "soup-session-private.h"
@@ -80,6 +83,7 @@ typedef struct {
 
 	GSList *features;
 	GHashTable *features_cache;
+	GHashTable *request_types;
 
 	GHashTable *hosts; /* char* -> SoupSessionHost */
 	GHashTable *conns; /* SoupConnection -> SoupSessionHost */
@@ -229,6 +233,8 @@ finalize (GObject *object)
 		g_main_context_unref (priv->async_context);
 
 	g_hash_table_destroy (priv->features_cache);
+	if (priv->request_types)
+		g_hash_table_destroy (priv->request_types);
 
 	g_object_unref (priv->resolver);
 
@@ -1968,4 +1974,113 @@ soup_session_get_feature_for_message (SoupSession *session, GType feature_type,
 	if (feature && soup_message_disables_feature (msg, feature))
 		return NULL;
 	return feature;
+}
+
+GQuark
+soup_error_quark (void)
+{
+	static GQuark error;
+	if (!error)
+		error = g_quark_from_static_string ("soup_error_quark");
+	return error;
+}
+
+static void
+init_request_types (SoupSessionPrivate *priv)
+{
+	if (priv->request_types)
+		return;
+
+	priv->request_types = g_hash_table_new_full (soup_str_case_hash,
+						     soup_str_case_equal,
+						     g_free, NULL);
+	g_hash_table_insert (priv->request_types, "file",
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FILE));
+#if 0
+	g_hash_table_insert (priv->request_types, "data",
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_DATA));
+	g_hash_table_insert (priv->request_types, "http",
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
+	g_hash_table_insert (priv->request_types, "https",
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
+	g_hash_table_insert (priv->request_types, "ftp",
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FTP));
+#endif
+}
+
+void
+soup_session_add_protocol (SoupSession *session,
+			   const char  *scheme,
+			   GType        request_type)
+{
+	SoupSessionPrivate *priv;
+
+	g_return_if_fail (SOUP_IS_SESSION (session));
+
+	priv = SOUP_SESSION_GET_PRIVATE (session);
+	init_request_types (priv);
+	g_hash_table_insert (priv->request_types, g_strdup (scheme),
+			     GSIZE_TO_POINTER (request_type));
+}
+
+void
+soup_session_remove_protocol (SoupSession *session,
+			      const char  *scheme)
+{
+	SoupSessionPrivate *priv;
+
+	g_return_if_fail (SOUP_IS_SESSION (session));
+
+	priv = SOUP_SESSION_GET_PRIVATE (session);
+	init_request_types (priv);
+	g_hash_table_remove (priv->request_types, scheme);
+}
+
+SoupRequest *
+soup_session_request (SoupSession        *session,
+		      const char         *uri_string,
+		      GError            **error)
+{
+	SoupURI *uri = soup_uri_new (uri_string);
+	SoupRequest *req;
+
+	if (!uri) {
+		g_set_error (error, SOUP_ERROR, SOUP_ERROR_BAD_URI,
+			     _("Could not parse URI '%s'"), uri_string);
+		return NULL;
+	}
+
+	req = soup_session_request_uri (session, uri, error);
+	soup_uri_free (uri);
+	return req;
+}
+
+SoupRequest *
+soup_session_request_uri (SoupSession        *session,
+			  SoupURI            *uri,
+			  GError            **error)
+{
+	SoupSessionPrivate *priv;
+	GType request_type;
+
+	g_return_val_if_fail (SOUP_IS_SESSION (session), NULL);
+
+	priv = SOUP_SESSION_GET_PRIVATE (session);
+	init_request_types (priv);
+	request_type = (GType) GPOINTER_TO_SIZE (g_hash_table_lookup (priv->request_types, uri->scheme));
+	if (!request_type) {
+		g_set_error (error, SOUP_ERROR, SOUP_ERROR_UNSUPPORTED_URI_SCHEME,
+			     _("Unsupported URI scheme '%s'"), uri->scheme);
+		return NULL;
+	}
+
+	if (g_type_is_a (request_type, G_TYPE_INITABLE)) {
+		return g_initable_new (request_type, NULL, error,
+				       "uri", uri,
+				       NULL);
+	} else {
+		return g_object_new (request_type,
+				     "uri", uri,
+				     NULL);
+	}
 }

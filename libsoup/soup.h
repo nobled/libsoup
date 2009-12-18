@@ -32,6 +32,7 @@ extern "C" {
 #include <libsoup/soup-password-manager.h>
 #include <libsoup/soup-proxy-resolver.h>
 #include <libsoup/soup-proxy-uri-resolver.h>
+#include <libsoup/soup-request.h>
 #include <libsoup/soup-server.h>
 #include <libsoup/soup-session-async.h>
 #include <libsoup/soup-session-feature.h>

@@ -49,9 +49,10 @@ typedef struct {
 	void  (*auth_required)   (SoupSession *session, SoupMessage *msg,
 				  SoupAuth *auth, gboolean retrying);
 
+	SoupRequest * (*request_uri) (SoupSession *session, SoupURI *uri,
+				      GError **error);
 
 	/* Padding for future expansion */
-	void (*_libsoup_reserved2) (void);
 	void (*_libsoup_reserved3) (void);
 	void (*_libsoup_reserved4) (void);
 } SoupSessionClass;
@@ -113,6 +114,27 @@ SoupSessionFeature *soup_session_get_feature            (SoupSession        *ses
 SoupSessionFeature *soup_session_get_feature_for_message(SoupSession        *session,
 							 GType               feature_type,
 							 SoupMessage        *msg);
+
+#define SOUP_ERROR soup_error_quark()
+GQuark soup_error_quark (void);
+
+typedef enum {
+	SOUP_ERROR_BAD_URI,
+	SOUP_ERROR_UNSUPPORTED_URI_SCHEME
+} SoupError;
+
+void soup_session_add_protocol    (SoupSession *session,
+				   const char  *scheme,
+				   GType        request_type);
+void soup_session_remove_protocol (SoupSession *session,
+				   const char  *scheme);
+
+SoupRequest        *soup_session_request                (SoupSession        *session,
+							 const char         *uri_string,
+							 GError            **error);
+SoupRequest        *soup_session_request_uri            (SoupSession        *session,
+							 SoupURI            *uri,
+							 GError            **error);
 
 G_END_DECLS
 

@@ -52,22 +52,110 @@ soup_request_file_check_uri (SoupRequest  *request,
 			     SoupURI      *uri,
 			     GError      **error)
 {
-	SoupRequestFile *file = SOUP_REQUEST_FILE (request);
-	char *path_decoded;
-
 	/* "file:/foo" is not valid */
 	if (!uri->host)
 		return FALSE;
 
 	/* but it must be "file:///..." or "file://localhost/..." */
-	if (*uri->host && g_ascii_strcasecmp (uri->host, "localhost") != 0)
+	if (uri->scheme == SOUP_URI_SCHEME_FILE &&
+            *uri->host && 
+            g_ascii_strcasecmp (uri->host, "localhost") != 0)
 		return FALSE;
 
-	path_decoded = soup_uri_decode (uri->path);
-	file->priv->gfile = g_file_new_for_path (path_decoded);
-	g_free (path_decoded);
-
 	return TRUE;
+}
+
+static void
+soup_request_file_ftp_main_loop_quit (GObject      *object,
+                                      GAsyncResult *result,
+                                      gpointer      loop)
+{
+        g_main_loop_quit (loop);
+}
+
+/* This is a somewhat hacky way to get FTP to almost work. The proper way to
+ * get FTP to _really_ work involves hacking GIO to have APIs to handle 
+ * canoncial URLs.
+ */
+static GFile *
+soup_request_file_ensure_file_ftp (SoupURI       *uri,
+                                   GCancellable  *cancellable,
+                                   GError       **error)
+{
+        SoupURI *host;
+        char *s;
+        GFile *file, *result;
+        GMount *mount;
+
+        host = soup_uri_copy_host (uri);
+        s = soup_uri_to_string (host, FALSE);
+        file = g_file_new_for_uri (s);
+        soup_uri_free (host);
+        g_free (s);
+
+        mount = g_file_find_enclosing_mount (file, cancellable, error);
+        if (mount == NULL && g_file_supports_thread_contexts (file)) {
+              GMainContext *context = g_main_context_new ();
+              GMainLoop *loop = g_main_loop_new (context, FALSE);
+
+              g_clear_error (error);
+              g_main_context_push_thread_default (context);
+              g_file_mount_enclosing_volume (file,
+                                             G_MOUNT_MOUNT_NONE,
+                                             NULL, /* FIXME! */
+                                             cancellable,
+                                             soup_request_file_ftp_main_loop_quit,
+                                             loop);
+              g_main_loop_run (loop);
+              g_main_context_pop_thread_default (context);
+              g_main_loop_unref (loop);
+              g_main_context_unref (context);
+              mount = g_file_find_enclosing_mount (file, cancellable, error);
+        }
+        if (mount == NULL)
+              return NULL;
+        g_object_unref (file);
+        
+        file = g_mount_get_default_location (mount);
+        g_object_unref (mount);
+
+        s = g_strdup (uri->path);
+        if (strchr (s, ';'))
+          *strchr (s, ';') = 0;
+
+        result = g_file_resolve_relative_path (file, s);
+        g_free (s);
+        g_object_unref (file);
+
+        return result;
+}
+
+static gboolean
+soup_request_file_ensure_file (SoupRequestFile  *file,
+                               GCancellable     *cancellable,
+                               GError          **error)
+{
+        SoupURI *uri;
+
+        if (file->priv->gfile)
+                return TRUE;
+
+        uri = soup_request_get_uri (SOUP_REQUEST (file));
+        if (uri->scheme == SOUP_URI_SCHEME_FILE) {
+                char *path_decoded = soup_uri_decode (uri->path);
+                file->priv->gfile = g_file_new_for_path (path_decoded);
+                g_free (path_decoded);
+                return TRUE;
+        } else if (uri->scheme == SOUP_URI_SCHEME_FTP) {
+                file->priv->gfile = soup_request_file_ensure_file_ftp (uri,
+                                                                       cancellable,
+                                                                       error);
+                return file->priv->gfile != NULL;
+        }
+
+        g_set_error (error, SOUP_ERROR, SOUP_ERROR_UNSUPPORTED_URI_SCHEME,
+                     _("Unsupported URI scheme '%s'"), uri->scheme);
+        return FALSE;
 }
 
 static GInputStream *
@@ -78,6 +166,9 @@ soup_request_file_send (SoupRequest          *request,
 	SoupRequestFile *file = SOUP_REQUEST_FILE (request);
         GInputStream *stream;
         GError *my_error = NULL;
+
+        if (!soup_request_file_ensure_file (file, cancellable, error))
+                return NULL;
 
 	file->priv->info = g_file_query_info (file->priv->gfile,
 					      G_FILE_ATTRIBUTE_STANDARD_TYPE ","
@@ -152,6 +243,9 @@ soup_request_file_send_finish (SoupRequest          *request,
         GSimpleAsyncResult *simple = G_SIMPLE_ASYNC_RESULT (result);
 
         g_warn_if_fail (g_simple_async_result_get_source_tag (simple) == soup_request_file_send_async);
+
+        if (g_simple_async_result_propagate_error (simple, error))
+                return NULL;
 
         return g_simple_async_result_get_op_res_gpointer (simple);
 }

@@ -29,7 +29,6 @@
 #include "soup-proxy-uri-resolver.h"
 #include "soup-request-data.h"
 #include "soup-request-file.h"
-#include "soup-request-ftp.h"
 #include "soup-request-http.h"
 #include "soup-session.h"
 #include "soup-session-feature.h"
@@ -2006,7 +2005,7 @@ init_request_types (SoupSessionPrivate *priv)
 	g_hash_table_insert (priv->request_types, g_strdup ("https"),
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
 	g_hash_table_insert (priv->request_types, g_strdup ("ftp"),
-			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FTP));
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FILE));
 }
 
 /* RFC 2396, 3.1 */

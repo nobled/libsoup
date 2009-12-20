@@ -139,10 +139,6 @@ libsoup_2_4_la_SOURCES =		\
 	soup-directory-input-stream.h	\
 	soup-directory-input-stream.c	\
 	soup-form.c			\
-	soup-ftp-connection.h		\
-	soup-ftp-connection.c		\
-	soup-ftp-input-stream.h		\
-	soup-ftp-input-stream.c		\
 	soup-gnutls.c			\
 	soup-headers.c			\
 	soup-http-input-stream.h	\
@@ -173,8 +169,6 @@ libsoup_2_4_la_SOURCES =		\
 	soup-request-data.c		\
 	soup-request-file.h		\
 	soup-request-file.c		\
-	soup-request-ftp.h		\
-	soup-request-ftp.c		\
 	soup-request-http.h		\
 	soup-request-http.c		\
 	soup-server.c			\

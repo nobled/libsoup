@@ -22,16 +22,17 @@ G_DEFINE_TYPE (SoupRequestFile, soup_request_file, SOUP_TYPE_REQUEST)
 
 struct _SoupRequestFilePrivate {
 	GFile *gfile;
-	GFileInfo *info;
 
-	GSimpleAsyncResult *simple;
-	GCancellable *cancellable;
+        char *mime_type;
+        goffset size;
 };
 
 static void
 soup_request_file_init (SoupRequestFile *file)
 {
 	file->priv = G_TYPE_INSTANCE_GET_PRIVATE (file, SOUP_TYPE_REQUEST_FILE, SoupRequestFilePrivate);
+        
+        file->priv->size = -1;
 }
 
 static void
@@ -41,8 +42,7 @@ soup_request_file_finalize (GObject *object)
 
 	if (file->priv->gfile)
 		g_object_unref (file->priv->gfile);
-	if (file->priv->info)
-		g_object_unref (file->priv->info);
+	g_free (file->priv->mime_type);
 
 	G_OBJECT_CLASS (soup_request_file_parent_class)->finalize (object);
 }
@@ -170,14 +170,6 @@ soup_request_file_send (SoupRequest          *request,
         if (!soup_request_file_ensure_file (file, cancellable, error))
                 return NULL;
 
-	file->priv->info = g_file_query_info (file->priv->gfile,
-					      G_FILE_ATTRIBUTE_STANDARD_TYPE ","
-					      G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE ","
-					      G_FILE_ATTRIBUTE_STANDARD_SIZE,
-					      0, cancellable, error);
-	if (!file->priv->info)
-		return NULL;
-
 	stream = G_INPUT_STREAM (g_file_read (file->priv->gfile,
 			                      cancellable, &my_error));
         if (stream == NULL) {
@@ -192,11 +184,24 @@ soup_request_file_send (SoupRequest          *request,
                         if (enumerator) {
                                 stream = soup_directory_input_stream_new (enumerator);
                                 g_object_unref (enumerator);
+                                file->priv->mime_type = g_strdup ("text/html");
                         }
                 } else {
                         g_propagate_error (error, my_error);
                 }
+        } else {
+                GFileInfo *info = g_file_query_info (file->priv->gfile,
+                                                     G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE ","
+                                                     G_FILE_ATTRIBUTE_STANDARD_SIZE,
+                                                     0, cancellable, NULL);
+                if (info) {
+                        file->priv->size = g_file_info_get_size (info);
+                        if (g_file_info_get_content_type (info))
+                                file->priv->mime_type = g_content_type_get_mime_type (g_file_info_get_content_type (info));
+                        g_object_unref (info);
+                }
         }
+
         return stream;       
 }
 
@@ -255,9 +260,7 @@ soup_request_file_get_content_length (SoupRequest *request)
 {
 	SoupRequestFile *file = SOUP_REQUEST_FILE (request);
 
-	g_return_val_if_fail (file->priv->info != NULL, -1);
-
-	return g_file_info_get_size (file->priv->info);
+        return file->priv->size;
 }
 
 static const char *
@@ -265,9 +268,10 @@ soup_request_file_get_content_type (SoupRequest *request)
 {
 	SoupRequestFile *file = SOUP_REQUEST_FILE (request);
 
-	g_return_val_if_fail (file->priv->info != NULL, NULL);
+        if (!file->priv->mime_type)
+                return "application/octet-stream";
 
-	return g_file_info_get_content_type (file->priv->info);
+	return file->priv->mime_type;
 }
 
 static void

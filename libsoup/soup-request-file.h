@@ -6,7 +6,7 @@
 #ifndef SOUP_REQUEST_FILE_H
 #define SOUP_REQUEST_FILE_H 1
 
-#include <libsoup/soup-types.h>
+#include "soup-request.h"
 
 #define SOUP_TYPE_REQUEST_FILE            (soup_request_file_get_type ())
 #define SOUP_REQUEST_FILE(object)         (G_TYPE_CHECK_INSTANCE_CAST ((object), SOUP_TYPE_REQUEST_FILE, SoupRequestFile))

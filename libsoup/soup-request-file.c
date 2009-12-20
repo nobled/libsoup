@@ -12,7 +12,6 @@
 #include <glib/gi18n.h>
 
 #include "soup-request-file.h"
-#include "soup-request.h"
 #include "soup-session-feature.h"
 #include "soup-session.h"
 #include "soup-uri.h"

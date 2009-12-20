@@ -107,6 +107,8 @@ libsoup_2_4_la_LIBADD =			\
 
 libsoup_2_4_la_SOURCES =		\
 	$(BUILT_SOURCES)		\
+	ParseFTPList.h			\
+	ParseFTPList.c			\
 	soup-address.c			\
 	soup-auth.c			\
 	soup-auth-basic.h		\
@@ -135,6 +137,10 @@ libsoup_2_4_la_SOURCES =		\
 	soup-cookie-jar-text.c		\
 	soup-date.c			\
 	soup-form.c			\
+	soup-ftp-connection.h		\
+	soup-ftp-connection.c		\
+	soup-ftp-input-stream.h		\
+	soup-ftp-input-stream.c		\
 	soup-gnutls.c			\
 	soup-headers.c			\
 	soup-logger.c			\
@@ -161,6 +167,8 @@ libsoup_2_4_la_SOURCES =		\
 	soup-request.c			\
 	soup-request-file.h		\
 	soup-request-file.c		\
+	soup-request-ftp.h		\
+	soup-request-ftp.c		\
 	soup-server.c			\
 	soup-session.c			\
 	soup-session-async.c		\

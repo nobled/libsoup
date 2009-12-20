@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "soup-message-body.h"
+#include "soup-uri.h"
 
 
 #define INIT_STRING "<html><head><title>OMG!</title></head><body><table>"
@@ -29,23 +30,26 @@ soup_directory_input_stream_parse_info (SoupDirectoryInputStream *stream,
         SoupBuffer *buffer;
         GString *string;
         const char *s;
-        char *escaped, *xml_string;
+        char *escaped, *path, *xml_string;
 
         if (!g_file_info_get_name (info))
                 return NULL;
 
-        string = g_string_new ("<tr>");
         s = g_file_info_get_display_name (info);
         if (!s) {
                 s = g_file_info_get_name (info);
-                /* FIXME: convert somehow */
+                /* FIXME: convert somehow? */
                 if (!g_utf8_validate (s, -1, NULL))
-                        s = "Invalid filename";
+                        return NULL;
         }
-        escaped = g_uri_escape_string (s, NULL, FALSE);
-        xml_string = g_markup_escape_text (g_file_info_get_display_name (info), -1);
-        g_string_append_printf (string, "<td><a href=\"%s\">%s</a></td>", escaped, xml_string);
+        string = g_string_new ("<tr>");
+
+        xml_string = g_markup_escape_text (s, -1);
+        escaped = g_uri_escape_string (g_file_info_get_name (info), NULL, FALSE);
+        path = g_strconcat (stream->uri, "/", escaped, NULL);
         g_free (escaped);
+        g_string_append_printf (string, "<td><a href=\"%s\">%s</a></td>", path, xml_string);
+        g_free (path);
         g_free (xml_string);
         g_string_append (string, "</tr>");
 
@@ -142,6 +146,9 @@ soup_directory_input_stream_close (GInputStream  *input,
                                           error);
         g_object_unref (stream->enumerator);
         stream->enumerator = NULL;
+        
+        g_free (stream->uri);
+        stream->uri = NULL;
 
         return result;
 }
@@ -164,15 +171,18 @@ soup_directory_input_stream_init (SoupDirectoryInputStream *stream)
 }
 
 GInputStream *
-soup_directory_input_stream_new (GFileEnumerator *enumerator) 
+soup_directory_input_stream_new (GFileEnumerator *enumerator,
+                                 SoupURI         *uri)
 {
 	GInputStream *stream;
         
         g_return_val_if_fail (G_IS_FILE_ENUMERATOR (enumerator), NULL);
+        g_return_val_if_fail (uri != NULL, NULL);
 
         stream = g_object_new (SOUP_TYPE_DIRECTORY_INPUT_STREAM, NULL);
 
         SOUP_DIRECTORY_INPUT_STREAM (stream)->enumerator = g_object_ref (enumerator);
+        SOUP_DIRECTORY_INPUT_STREAM (stream)->uri = soup_uri_to_string (uri, FALSE);
 
         return stream;
 }

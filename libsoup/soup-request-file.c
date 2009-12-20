@@ -182,7 +182,8 @@ soup_request_file_send (SoupRequest          *request,
                                                                 cancellable,
                                                                 error);
                         if (enumerator) {
-                                stream = soup_directory_input_stream_new (enumerator);
+                                stream = soup_directory_input_stream_new (enumerator,
+                                                                          soup_request_get_uri (request));
                                 g_object_unref (enumerator);
                                 file->priv->mime_type = g_strdup ("text/html");
                         }

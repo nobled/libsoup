@@ -26,6 +26,7 @@ struct _SoupDirectoryInputStream {
 	GInputStream parent;
 
         GFileEnumerator *enumerator;
+        char *uri;
         SoupBuffer *buffer;
         gboolean done;
 };
@@ -36,7 +37,8 @@ struct _SoupDirectoryInputStreamClass {
 
 GType          soup_directory_input_stream_get_type      (void);
 
-GInputStream * soup_directory_input_stream_new           (GFileEnumerator *enumerator);
+GInputStream * soup_directory_input_stream_new           (GFileEnumerator *enumerator,
+                                                          SoupURI         *uri);
 
 
 G_END_DECLS

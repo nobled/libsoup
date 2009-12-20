@@ -10,6 +10,7 @@
 #endif
 
 #include "soup-request.h"
+#include "soup-session.h"
 #include "soup-uri.h"
 
 /**
@@ -82,15 +83,13 @@ soup_request_interface_init (SoupRequestInterface *interface)
 				    "The request URI",
 				    SOUP_TYPE_URI,
 				    G_PARAM_READWRITE));
-}
-
-SoupURI *
-soup_request_get_uri (SoupRequest *request)
-{
-	SoupURI *uri;
-
-	g_object_get (G_OBJECT (request), "uri", &uri, NULL);
-	return uri;
+	g_object_interface_install_property (
+		interface,
+		g_param_spec_object (SOUP_REQUEST_SESSION,
+				     "Session",
+				     "The request's session",
+				     SOUP_TYPE_SESSION,
+				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
 /* Default implementation: assume the sync implementation doesn't block */

@@ -2079,10 +2079,12 @@ soup_session_request_uri (SoupSession        *session,
 	if (g_type_is_a (request_type, G_TYPE_INITABLE)) {
 		return g_initable_new (request_type, NULL, error,
 				       "uri", uri,
+				       "session", session,
 				       NULL);
 	} else {
 		return g_object_new (request_type,
 				     "uri", uri,
+				     "session", session,
 				     NULL);
 	}
 }

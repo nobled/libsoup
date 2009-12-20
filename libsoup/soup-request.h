@@ -13,7 +13,7 @@ G_BEGIN_DECLS
 
 #define SOUP_TYPE_REQUEST            (soup_request_get_type ())
 #define SOUP_REQUEST(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SOUP_TYPE_REQUEST, SoupRequest))
-#define SOUP_REQUEST_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), SOUP_TYPE_REQUEST, SoupRequestInterface))
+#define SOUP_REQUEST_CLASS(klass)    (G_TYPE_CHECK_INTERFACE_CAST ((klass), SOUP_TYPE_REQUEST, SoupRequestInterface))
 #define SOUP_IS_REQUEST(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SOUP_TYPE_REQUEST))
 #define SOUP_IS_REQUEST_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), SOUP_TYPE_REQUEST))
 #define SOUP_REQUEST_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_INTERFACE ((obj), SOUP_TYPE_REQUEST, SoupRequestInterface))
@@ -36,9 +36,8 @@ typedef struct {
 
 GType soup_request_get_type (void);
 
-#define SOUP_REQUEST_URI "uri"
-
-SoupURI      *soup_request_get_uri     (SoupRequest          *request);
+#define SOUP_REQUEST_URI     "uri"
+#define SOUP_REQUEST_SESSION "session"
 
 GInputStream *soup_request_send        (SoupRequest          *request,
 					GCancellable         *cancellable,

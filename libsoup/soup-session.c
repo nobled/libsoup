@@ -2000,12 +2000,10 @@ init_request_types (SoupSessionPrivate *priv)
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FILE));
 	g_hash_table_insert (priv->request_types, "data",
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_DATA));
-#if 0
 	g_hash_table_insert (priv->request_types, "http",
-			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
+			     GSIZE_TO_POINTER (SOUP_TYPE_MESSAGE));
 	g_hash_table_insert (priv->request_types, "https",
-			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
-#endif
+			     GSIZE_TO_POINTER (SOUP_TYPE_MESSAGE));
 	g_hash_table_insert (priv->request_types, "ftp",
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FTP));
 }

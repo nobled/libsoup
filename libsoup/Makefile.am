@@ -144,6 +144,8 @@ libsoup_2_4_la_SOURCES =		\
 	soup-ftp-input-stream.c		\
 	soup-gnutls.c			\
 	soup-headers.c			\
+	soup-http-input-stream.h	\
+	soup-http-input-stream.c	\
 	soup-logger.c			\
 	soup-message.c			\
 	soup-message-body.c		\

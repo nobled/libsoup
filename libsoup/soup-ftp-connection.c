@@ -536,6 +536,7 @@ ftp_connection_receive_reply_async_cb (GObject      *source_object,
 
 	simple = G_SIMPLE_ASYNC_RESULT (user_data);
 	ftp = SOUP_FTP_CONNECTION (g_async_result_get_source_object (G_ASYNC_RESULT (simple)));
+	g_object_unref (ftp);
 	buffer = g_data_input_stream_read_line_finish (ftp->priv->control_input,
 						       read_res,
 						       &len,
@@ -679,7 +680,7 @@ ftp_connection_send_command_cb (GObject      *source_object,
 	g_return_if_fail (G_IS_SIMPLE_ASYNC_RESULT (user_data));
 
 	simple = G_SIMPLE_ASYNC_RESULT (user_data);
-	ftp = SOUP_FTP_CONNECTION (g_async_result_get_source_object (result));
+	ftp = SOUP_FTP_CONNECTION (g_async_result_get_source_object (G_ASYNC_RESULT (simple)));
 	g_object_unref (ftp);
 	bytes_to_write = g_simple_async_result_get_op_res_gssize (simple);
 	bytes_written = g_output_stream_write_finish (G_OUTPUT_STREAM (source_object),
@@ -1504,6 +1505,7 @@ ftp_connection_connection_cb (GObject      *source_object,
 	client = G_SOCKET_CLIENT (source_object);
 	simple = G_SIMPLE_ASYNC_RESULT (user_data);
 	ftp = SOUP_FTP_CONNECTION (g_async_result_get_source_object (G_ASYNC_RESULT (simple)));
+	g_object_unref (ftp);
 	ftp->priv->control = g_socket_client_connect_to_host_finish (client,
 								result,
 								&error);
@@ -1720,6 +1722,7 @@ ftp_callback_data (GObject      *source_object,
 	simple = G_SIMPLE_ASYNC_RESULT (user_data);
 	client = G_SOCKET_CLIENT (source_object);
 	ftp = SOUP_FTP_CONNECTION (g_async_result_get_source_object (G_ASYNC_RESULT (simple)));
+	g_object_unref (ftp);
 	ftp->priv->data = g_socket_client_connect_finish (client,
 							res,
 							&error);

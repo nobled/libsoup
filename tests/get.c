@@ -22,24 +22,16 @@
 #include <libsoup/soup.h>
 #endif
 
-static SoupSession *session;
+GMainLoop *loop;
 static gboolean debug = FALSE, quiet = FALSE;
+static char buf[8192];
 
 static void
-get_url (SoupURI *uri)
+get_url_sync (SoupRequest *req)
 {
-	SoupRequest *req;
 	GInputStream *istream;
 	GError *error = NULL;
-	char buf[8192];
 	gsize nread;
-
-	req = soup_session_request_uri (session, uri, &error);
-	if (!req) {
-		fprintf (stderr, "Could not request URI: %s\n",
-			 error->message);
-		exit (1);
-	}
 
 	istream = soup_request_send (req, NULL, &error);
 	if (!istream) {
@@ -59,18 +51,73 @@ get_url (SoupURI *uri)
 }
 
 static void
+did_read_async (GObject *source, GAsyncResult *result, gpointer user_data)
+{
+	GInputStream *istream = G_INPUT_STREAM (source);
+	gsize nread;
+	GError *error = NULL;
+
+	nread = g_input_stream_read_finish (istream, result, &error);
+
+	if (nread == 0)
+		g_main_loop_quit (loop);
+	else if (nread < 0) {
+		fprintf (stderr, "Read failed: %s\n", error->message);
+		exit (1);
+	}
+
+	fwrite (buf, 1, nread, stdout);
+	g_input_stream_read_async (istream, buf, sizeof (buf),
+				   G_PRIORITY_DEFAULT, NULL,
+				   did_read_async, NULL);
+}
+
+static void
+sent_url_async (GObject *source, GAsyncResult *result, gpointer user_data)
+{
+	SoupRequest *request = SOUP_REQUEST (source);
+	GInputStream *istream;
+	GError *error = NULL;
+
+	istream = soup_request_send_finish (request, result, &error);
+	if (!istream) {
+		fprintf (stderr, "Could not send URI: %s\n",
+			 error->message);
+		exit (1);
+	}
+
+	g_input_stream_read_async (istream, buf, sizeof (buf),
+				   G_PRIORITY_DEFAULT, NULL,
+				   did_read_async, NULL);
+}
+
+static void
+get_url_async (SoupRequest *req)
+{
+	loop = g_main_loop_new (NULL, TRUE);
+
+	soup_request_send_async (req, NULL, sent_url_async, NULL);
+
+	g_main_loop_run (loop);
+}
+
+static void
 usage (void)
 {
-	fprintf (stderr, "Usage: get [-p proxy] [-d] URL\n");
+	fprintf (stderr, "Usage: get [-p proxy] [-d] [-s] URL\n");
 	exit (1);
 }
 
 int
 main (int argc, char **argv)
 {
+	SoupSession *session;
+	SoupRequest *req;
 	const char *url;
 	SoupURI *proxy = NULL, *parsed;
+	gboolean sync = FALSE;
 	int opt;
+	GError *error = NULL;
 
 	g_thread_init (NULL);
 	g_type_init ();
@@ -94,6 +141,10 @@ main (int argc, char **argv)
 			quiet = TRUE;
 			break;
 
+		case 's':
+			sync = TRUE;
+			break;
+
 		case '?':
 			usage ();
 			break;
@@ -111,15 +162,15 @@ main (int argc, char **argv)
 		exit (1);
 	}
 
-	session = soup_session_sync_new_with_options (
+	session = g_object_new (sync ? SOUP_TYPE_SESSION_SYNC : SOUP_TYPE_SESSION_ASYNC,
 #ifdef HAVE_GNOME
-		SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_GNOME_FEATURES_2_26,
+				SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_GNOME_FEATURES_2_26,
 #endif
-		SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_CONTENT_DECODER,
-		SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_COOKIE_JAR,
-		SOUP_SESSION_USER_AGENT, "get ",
-		SOUP_SESSION_ACCEPT_LANGUAGE_AUTO, TRUE,
-		NULL);
+				SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_CONTENT_DECODER,
+				SOUP_SESSION_ADD_FEATURE_BY_TYPE, SOUP_TYPE_COOKIE_JAR,
+				SOUP_SESSION_USER_AGENT, "get ",
+				SOUP_SESSION_ACCEPT_LANGUAGE_AUTO, TRUE,
+				NULL);
 
 	/* Need to do this after creating the session, since adding
 	 * SOUP_TYPE_GNOME_FEATURE_2_26 will add a proxy resolver, thereby
@@ -131,7 +182,21 @@ main (int argc, char **argv)
 			      NULL);
 	}
 
-	get_url (parsed);
+	req = soup_session_request_uri (session, parsed, &error);
+	g_object_unref (session);
 	soup_uri_free (parsed);
+
+	if (!req) {
+		fprintf (stderr, "Could not request URI: %s\n",
+			 error->message);
+		exit (1);
+	}
+
+	if (sync)
+		get_url_sync (req);
+	else
+		get_url_async (req);
+
+	g_object_unref (req);
 	return 0;
 }

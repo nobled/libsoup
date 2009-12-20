@@ -108,18 +108,40 @@ soup_request_ftp_send (SoupRequest          *request,
 }
 
 static void
+sent_async (GObject *source, GAsyncResult *result, gpointer user_data)
+{
+	SoupFTPConnection *ftp = SOUP_FTP_CONNECTION (source);
+	GSimpleAsyncResult *simple = user_data;
+	GError *error = NULL;
+	GInputStream *istream;
+
+	istream = soup_ftp_connection_load_uri_finish (ftp, result, &error);
+	if (istream)
+		g_simple_async_result_set_op_res_gpointer (simple, istream, g_object_unref);
+	else {
+		g_simple_async_result_set_from_error (simple, error);
+		g_error_free (error);
+	}
+	g_simple_async_result_complete (simple);
+	g_object_unref (simple);
+}
+
+static void
 soup_request_ftp_send_async (SoupRequest          *request,
 			     GCancellable         *cancellable,
 			     GAsyncReadyCallback   callback,
 			     gpointer              user_data)
 {
 	SoupRequestFtp *ftp = SOUP_REQUEST_FTP (request);
+	GSimpleAsyncResult *simple;
 
+	simple = g_simple_async_result_new (G_OBJECT (request),
+					    callback, user_data,
+					    soup_request_ftp_send_async);
 	soup_ftp_connection_load_uri_async (ftp->priv->conn,
 					    soup_request_base_get_uri (SOUP_REQUEST_BASE (request)),
 					    cancellable,
-					    callback,
-					    user_data);
+					    sent_async, simple);
 }
 
 static GInputStream *
@@ -127,9 +149,12 @@ soup_request_ftp_send_finish (SoupRequest          *request,
 			      GAsyncResult         *result,
 			      GError              **error)
 {
-	SoupRequestFtp *ftp = SOUP_REQUEST_FTP (request);
+	GSimpleAsyncResult *simple;
 
-	return soup_ftp_connection_load_uri_finish (ftp->priv->conn,
-						    result,
-						    error);
+	g_return_val_if_fail (g_simple_async_result_is_valid (result, G_OBJECT (request), soup_request_ftp_send_async), NULL);
+
+	simple = G_SIMPLE_ASYNC_RESULT (result);
+	if (g_simple_async_result_propagate_error (simple, error))
+		return NULL;
+	return g_object_ref (g_simple_async_result_get_op_res_gpointer (simple));
 }

@@ -445,7 +445,7 @@ ftp_connection_parse_retr_reply (SoupFTPConnection       *ftp,
 	if (!ftp_connection_check_reply (ftp, reply, error))
 		return FALSE;
 
-	if (reply->code != 226 && reply->code != 250) {
+	if (reply->code != 125 && reply->code != 150) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_FAILED,
@@ -794,8 +794,8 @@ ftp_connection_send_and_recv_async_cb_b (GObject      *source_object,
 
 static void
 ftp_connection_send_and_recv_async_cb_a (GObject      *source_object,
-				       GAsyncResult *result,
-				       gpointer      user_data)
+					 GAsyncResult *result,
+					 gpointer      user_data)
 {
 	SoupFTPConnection *ftp;
 	GSimpleAsyncResult *simple;
@@ -810,8 +810,8 @@ ftp_connection_send_and_recv_async_cb_a (GObject      *source_object,
 	success = ftp_connection_send_command_finish (ftp, result, &error);
 	if (success) {
 		ftp_connection_receive_reply_async (ftp,
-						  ftp_connection_send_and_recv_async_cb_b,
-						  simple);
+						    ftp_connection_send_and_recv_async_cb_b,
+						    simple);
 	} else {
 		g_simple_async_result_set_from_error (simple, error);
 		g_simple_async_result_complete (simple);
@@ -1210,9 +1210,9 @@ ftp_connection_list (SoupFTPConnection  *ftp,
 	ftp_connection_reply_free (reply);
 	client = g_socket_client_new ();
 	ftp->priv->data = g_socket_client_connect (client,
-					      conn,
-					      ftp->priv->cancellable,
-					      error);
+						   conn,
+						   ftp->priv->cancellable,
+						   error);
 	g_object_unref (client);
 	g_object_unref (conn);
 	if (!ftp->priv->data)
@@ -1724,8 +1724,8 @@ ftp_callback_data (GObject      *source_object,
 	ftp = SOUP_FTP_CONNECTION (g_async_result_get_source_object (G_ASYNC_RESULT (simple)));
 	g_object_unref (ftp);
 	ftp->priv->data = g_socket_client_connect_finish (client,
-							res,
-							&error);
+							  res,
+							  &error);
 	if (ftp->priv->data) {
 		uri_decode = soup_uri_decode (ftp->priv->uri->path);
 		if (uri_decode) {

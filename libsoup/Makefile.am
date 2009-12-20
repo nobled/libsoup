@@ -165,6 +165,8 @@ libsoup_2_4_la_SOURCES =		\
 	soup-proxy-resolver-static.c	\
 	soup-proxy-uri-resolver.c	\
 	soup-request.c			\
+	soup-request-data.h		\
+	soup-request-data.c		\
 	soup-request-file.h		\
 	soup-request-file.c		\
 	soup-request-ftp.h		\

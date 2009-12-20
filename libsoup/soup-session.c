@@ -27,6 +27,7 @@
 #include "soup-misc.h"
 #include "soup-proxy-resolver-static.h"
 #include "soup-proxy-uri-resolver.h"
+#include "soup-request-data.h"
 #include "soup-request-file.h"
 #include "soup-request-ftp.h"
 #include "soup-session.h"
@@ -1997,9 +1998,9 @@ init_request_types (SoupSessionPrivate *priv)
 						     g_free, NULL);
 	g_hash_table_insert (priv->request_types, "file",
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FILE));
-#if 0
 	g_hash_table_insert (priv->request_types, "data",
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_DATA));
+#if 0
 	g_hash_table_insert (priv->request_types, "http",
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
 	g_hash_table_insert (priv->request_types, "https",

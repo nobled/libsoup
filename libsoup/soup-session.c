@@ -2010,6 +2010,27 @@ init_request_types (SoupSessionPrivate *priv)
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FTP));
 }
 
+/* RFC 2396, 3.1 */
+static gboolean
+soup_scheme_is_valid (const char *scheme)
+{
+        if (scheme == NULL ||
+            !g_ascii_isalpha (*scheme))
+                return FALSE;
+
+        scheme++;
+        while (*scheme) {
+                if (!g_ascii_isalpha (*scheme) &&
+                    !g_ascii_isdigit (*scheme) &&
+                    *scheme != '+' &&
+                    *scheme != '-' &&
+                    *scheme != '.')
+                        return FALSE;
+                scheme++;
+        }
+        return TRUE;
+}
+
 void
 soup_session_add_protocol (SoupSession *session,
 			   const char  *scheme,
@@ -2018,6 +2039,8 @@ soup_session_add_protocol (SoupSession *session,
 	SoupSessionPrivate *priv;
 
 	g_return_if_fail (SOUP_IS_SESSION (session));
+	g_return_if_fail (soup_scheme_is_valid (scheme));
+	g_return_if_fail (g_type_is_a (request_type, SOUP_TYPE_REQUEST));
 
 	priv = SOUP_SESSION_GET_PRIVATE (session);
 	init_request_types (priv);
@@ -2032,6 +2055,7 @@ soup_session_remove_protocol (SoupSession *session,
 	SoupSessionPrivate *priv;
 
 	g_return_if_fail (SOUP_IS_SESSION (session));
+	g_return_if_fail (soup_scheme_is_valid (scheme));
 
 	priv = SOUP_SESSION_GET_PRIVATE (session);
 	init_request_types (priv);

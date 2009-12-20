@@ -40,8 +40,6 @@
  * Since: 2.30
  **/
 
-static void soup_request_interface_init (SoupRequestInterface *interface);
-
 static void          send_async_default  (SoupRequest          *request,
 					  GCancellable         *cancellable,
 					  GAsyncReadyCallback   callback,
@@ -50,28 +48,10 @@ static GInputStream *send_finish_default (SoupRequest          *request,
 					  GAsyncResult         *result,
 					  GError              **error);
 
-GType
-soup_request_get_type (void)
-{
-  static volatile gsize g_define_type_id__volatile = 0;
-  if (g_once_init_enter (&g_define_type_id__volatile))
-    {
-      GType g_define_type_id =
-        g_type_register_static_simple (G_TYPE_INTERFACE,
-                                       g_intern_static_string ("SoupRequest"),
-                                       sizeof (SoupRequestInterface),
-                                       (GClassInitFunc)soup_request_interface_init,
-                                       0,
-                                       (GInstanceInitFunc)NULL,
-                                       (GTypeFlags) 0);
-      g_type_interface_add_prerequisite (g_define_type_id, G_TYPE_OBJECT);
-      g_once_init_leave (&g_define_type_id__volatile, g_define_type_id);
-    }
-  return g_define_type_id__volatile;
-}
+G_DEFINE_INTERFACE (SoupRequest, soup_request, G_TYPE_OBJECT)
 
 static void
-soup_request_interface_init (SoupRequestInterface *interface)
+soup_request_default_init (SoupRequestInterface *interface)
 {
 	interface->send_async = send_async_default;
 	interface->send_finish = send_finish_default;

@@ -12,6 +12,10 @@
 #include <glib/gi18n.h>
 
 #include "soup-request-file.h"
+
+#include "soup-directory-input-stream.h"
+#include "soup-session-feature.h"
+#include "soup-session.h"
 #include "soup-uri.h"
 
 G_DEFINE_TYPE (SoupRequestFile, soup_request_file, SOUP_TYPE_REQUEST)
@@ -72,6 +76,8 @@ soup_request_file_send (SoupRequest          *request,
 			GError              **error)
 {
 	SoupRequestFile *file = SOUP_REQUEST_FILE (request);
+        GInputStream *stream;
+        GError *my_error = NULL;
 
 	file->priv->info = g_file_query_info (file->priv->gfile,
 					      G_FILE_ATTRIBUTE_STANDARD_TYPE ","
@@ -81,63 +87,47 @@ soup_request_file_send (SoupRequest          *request,
 	if (!file->priv->info)
 		return NULL;
 
-	return (GInputStream *)g_file_read (file->priv->gfile, cancellable, error);
+	stream = G_INPUT_STREAM (g_file_read (file->priv->gfile,
+			                      cancellable, &my_error));
+        if (stream == NULL) {
+                if (g_error_matches (my_error, G_IO_ERROR, G_IO_ERROR_IS_DIRECTORY)) {
+                        GFileEnumerator *enumerator;
+                        g_clear_error (&my_error);
+                        enumerator = g_file_enumerate_children (file->priv->gfile,
+                                                                "*",
+                                                                G_FILE_QUERY_INFO_NONE,
+                                                                cancellable,
+                                                                error);
+                        if (enumerator) {
+                                stream = soup_directory_input_stream_new (enumerator);
+                                g_object_unref (enumerator);
+                        }
+                } else {
+                        g_propagate_error (error, my_error);
+                }
+        }
+        return stream;       
 }
 
 static void
-sent_async (GObject *source, GAsyncResult *result, gpointer user_data)
+soup_request_file_send_async_thread (GSimpleAsyncResult *res,
+                                     GObject            *object,
+                                     GCancellable       *cancellable)
 {
-	GFile *gfile = G_FILE (source);
-	SoupRequestFile *file = user_data;
-	GSimpleAsyncResult *simple;
-	GError *error = NULL;
-	GFileInputStream *istream;
+        GInputStream *stream;
+        SoupRequest *request;
+        GError *error = NULL;
+        
+        request = SOUP_REQUEST (object);
+        
+        stream = soup_request_file_send (request, cancellable, &error);
 
-	simple = file->priv->simple;
-	file->priv->simple = NULL;
-	if (file->priv->cancellable) {
-		g_object_unref (file->priv->cancellable);
-		file->priv->cancellable = NULL;
-	}
-
-	istream = g_file_read_finish (gfile, result, &error);
-	if (istream)
-		g_simple_async_result_set_op_res_gpointer (simple, istream, g_object_unref);
-	else {
-		g_simple_async_result_set_from_error (simple, error);
-		g_error_free (error);
-	}
-	g_simple_async_result_complete (simple);
-	g_object_unref (simple);
-}
-
-static void
-queried_info_async (GObject *source, GAsyncResult *result, gpointer user_data)
-{
-	GFile *gfile = G_FILE (source);
-	SoupRequestFile *file = user_data;
-	GError *error = NULL;
-
-	file->priv->info = g_file_query_info_finish (gfile, result, &error);
-	if (!file->priv->info) {
-		GSimpleAsyncResult *simple;
-
-		simple = file->priv->simple;
-		file->priv->simple = NULL;
-		if (file->priv->cancellable) {
-			g_object_unref (file->priv->cancellable);
-			file->priv->cancellable = NULL;
-		}
-
-		g_simple_async_result_set_from_error (simple, error);
-		g_error_free (error);
-		g_simple_async_result_complete (simple);
-		g_object_unref (simple);
-		return;
-	}
-	
-	g_file_read_async (gfile, G_PRIORITY_DEFAULT,
-			   file->priv->cancellable, sent_async, file);
+        if (stream == NULL) {
+                g_simple_async_result_set_from_error (res, error);
+                g_error_free (error);
+        } else {
+                g_simple_async_result_set_op_res_gpointer (res, stream, g_object_unref);
+        }
 }
 
 static void
@@ -146,18 +136,12 @@ soup_request_file_send_async (SoupRequest          *request,
 			      GAsyncReadyCallback   callback,
 			      gpointer              user_data)
 {
-	SoupRequestFile *file = SOUP_REQUEST_FILE (request);
+        GSimpleAsyncResult *res;
 
-	file->priv->simple = g_simple_async_result_new (G_OBJECT (request),
-							callback, user_data,
-							soup_request_file_send_async);
-	file->priv->cancellable = cancellable ? g_object_ref (cancellable) : NULL;
-	g_file_query_info_async (file->priv->gfile,
-				 G_FILE_ATTRIBUTE_STANDARD_TYPE ","
-				 G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE ","
-				 G_FILE_ATTRIBUTE_STANDARD_SIZE,
-				 0, G_PRIORITY_DEFAULT, cancellable,
-				 queried_info_async, file);
+        res = g_simple_async_result_new (G_OBJECT (request), callback, user_data, soup_request_file_send_async);
+        
+        g_simple_async_result_run_in_thread (res, soup_request_file_send_async_thread, G_PRIORITY_DEFAULT, cancellable);
+        g_object_unref (res);
 }
 
 static GInputStream *
@@ -165,14 +149,11 @@ soup_request_file_send_finish (SoupRequest          *request,
 			       GAsyncResult         *result,
 			       GError              **error)
 {
-	GSimpleAsyncResult *simple;
+        GSimpleAsyncResult *simple = G_SIMPLE_ASYNC_RESULT (result);
 
-	g_return_val_if_fail (g_simple_async_result_is_valid (result, G_OBJECT (request), soup_request_file_send_async), NULL);
+        g_warn_if_fail (g_simple_async_result_get_source_tag (simple) == soup_request_file_send_async);
 
-	simple = G_SIMPLE_ASYNC_RESULT (result);
-	if (g_simple_async_result_propagate_error (simple, error))
-		return NULL;
-	return g_object_ref (g_simple_async_result_get_op_res_gpointer (simple));
+        return g_simple_async_result_get_op_res_gpointer (simple);
 }
 
 static goffset

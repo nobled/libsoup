@@ -136,6 +136,8 @@ libsoup_2_4_la_SOURCES =		\
 	soup-cookie-jar.c		\
 	soup-cookie-jar-text.c		\
 	soup-date.c			\
+	soup-directory-input-stream.h	\
+	soup-directory-input-stream.c	\
 	soup-form.c			\
 	soup-ftp-connection.h		\
 	soup-ftp-connection.c		\

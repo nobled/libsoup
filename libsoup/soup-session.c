@@ -30,6 +30,7 @@
 #include "soup-request-data.h"
 #include "soup-request-file.h"
 #include "soup-request-ftp.h"
+#include "soup-request-http.h"
 #include "soup-session.h"
 #include "soup-session-feature.h"
 #include "soup-session-private.h"
@@ -1996,15 +1997,15 @@ init_request_types (SoupSessionPrivate *priv)
 	priv->request_types = g_hash_table_new_full (soup_str_case_hash,
 						     soup_str_case_equal,
 						     g_free, NULL);
-	g_hash_table_insert (priv->request_types, "file",
+	g_hash_table_insert (priv->request_types, g_strdup ("file"),
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FILE));
-	g_hash_table_insert (priv->request_types, "data",
+	g_hash_table_insert (priv->request_types, g_strdup ("data"),
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_DATA));
-	g_hash_table_insert (priv->request_types, "http",
-			     GSIZE_TO_POINTER (SOUP_TYPE_MESSAGE));
-	g_hash_table_insert (priv->request_types, "https",
-			     GSIZE_TO_POINTER (SOUP_TYPE_MESSAGE));
-	g_hash_table_insert (priv->request_types, "ftp",
+	g_hash_table_insert (priv->request_types, g_strdup ("http"),
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
+	g_hash_table_insert (priv->request_types, g_strdup ("https"),
+			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_HTTP));
+	g_hash_table_insert (priv->request_types, g_strdup ("ftp"),
 			     GSIZE_TO_POINTER (SOUP_TYPE_REQUEST_FTP));
 }
 

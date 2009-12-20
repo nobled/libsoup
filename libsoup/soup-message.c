@@ -89,11 +89,7 @@
  * @request_body as appropriate, passing %FALSE.
  **/
 
-static void soup_message_request_interface_init (SoupRequestInterface *request_interface);
-
-G_DEFINE_TYPE_WITH_CODE (SoupMessage, soup_message, G_TYPE_OBJECT,
-			 G_IMPLEMENT_INTERFACE (SOUP_TYPE_REQUEST,
-						soup_message_request_interface_init))
+G_DEFINE_TYPE (SoupMessage, soup_message, G_TYPE_OBJECT)
 
 enum {
 	WROTE_INFORMATIONAL,
@@ -126,7 +122,6 @@ enum {
 	PROP_SERVER_SIDE,
 	PROP_STATUS_CODE,
 	PROP_REASON_PHRASE,
-	PROP_SESSION,
 
 	LAST_PROP
 };
@@ -139,17 +134,6 @@ static void set_property (GObject *object, guint prop_id,
 			  const GValue *value, GParamSpec *pspec);
 static void get_property (GObject *object, guint prop_id,
 			  GValue *value, GParamSpec *pspec);
-
-static GInputStream *soup_message_send        (SoupRequest          *request,
-					       GCancellable         *cancellable,
-					       GError              **error);
-static void          soup_message_send_async  (SoupRequest          *request,
-					       GCancellable         *cancellable,
-					       GAsyncReadyCallback   callback,
-					       gpointer              user_data);
-static GInputStream *soup_message_send_finish (SoupRequest          *request,
-					       GAsyncResult         *result,
-					       GError              **error);
 
 static void
 soup_message_init (SoupMessage *msg)
@@ -595,22 +579,6 @@ soup_message_class_init (SoupMessageClass *message_class)
 				     "The HTTP response reason phrase",
 				     NULL,
 				     G_PARAM_READWRITE));
-
-	g_object_class_install_property (
-		object_class, PROP_SESSION,
-		g_param_spec_object ("session",
-				     "Session",
-				     "The message's session",
-				     SOUP_TYPE_SESSION,
-				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
-}
-
-static void
-soup_message_request_interface_init (SoupRequestInterface *request_interface)
-{
-	request_interface->send = soup_message_send;
-	request_interface->send_async = soup_message_send_async;
-	request_interface->send_finish = soup_message_send_finish;
 }
 
 static void
@@ -647,11 +615,6 @@ set_property (GObject *object, guint prop_id,
 		soup_message_set_status_full (msg, msg->status_code,
 					      g_value_get_string (value));
 		break;
-	case PROP_SESSION:
-		if (priv->session)
-			g_object_unref (priv->session);
-		priv->session = g_value_dup_object (value);
-		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
@@ -686,9 +649,6 @@ get_property (GObject *object, guint prop_id,
 		break;
 	case PROP_REASON_PHRASE:
 		g_value_set_string (value, msg->reason_phrase);
-		break;
-	case PROP_SESSION:
-		g_value_set_object (value, priv->session);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1706,74 +1666,4 @@ soup_message_disables_feature (SoupMessage *msg, gpointer feature)
 			return TRUE;
 	}
 	return FALSE;
-}
-
-/* SoupRequest interface implementation */
-
-static GInputStream *
-soup_message_send (SoupRequest   *request,
-		   GCancellable  *cancellable,
-		   GError       **error)
-{
-	SoupMessage *msg = SOUP_MESSAGE (request);
-	SoupMessagePrivate *priv = SOUP_MESSAGE_GET_PRIVATE (msg);
-	SoupHTTPInputStream *httpstream;
-
-	httpstream = soup_http_input_stream_new (priv->session, msg);
-	if (!soup_http_input_stream_send (httpstream, cancellable, error)) {
-		g_object_unref (httpstream);
-		return NULL;
-	}
-	return (GInputStream *)httpstream;
-}
-
-static void
-sent_async (GObject *source, GAsyncResult *result, gpointer user_data)
-{
-	SoupHTTPInputStream *httpstream = SOUP_HTTP_INPUT_STREAM (source);
-	GSimpleAsyncResult *simple = user_data;
-	GError *error = NULL;
-
-	if (soup_http_input_stream_send_finish (httpstream, result, &error)) {
-		g_simple_async_result_set_op_res_gpointer (simple, httpstream, g_object_unref);
-	} else {
-		g_simple_async_result_set_from_error (simple, error);
-		g_error_free (error);
-		g_object_unref (httpstream);
-	}
-	g_simple_async_result_complete (simple);
-	g_object_unref (simple);
-}
-
-static void
-soup_message_send_async (SoupRequest          *request,
-			 GCancellable         *cancellable,
-			 GAsyncReadyCallback   callback,
-			 gpointer              user_data)
-{
-	SoupMessage *msg = SOUP_MESSAGE (request);
-	SoupMessagePrivate *priv = SOUP_MESSAGE_GET_PRIVATE (msg);
-	SoupHTTPInputStream *httpstream;
-	GSimpleAsyncResult *simple;
-
-	simple = g_simple_async_result_new (G_OBJECT (msg), callback, user_data,
-					    soup_message_send_async);
-	httpstream = soup_http_input_stream_new (priv->session, msg);
-	soup_http_input_stream_send_async (httpstream, G_PRIORITY_DEFAULT,
-					   cancellable, sent_async, simple);
-}
-
-static GInputStream *
-soup_message_send_finish (SoupRequest   *request,
-			  GAsyncResult  *result,
-			  GError       **error)
-{
-	GSimpleAsyncResult *simple;
-
-	g_return_val_if_fail (g_simple_async_result_is_valid (result, G_OBJECT (request), soup_message_send_async), NULL);
-
-	simple = G_SIMPLE_ASYNC_RESULT (result);
-	if (g_simple_async_result_propagate_error (simple, error))
-		return NULL;
-	return g_object_ref (g_simple_async_result_get_op_res_gpointer (simple));
 }

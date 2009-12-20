@@ -12,15 +12,9 @@
 #include <glib/gi18n.h>
 
 #include "soup-request-file.h"
-#include "soup-session-feature.h"
-#include "soup-session.h"
 #include "soup-uri.h"
 
-static void soup_request_file_request_interface_init (SoupRequestInterface *request_interface);
-
-G_DEFINE_TYPE_WITH_CODE (SoupRequestFile, soup_request_file, SOUP_TYPE_REQUEST_BASE,
-			 G_IMPLEMENT_INTERFACE (SOUP_TYPE_REQUEST,
-						soup_request_file_request_interface_init))
+G_DEFINE_TYPE (SoupRequestFile, soup_request_file, SOUP_TYPE_REQUEST)
 
 struct _SoupRequestFilePrivate {
 	GFile *gfile;
@@ -28,9 +22,9 @@ struct _SoupRequestFilePrivate {
 
 static void soup_request_file_finalize (GObject *object);
 
-static gboolean soup_request_file_validate_uri (SoupRequestBase  *req_base,
-						SoupURI          *uri,
-						GError          **error);
+static gboolean soup_request_file_check_uri (SoupRequest  *request,
+					     SoupURI      *uri,
+					     GError      **error);
 
 static GInputStream *soup_request_file_send        (SoupRequest          *request,
 						    GCancellable         *cancellable,
@@ -47,22 +41,17 @@ static void
 soup_request_file_class_init (SoupRequestFileClass *request_file_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (request_file_class);
-	SoupRequestBaseClass *request_base_class =
-		SOUP_REQUEST_BASE_CLASS (request_file_class);
+	SoupRequestClass *request_class =
+		SOUP_REQUEST_CLASS (request_file_class);
 
 	g_type_class_add_private (request_file_class, sizeof (SoupRequestFilePrivate));
 
 	object_class->finalize = soup_request_file_finalize;
 
-	request_base_class->validate_uri = soup_request_file_validate_uri;
-}
-
-static void
-soup_request_file_request_interface_init (SoupRequestInterface *request_interface)
-{
-	request_interface->send = soup_request_file_send;
-	request_interface->send_async = soup_request_file_send_async;
-	request_interface->send_finish = soup_request_file_send_finish;
+	request_class->check_uri = soup_request_file_check_uri;
+	request_class->send = soup_request_file_send;
+	request_class->send_async = soup_request_file_send_async;
+	request_class->send_finish = soup_request_file_send_finish;
 }
 
 static void
@@ -83,11 +72,11 @@ soup_request_file_finalize (GObject *object)
 }
 
 static gboolean
-soup_request_file_validate_uri (SoupRequestBase  *req_base,
-				SoupURI          *uri,
-				GError          **error)
+soup_request_file_check_uri (SoupRequest  *request,
+			     SoupURI      *uri,
+			     GError      **error)
 {
-	SoupRequestFile *file = SOUP_REQUEST_FILE (req_base);
+	SoupRequestFile *file = SOUP_REQUEST_FILE (request);
 	char *path_decoded;
 
 	/* "file:/foo" is not valid */

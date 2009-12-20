@@ -12,19 +12,13 @@
 #include <glib/gi18n.h>
 
 #include "soup-request-data.h"
-#include "soup-session-feature.h"
-#include "soup-session.h"
 #include "soup-uri.h"
 
-static void soup_request_data_request_interface_init (SoupRequestInterface *request_interface);
+G_DEFINE_TYPE (SoupRequestData, soup_request_data, SOUP_TYPE_REQUEST)
 
-G_DEFINE_TYPE_WITH_CODE (SoupRequestData, soup_request_data, SOUP_TYPE_REQUEST_BASE,
-			 G_IMPLEMENT_INTERFACE (SOUP_TYPE_REQUEST,
-						soup_request_data_request_interface_init))
-
-static gboolean soup_request_data_validate_uri (SoupRequestBase  *req_base,
-						SoupURI          *uri,
-						GError          **error);
+static gboolean soup_request_data_check_uri (SoupRequest  *request,
+					     SoupURI      *uri,
+					     GError      **error);
 
 static GInputStream *soup_request_data_send (SoupRequest   *request,
 					     GCancellable  *cancellable,
@@ -33,16 +27,11 @@ static GInputStream *soup_request_data_send (SoupRequest   *request,
 static void
 soup_request_data_class_init (SoupRequestDataClass *request_data_class)
 {
-	SoupRequestBaseClass *request_base_class =
-		SOUP_REQUEST_BASE_CLASS (request_data_class);
+	SoupRequestClass *request_class =
+		SOUP_REQUEST_CLASS (request_data_class);
 
-	request_base_class->validate_uri = soup_request_data_validate_uri;
-}
-
-static void
-soup_request_data_request_interface_init (SoupRequestInterface *request_interface)
-{
-	request_interface->send = soup_request_data_send;
+	request_class->check_uri = soup_request_data_check_uri;
+	request_class->send = soup_request_data_send;
 }
 
 static void
@@ -51,9 +40,9 @@ soup_request_data_init (SoupRequestData *data)
 }
 
 static gboolean
-soup_request_data_validate_uri (SoupRequestBase  *req_base,
-				SoupURI          *uri,
-				GError          **error)
+soup_request_data_check_uri (SoupRequest  *request,
+			     SoupURI      *uri,
+			     GError      **error)
 {
 	return uri->host == NULL;
 }
@@ -136,11 +125,11 @@ fail:
 }
 
 static GInputStream *
-soup_request_data_send (SoupRequest          *request,
-			GCancellable         *cancellable,
-			GError              **error)
+soup_request_data_send (SoupRequest   *request,
+			GCancellable  *cancellable,
+			GError       **error)
 {
-	SoupURI *uri = soup_request_base_get_uri (SOUP_REQUEST_BASE (request));
+	SoupURI *uri = soup_request_get_uri (request);
 
 	return data_uri_decode (uri->path, NULL);
 }

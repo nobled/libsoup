@@ -6,7 +6,7 @@
 #ifndef SOUP_REQUEST_DATA_H
 #define SOUP_REQUEST_DATA_H 1
 
-#include "soup-request-base.h"
+#include "soup-request.h"
 
 #define SOUP_TYPE_REQUEST_DATA            (soup_request_data_get_type ())
 #define SOUP_REQUEST_DATA(object)         (G_TYPE_CHECK_INSTANCE_CAST ((object), SOUP_TYPE_REQUEST_DATA, SoupRequestData))
@@ -16,12 +16,12 @@
 #define SOUP_REQUEST_DATA_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), SOUP_TYPE_REQUEST_DATA, SoupRequestDataClass))
 
 typedef struct {
-	SoupRequestBase parent;
+	SoupRequest parent;
 
 } SoupRequestData;
 
 typedef struct {
-	SoupRequestBaseClass parent;
+	SoupRequestClass parent;
 
 } SoupRequestDataClass;
 

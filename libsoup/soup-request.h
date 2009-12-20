@@ -44,6 +44,9 @@ struct _SoupRequestClass {
 	GInputStream * (*send_finish) (SoupRequest          *request,
 				       GAsyncResult         *result,
 				       GError              **error);
+
+	goffset        (*get_content_length) (SoupRequest   *request);
+	const char *   (*get_content_type)   (SoupRequest   *request);
 };
 
 GType soup_request_get_type (void);
@@ -51,19 +54,22 @@ GType soup_request_get_type (void);
 #define SOUP_REQUEST_URI     "uri"
 #define SOUP_REQUEST_SESSION "session"
 
-GInputStream *soup_request_send        (SoupRequest          *request,
-					GCancellable         *cancellable,
-					GError              **error);
-void          soup_request_send_async  (SoupRequest          *request,
-					GCancellable         *cancellable,
-					GAsyncReadyCallback   callback,
-					gpointer              user_data);
-GInputStream *soup_request_send_finish (SoupRequest          *request,
-					GAsyncResult         *result,
-					GError              **error);
+GInputStream *soup_request_send               (SoupRequest          *request,
+					       GCancellable         *cancellable,
+					       GError              **error);
+void          soup_request_send_async         (SoupRequest          *request,
+					       GCancellable         *cancellable,
+					       GAsyncReadyCallback   callback,
+					       gpointer              user_data);
+GInputStream *soup_request_send_finish        (SoupRequest          *request,
+					       GAsyncResult         *result,
+					       GError              **error);
 
-SoupURI      *soup_request_get_uri     (SoupRequest          *request);
-SoupSession  *soup_request_get_session (SoupRequest          *request);
+SoupURI      *soup_request_get_uri            (SoupRequest          *request);
+SoupSession  *soup_request_get_session        (SoupRequest          *request);
+
+goffset       soup_request_get_content_length (SoupRequest          *request);
+const char   *soup_request_get_content_type   (SoupRequest          *request);
 
 G_END_DECLS
 

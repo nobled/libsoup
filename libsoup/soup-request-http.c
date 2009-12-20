@@ -22,40 +22,6 @@ struct _SoupRequestHTTPPrivate {
 	SoupMessage *msg;
 };
 
-static void soup_request_http_finalize (GObject *object);
-
-static gboolean soup_request_http_check_uri (SoupRequest  *request,
-					     SoupURI      *uri,
-					     GError      **error);
-
-static GInputStream *soup_request_http_send        (SoupRequest          *request,
-						    GCancellable         *cancellable,
-						    GError              **error);
-static void          soup_request_http_send_async  (SoupRequest          *request,
-						    GCancellable         *cancellable,
-						    GAsyncReadyCallback   callback,
-						    gpointer              user_data);
-static GInputStream *soup_request_http_send_finish (SoupRequest          *request,
-						    GAsyncResult         *result,
-						    GError              **error);
-
-static void
-soup_request_http_class_init (SoupRequestHTTPClass *request_http_class)
-{
-	GObjectClass *object_class = G_OBJECT_CLASS (request_http_class);
-	SoupRequestClass *request_class =
-		SOUP_REQUEST_CLASS (request_http_class);
-
-	g_type_class_add_private (request_http_class, sizeof (SoupRequestHTTPPrivate));
-
-	object_class->finalize = soup_request_http_finalize;
-
-	request_class->check_uri = soup_request_http_check_uri;
-	request_class->send = soup_request_http_send;
-	request_class->send_async = soup_request_http_send_async;
-	request_class->send_finish = soup_request_http_send_finish;
-}
-
 static void
 soup_request_http_init (SoupRequestHTTP *http)
 {
@@ -153,4 +119,39 @@ soup_request_http_send_finish (SoupRequest          *request,
 	if (g_simple_async_result_propagate_error (simple, error))
 		return NULL;
 	return g_object_ref (g_simple_async_result_get_op_res_gpointer (simple));
+}
+
+static goffset
+soup_request_http_get_content_length (SoupRequest *request)
+{
+	SoupRequestHTTP *http = SOUP_REQUEST_HTTP (request);
+
+	return soup_message_headers_get_content_length (http->priv->msg->response_headers);
+}
+
+static const char *
+soup_request_http_get_content_type (SoupRequest *request)
+{
+	SoupRequestHTTP *http = SOUP_REQUEST_HTTP (request);
+
+	return soup_message_headers_get_content_type (http->priv->msg->response_headers, NULL);
+}
+
+static void
+soup_request_http_class_init (SoupRequestHTTPClass *request_http_class)
+{
+	GObjectClass *object_class = G_OBJECT_CLASS (request_http_class);
+	SoupRequestClass *request_class =
+		SOUP_REQUEST_CLASS (request_http_class);
+
+	g_type_class_add_private (request_http_class, sizeof (SoupRequestHTTPPrivate));
+
+	object_class->finalize = soup_request_http_finalize;
+
+	request_class->check_uri = soup_request_http_check_uri;
+	request_class->send = soup_request_http_send;
+	request_class->send_async = soup_request_http_send_async;
+	request_class->send_finish = soup_request_http_send_finish;
+	request_class->get_content_length = soup_request_http_get_content_length;
+	request_class->get_content_type = soup_request_http_get_content_type;
 }

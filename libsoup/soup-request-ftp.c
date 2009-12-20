@@ -19,41 +19,8 @@ G_DEFINE_TYPE (SoupRequestFTP, soup_request_ftp, SOUP_TYPE_REQUEST)
 
 struct _SoupRequestFTPPrivate {
 	SoupFTPConnection *conn;
+	GFileInfo *info;
 };
-
-static void soup_request_ftp_finalize (GObject *object);
-
-static gboolean soup_request_ftp_check_uri (SoupRequest  *request,
-					    SoupURI      *uri,
-					    GError      **error);
-
-static GInputStream *soup_request_ftp_send        (SoupRequest          *request,
-						   GCancellable         *cancellable,
-						   GError              **error);
-static void          soup_request_ftp_send_async  (SoupRequest          *request,
-						   GCancellable         *cancellable,
-						   GAsyncReadyCallback   callback,
-						   gpointer              user_data);
-static GInputStream *soup_request_ftp_send_finish (SoupRequest          *request,
-						   GAsyncResult         *result,
-						   GError              **error);
-
-static void
-soup_request_ftp_class_init (SoupRequestFTPClass *request_ftp_class)
-{
-	GObjectClass *object_class = G_OBJECT_CLASS (request_ftp_class);
-	SoupRequestClass *request_class =
-		SOUP_REQUEST_CLASS (request_ftp_class);
-
-	g_type_class_add_private (request_ftp_class, sizeof (SoupRequestFTPPrivate));
-
-	object_class->finalize = soup_request_ftp_finalize;
-
-	request_class->check_uri = soup_request_ftp_check_uri;
-	request_class->send = soup_request_ftp_send;
-	request_class->send_async = soup_request_ftp_send_async;
-	request_class->send_finish = soup_request_ftp_send_finish;
-}
 
 static void
 soup_request_ftp_init (SoupRequestFTP *ftp)
@@ -77,6 +44,8 @@ soup_request_ftp_finalize (GObject *object)
 
 	if (ftp->priv->conn)
 		g_object_unref (ftp->priv->conn);
+	if (ftp->priv->info)
+		g_object_unref (ftp->priv->info);
 
 	G_OBJECT_CLASS (soup_request_ftp_parent_class)->finalize (object);
 }
@@ -89,11 +58,18 @@ soup_request_ftp_send (SoupRequest          *request,
 		       GError              **error)
 {
 	SoupRequestFTP *ftp = SOUP_REQUEST_FTP (request);
+	GInputStream *stream;
 
-	return soup_ftp_connection_load_uri (ftp->priv->conn,
-					     soup_request_get_uri (request),
-					     cancellable,
-					     error);
+	stream = soup_ftp_connection_load_uri (ftp->priv->conn,
+					       soup_request_get_uri (request),
+					       cancellable,
+					       error);
+	if (stream) {
+		g_object_get (G_OBJECT (stream),
+			      "file-info", &ftp->priv->info,
+			      NULL);
+	}
+	return stream;
 }
 
 static void
@@ -138,12 +114,60 @@ soup_request_ftp_send_finish (SoupRequest          *request,
 			      GAsyncResult         *result,
 			      GError              **error)
 {
+	SoupRequestFTP *ftp = SOUP_REQUEST_FTP (request);
 	GSimpleAsyncResult *simple;
+	GInputStream *stream;
 
 	g_return_val_if_fail (g_simple_async_result_is_valid (result, G_OBJECT (request), soup_request_ftp_send_async), NULL);
 
 	simple = G_SIMPLE_ASYNC_RESULT (result);
 	if (g_simple_async_result_propagate_error (simple, error))
 		return NULL;
-	return g_object_ref (g_simple_async_result_get_op_res_gpointer (simple));
+
+	stream = g_object_ref (g_simple_async_result_get_op_res_gpointer (simple));
+	if (stream) {
+		g_object_get (G_OBJECT (stream),
+			      "file-info", &ftp->priv->info,
+			      NULL);
+	}
+	return stream;
+}
+
+static goffset
+soup_request_ftp_get_content_length (SoupRequest *request)
+{
+	SoupRequestFTP *ftp = SOUP_REQUEST_FTP (request);
+
+	g_return_val_if_fail (ftp->priv->info != NULL, -1);
+
+	return g_file_info_get_size (ftp->priv->info);
+}
+
+static const char *
+soup_request_ftp_get_content_type (SoupRequest *request)
+{
+	SoupRequestFTP *ftp = SOUP_REQUEST_FTP (request);
+
+	g_return_val_if_fail (ftp->priv->info != NULL, NULL);
+
+	return g_file_info_get_content_type (ftp->priv->info);
+}
+
+static void
+soup_request_ftp_class_init (SoupRequestFTPClass *request_ftp_class)
+{
+	GObjectClass *object_class = G_OBJECT_CLASS (request_ftp_class);
+	SoupRequestClass *request_class =
+		SOUP_REQUEST_CLASS (request_ftp_class);
+
+	g_type_class_add_private (request_ftp_class, sizeof (SoupRequestFTPPrivate));
+
+	object_class->finalize = soup_request_ftp_finalize;
+
+	request_class->check_uri = soup_request_ftp_check_uri;
+	request_class->send = soup_request_ftp_send;
+	request_class->send_async = soup_request_ftp_send_async;
+	request_class->send_finish = soup_request_ftp_send_finish;
+	request_class->get_content_length = soup_request_ftp_get_content_length;
+	request_class->get_content_type = soup_request_ftp_get_content_type;
 }

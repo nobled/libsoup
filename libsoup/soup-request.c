@@ -252,3 +252,15 @@ soup_request_get_session (SoupRequest *request)
 {
 	return request->priv->session;
 }
+
+goffset
+soup_request_get_content_length (SoupRequest *request)
+{
+	return SOUP_REQUEST_GET_CLASS (request)->get_content_length (request);
+}
+
+const char *
+soup_request_get_content_type (SoupRequest  *request)
+{
+	return SOUP_REQUEST_GET_CLASS (request)->get_content_type (request);
+}

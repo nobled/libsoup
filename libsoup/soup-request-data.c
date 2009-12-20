@@ -16,27 +16,25 @@
 
 G_DEFINE_TYPE (SoupRequestData, soup_request_data, SOUP_TYPE_REQUEST)
 
-static gboolean soup_request_data_check_uri (SoupRequest  *request,
-					     SoupURI      *uri,
-					     GError      **error);
-
-static GInputStream *soup_request_data_send (SoupRequest   *request,
-					     GCancellable  *cancellable,
-					     GError       **error);
-
-static void
-soup_request_data_class_init (SoupRequestDataClass *request_data_class)
-{
-	SoupRequestClass *request_class =
-		SOUP_REQUEST_CLASS (request_data_class);
-
-	request_class->check_uri = soup_request_data_check_uri;
-	request_class->send = soup_request_data_send;
-}
+struct _SoupRequestDataPrivate {
+	gsize content_length;
+	char *content_type;
+};
 
 static void
 soup_request_data_init (SoupRequestData *data)
 {
+	data->priv = G_TYPE_INSTANCE_GET_PRIVATE (data, SOUP_TYPE_REQUEST_DATA, SoupRequestDataPrivate);
+}
+
+static void
+soup_request_data_finalize (GObject *object)
+{
+	SoupRequestData *data = SOUP_REQUEST_DATA (object);
+
+	g_free (data->priv->content_type);
+
+	G_OBJECT_CLASS (soup_request_data_parent_class)->finalize (object);
 }
 
 static gboolean
@@ -48,25 +46,25 @@ soup_request_data_check_uri (SoupRequest  *request,
 }
 
 static GInputStream *
-data_uri_decode (const char  *uri_data,
-		 char       **mime_type)
+soup_request_data_send (SoupRequest   *request,
+			GCancellable  *cancellable,
+			GError       **error)
 {
+	SoupRequestData *data = SOUP_REQUEST_DATA (request);
+	SoupURI *uri = soup_request_get_uri (request);
 	GInputStream *memstream;
 	const char *comma, *semi, *start, *end;
 	gboolean base64 = FALSE;
 
-	if (mime_type)
-		*mime_type = NULL;
-
-	comma = strchr (uri_data, ',');
-	if (comma && comma != uri_data) {
+	comma = strchr (uri->path, ',');
+	if (comma && comma != uri->path) {
 		/* Deal with MIME type / params */
-		semi = memchr (uri_data, ';', comma - uri_data);
+		semi = memchr (uri->path, ';', comma - uri->path);
 		end = semi ? semi : comma;
 
-		if (mime_type && (end != uri_data)) {
-			char *encoded = g_strndup (uri_data, end - uri_data);
-			*mime_type = soup_uri_decode (encoded);
+		if (end != uri->path) {
+			char *encoded = g_strndup (uri->path, end - uri->path);
+			data->priv->content_type = soup_uri_decode (encoded);
 			g_free (encoded);
 		}
 
@@ -76,10 +74,9 @@ data_uri_decode (const char  *uri_data,
 
 	memstream = g_memory_input_stream_new ();
 
-	start = comma ? comma + 1 : uri_data;
+	start = comma ? comma + 1 : uri->path;
 	if (*start) {
 		guchar *buf;
-		gsize len;
 
 		if (base64) {
 			int inlen, state = 0;
@@ -95,8 +92,9 @@ data_uri_decode (const char  *uri_data,
 
 			inlen = strlen (start);
 			buf = g_malloc (inlen * 3 / 4);  
-			len = g_base64_decode_step (start, inlen, buf,
-						    &state, &save);
+			data->priv->content_length =
+				g_base64_decode_step (start, inlen, buf,
+						      &state, &save);
 			g_free (unescaped);
 			if (state != 0) {
 				g_free (buf);
@@ -106,30 +104,51 @@ data_uri_decode (const char  *uri_data,
 			buf = (guchar *)g_uri_unescape_string (start, NULL);
 			if (!buf)
 				goto fail;
-			len = strlen ((char *)buf);
+			data->priv->content_length = strlen ((char *)buf);
 		}
 
 		g_memory_input_stream_add_data (G_MEMORY_INPUT_STREAM (memstream),
-						buf, len, g_free);
+						buf, data->priv->content_length,
+						g_free);
 	}
 
 	return memstream;
 
 fail:
 	g_object_unref (memstream);
-	if (mime_type && *mime_type) {
-		g_free (*mime_type);
-		*mime_type = NULL;
-	}
 	return NULL;
 }
 
-static GInputStream *
-soup_request_data_send (SoupRequest   *request,
-			GCancellable  *cancellable,
-			GError       **error)
+static goffset
+soup_request_data_get_content_length (SoupRequest *request)
 {
-	SoupURI *uri = soup_request_get_uri (request);
+	SoupRequestData *data = SOUP_REQUEST_DATA (request);
 
-	return data_uri_decode (uri->path, NULL);
+	return data->priv->content_length;
 }
+
+static const char *
+soup_request_data_get_content_type (SoupRequest *request)
+{
+	SoupRequestData *data = SOUP_REQUEST_DATA (request);
+
+	return data->priv->content_type;
+}
+
+static void
+soup_request_data_class_init (SoupRequestDataClass *request_data_class)
+{
+	GObjectClass *object_class = G_OBJECT_CLASS (request_data_class);
+	SoupRequestClass *request_class =
+		SOUP_REQUEST_CLASS (request_data_class);
+
+	g_type_class_add_private (request_data_class, sizeof (SoupRequestDataPrivate));
+
+	object_class->finalize = soup_request_data_finalize;
+
+	request_class->check_uri = soup_request_data_check_uri;
+	request_class->send = soup_request_data_send;
+	request_class->get_content_length = soup_request_data_get_content_length;
+	request_class->get_content_type = soup_request_data_get_content_type;
+}
+

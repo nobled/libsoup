@@ -15,9 +15,12 @@
 #define SOUP_IS_REQUEST_DATA_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), SOUP_TYPE_REQUEST_DATA))
 #define SOUP_REQUEST_DATA_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), SOUP_TYPE_REQUEST_DATA, SoupRequestDataClass))
 
+typedef struct _SoupRequestDataPrivate SoupRequestDataPrivate;
+
 typedef struct {
 	SoupRequest parent;
 
+	SoupRequestDataPrivate *priv;
 } SoupRequestData;
 
 typedef struct {
